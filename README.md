@@ -54,6 +54,7 @@
     <li><a href="#usage">Usage</a></li>
     <li><a href="#methods">Supported Methods</a></li>
     <li><a href="#disclaimer">Disclaimer</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
   </ol>
 </details>
 
@@ -62,6 +63,8 @@
 <!-- ABOUT THE PROJECT -->
 
 ## About The Project
+
+[![Product Name Screen Shot][product-screenshot]](https://github.com/naravid19/MHDDoS-GUI)
 
 **MHDDoS-GUI** is an advanced evolution of the original [MatrixTM/MHDDoS](https://github.com/MatrixTM/MHDDoS) script, now equipped with a stunning, highly optimized graphical user interface. Designed with premium glassmorphism aesthetics and built for absolute performance, this project provides both a Web Dashboard and a standalone Desktop Application to launch, monitor, and manage up to 57 distinct DDoS attack methods.
 
@@ -174,6 +177,20 @@ MHDDoS-GUI supports 57 methods. Here is a brief overview:
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+<!-- ACKNOWLEDGMENTS -->
+
+## Acknowledgments
+
+Huge thanks to the original creators and the open-source community that made this tool possible:
+
+- [MatrixTM / MHDDoS](https://github.com/MatrixTM/MHDDoS) - The original powerful core script.
+- [Othneil Drew / Best-README-Template](https://github.com/othneildrew/Best-README-Template) - For the amazing structural template.
+- [React Icons](https://react-icons.github.io/react-icons/)
+- [Tailwind CSS Components](https://tailwindui.com/)
+- [FastAPI Framework](https://fastapi.tiangolo.com/)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 <!-- MARKDOWN LINKS & IMAGES -->
 
 [Python.org]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
@@ -186,3 +203,4 @@ MHDDoS-GUI supports 57 methods. Here is a brief overview:
 [Tailwind-url]: https://tailwindcss.com/
 [Vite.js]: https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white
 [Vite-url]: https://vitejs.dev/
+[product-screenshot]: images/screenshot.png
