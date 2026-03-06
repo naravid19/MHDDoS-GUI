@@ -8,3 +8,8 @@ icmplib>=2.1.1
 pyasn1==0.4.8
 pyroxy @ git+https://github.com/MatrixTM/PyRoxy.git
 yarl>=1.7.2
+
+# GUI Dependencies
+fastapi>=0.111.0
+uvicorn>=0.30.0
+pywebview>=5.1.0

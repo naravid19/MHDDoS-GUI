@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MHDDoS Professional Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0df259",
+                        "background-light": "#f5f8f6",
+                        "background-dark": "#0a120c",
+                        "surface-dark": "#121d15",
+                        "surface-darker": "#0d160f",
+                        "border-dark": "#1e3023",
+                        "text-muted": "#8bada4"
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-panel {
+            background: rgba(18, 29, 21, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(30, 48, 35, 0.5);
+        }
+        .neon-glow { box-shadow: 0 0 15px rgba(13, 242, 89, 0.15); }
+        .neon-glow:focus-within { box-shadow: 0 0 20px rgba(13, 242, 89, 0.3); }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a120c; }
+        ::-webkit-scrollbar-thumb { background: #1e3023; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #0df259; }
+    </style>
+</head>
+<body class="bg-background-dark text-slate-100 font-display min-h-screen">
+<div class="relative flex min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+    <!-- Header -->
+    <header class="flex items-center justify-between border-b border-border-dark px-8 py-4 glass-panel sticky top-0 z-50">
+        <div class="flex items-center gap-4">
+            <div class="size-8 text-primary flex items-center justify-center rounded-lg bg-surface-darker border border-border-dark">
+                <span class="material-symbols-outlined">bolt</span>
+            </div>
+            <h2 class="text-xl font-bold tracking-tight">MHDDoS Professional</h2>
+        </div>
+        <div class="flex items-center gap-6">
+            <div id="status-indicator" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-darker border border-border-dark">
+                <span class="relative flex h-3 w-3">
+                    <span id="status-ping" class="absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-75"></span>
+                    <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-slate-500"></span>
+                </span>
+                <span id="status-text" class="text-sm font-medium text-slate-300">Disconnected</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 p-8">
+        <div class="max-w-6xl mx-auto space-y-8">
+            <!-- Target Input -->
+            <div class="glass-panel rounded-xl p-8 neon-glow relative overflow-hidden">
+                <div class="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
+                <h3 class="text-lg font-medium text-text-muted mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">radar</span> Target Specification
+                </h3>
+                <div class="relative">
+                    <input id="target" type="text" placeholder="http://target.com OR 192.168.1.1:80" class="w-full bg-surface-darker border border-border-dark rounded-lg py-5 pl-14 pr-4 text-xl font-mono text-white placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-inner" required />
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary text-2xl">link</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Parameters -->
+                <div class="lg:col-span-2 glass-panel rounded-xl p-6 space-y-6">
+                    <h3 class="text-lg font-medium text-text-muted flex items-center gap-2 border-b border-border-dark pb-3">
+                        <span class="material-symbols-outlined text-primary">tune</span> Execution Parameters
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-slate-300">Method</label>
+                            <select id="method" class="w-full bg-surface-darker border border-border-dark rounded-lg py-3 px-4 text-white focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer">
+                                <optgroup label="Layer 7">
+                                    <option value="GET">GET (Simple HTTP)</option>
+                                    <option value="POST">POST (POST Flood)</option>
+                                    <option value="OVH">OVH (Bypass OVH)</option>
+                                    <option value="RHEX">RHEX (Random HEX)</option>
+                                    <option value="STOMP">STOMP (Bypass chk_captcha)</option>
+                                    <option value="STRESS">STRESS (Send HTTP Packet With High Byte)</option>
+                                    <option value="DYN">DYN (Random SubDomain)</option>
+                                    <option value="DOWNLOADER">DOWNLOADER (Reading data slowly)</option>
+                                    <option value="SLOW">SLOW (Slowloris Old Method)</option>
+                                    <option value="HEAD">HEAD (HTTP HEAD Method)</option>
+                                    <option value="NULL">NULL (Null UserAgent)</option>
+                                    <option value="COOKIE">COOKIE (Random Cookie PHP)</option>
+                                    <option value="PPS">PPS (Only GET / HTTP/1.1)</option>
+                                    <option value="EVEN">EVEN (GET Method with more header)</option>
+                                    <option value="GSB">GSB (Google Project Shield Bypass)</option>
+                                    <option value="DGB">DGB (DDoS Guard Bypass)</option>
+                                    <option value="AVB">AVB (Arvan Cloud Bypass)</option>
+                                    <option value="BOT">BOT (Like Google bot)</option>
+                                    <option value="APACHE">APACHE (Apache Exploit)</option>
+                                    <option value="XMLRPC">XMLRPC (WP XMLRPC Exploit)</option>
+                                    <option value="CFB">CFB (CloudFlare Bypass)</option>
+                                    <option value="CFBUAM">CFBUAM (CF Under Attack Mode Bypass)</option>
+                                    <option value="BYPASS">BYPASS (Bypass Normal AntiDDoS)</option>
+                                    <option value="BOMB">BOMB (Bypass with bombardier)</option>
+                                    <option value="KILLER">KILLER (Run many threads to kill target)</option>
+                                    <option value="TOR">TOR (Bypass onion website)</option>
+                                </optgroup>
+                                <optgroup label="Layer 4 Normal">
+                                    <option value="TCP">TCP (TCP Flood Bypass)</option>
+                                    <option value="UDP">UDP (UDP Flood Bypass)</option>
+                                    <option value="SYN">SYN (SYN Flood)</option>
+                                    <option value="OVH-UDP">OVH-UDP (UDP flood bypass OVH/WAF)</option>
+                                    <option value="CPS">CPS (Open/close connections with proxy)</option>
+                                    <option value="ICMP">ICMP (Icmp echo request flood)</option>
+                                    <option value="CONNECTION">CONNECTION (Open connection alive with proxy)</option>
+                                    <option value="VSE">VSE (Valve Source Engine Protocol)</option>
+                                    <option value="TS3">TS3 (Teamspeak 3 Status Ping Protocol)</option>
+                                    <option value="FIVEM">FIVEM (FiveM Status Ping Protocol)</option>
+                                    <option value="FIVEM-TOKEN">FIVEM-TOKEN (FiveM confirmation token flood)</option>
+                                    <option value="MCBOT">MCBOT (Minecraft Bot Attack)</option>
+                                    <option value="MINECRAFT">MINECRAFT (Minecraft Status Ping Protocol)</option>
+                                    <option value="MCPE">MCPE (Minecraft PE Status Ping Protocol)</option>
+                                </optgroup>
+                                <optgroup label="Layer 4 Amplification">
+                                    <option value="MEM">MEM (Memcached Amplification)</option>
+                                    <option value="NTP">NTP (NTP Amplification)</option>
+                                    <option value="DNS">DNS (DNS Amplification)</option>
+                                    <option value="CHAR">CHAR (Chargen Amplification)</option>
+                                    <option value="CLDAP">CLDAP (Cldap Amplification)</option>
+                                    <option value="ARD">ARD (Apple Remote Desktop Amplification)</option>
+                                    <option value="RDP">RDP (Remote Desktop Protocol Amplification)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-slate-300">Threads</label>
+                            <input id="threads" type="number" value="100" class="w-full bg-surface-darker border border-border-dark rounded-lg py-3 px-4 text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-slate-300">Duration (Seconds)</label>
+                            <input id="duration" type="number" value="3600" class="w-full bg-surface-darker border border-border-dark rounded-lg py-3 px-4 text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
+                        </div>
+                        <div id="rpc-container" class="space-y-2">
+                            <label class="text-sm font-medium text-slate-300">RPC Count</label>
+                            <input id="rpc" type="number" value="100" class="w-full bg-surface-darker border border-border-dark rounded-lg py-3 px-4 text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Network Config -->
+                <div class="glass-panel rounded-xl p-6 space-y-6">
+                    <h3 class="text-lg font-medium text-text-muted flex items-center gap-2 border-b border-border-dark pb-3">
+                        <span class="material-symbols-outlined text-primary">router</span> Network Config
+                    </h3>
+                    <div class="space-y-4">
+                        <div id="proxy-container" class="space-y-4">
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">Proxy Type</label>
+                                <select id="proxy_type" class="w-full bg-surface-darker border border-border-dark rounded-lg py-2.5 px-4 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer">
+                                    <option value="SOCKS5">SOCKS5</option>
+                                    <option value="SOCKS4">SOCKS4</option>
+                                    <option value="HTTP">HTTP</option>
+                                    <option value="All Proxy">All Proxy</option>
+                                    <option value="RANDOM">RANDOM</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">Proxy List File</label>
+                                <div class="flex">
+                                    <input id="proxy_list" type="text" placeholder="proxies.txt" value="proxies.txt" class="w-full bg-surface-darker border border-border-dark rounded-l-lg py-2.5 px-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
+                                    <button onclick="browseFile('proxy_list')" class="flex-none bg-surface-dark border border-l-0 border-border-dark rounded-r-lg px-3 hover:bg-border-dark transition-colors text-slate-300 flex items-center">
+                                        <span class="material-symbols-outlined text-base">folder_open</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="reflector-container" class="space-y-2" style="display: none;">
+                            <label class="text-sm font-medium text-slate-300">Reflector File (L4 Amp)</label>
+                            <div class="flex">
+                                <input id="reflector" type="text" placeholder="reflectors.txt" class="w-full bg-surface-darker border border-border-dark rounded-l-lg py-2.5 px-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
+                                <button onclick="browseFile('reflector')" class="flex-none bg-surface-dark border border-l-0 border-border-dark rounded-r-lg px-3 hover:bg-border-dark transition-colors text-slate-300 flex items-center">
+                                    <span class="material-symbols-outlined text-base">folder_open</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-4 items-center justify-center py-4">
+                <button id="start-btn" onclick="startAttack()" class="flex-1 max-w-md bg-primary hover:bg-[#0be654] text-[#0a120c] font-bold text-lg py-4 px-8 rounded-lg shadow-[0_0_20px_rgba(13,242,89,0.4)] hover:shadow-[0_0_30px_rgba(13,242,89,0.6)] transition-all flex items-center justify-center gap-3 tracking-wide">
+                    <span class="material-symbols-outlined">rocket_launch</span> START ATTACK
+                </button>
+                <button id="stop-btn" onclick="stopAttack()" class="flex-1 max-w-md bg-surface-darker border border-red-900/50 text-red-500/50 hover:bg-red-900/20 font-bold text-lg py-4 px-8 rounded-lg flex items-center justify-center gap-3 tracking-wide transition-all" disabled>
+                    <span class="material-symbols-outlined">stop_circle</span> STOP ATTACK
+                </button>
+            </div>
+
+            <!-- Terminal Output -->
+            <div class="glass-panel rounded-xl overflow-hidden border border-border-dark">
+                <div class="bg-surface-darker px-4 py-2 border-b border-border-dark flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-text-muted text-sm">terminal</span>
+                        <span class="text-xs font-mono text-text-muted">Terminal Output</span>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+                    </div>
+                </div>
+                <div id="terminal-content" class="bg-black/90 p-6 h-80 overflow-y-auto font-mono text-sm select-text cursor-text">
+                    <p class="text-primary mb-1">[INFO] MHDDoS Engine UI Initialized...</p>
+                    <p class="text-slate-400 mb-1">[INFO] Connecting to Backend API...</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <footer class="mt-12 border-t border-border-dark pt-8 flex flex-col md:flex-row items-center justify-between text-sm text-text-muted glass-panel px-8 py-4 rounded-xl relative overflow-hidden group">
+                <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                <div class="flex items-center gap-3 mb-4 md:mb-0 relative z-10">
+                    <div class="size-8 rounded-full bg-surface-dark flex items-center justify-center border border-border-dark shadow-inner">
+                        <span class="material-symbols-outlined text-primary text-sm">terminal</span>
+                    </div>
+                    <span class="font-medium tracking-wide">MHDDoS-GUI 
+                        <span class="ml-2 font-mono text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full shadow-[0_0_10px_rgba(13,242,89,0.2)]">v1.0.0</span>
+                    </span>
+                </div>
+                <div class="relative z-10 flex items-center gap-4">
+                    <a href="https://github.com/naravid19/MHDDoS-GUI" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 hover:text-primary transition-all duration-300 hover:bg-surface-darker px-4 py-2 rounded-lg border border-transparent hover:border-primary/30 group/link">
+                        <svg class="size-5 text-slate-400 group-hover/link:text-primary transition-colors" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path></svg>
+                        <span class="font-medium tracking-wide">naravid19 / MHDDoS-GUI</span>
+                        <span class="material-symbols-outlined text-sm opacity-0 -ml-2 group-hover/link:opacity-100 group-hover/link:translate-x-1 transition-all">arrow_forward</span>
+                    </a>
+                </div>
+            </footer>
+        </div>
+    </main>
+</div>
+
+<script>
+    let ws;
+    const term = document.getElementById('terminal-content');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    
+    function appendLog(msg, colorClass = "text-slate-300") {
+        const p = document.createElement('p');
+        p.className = `mb-1 ${colorClass}`;
+        p.textContent = msg;
+        term.appendChild(p);
+        term.scrollTop = term.scrollHeight;
+    }
+
+    function setupWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
+        
+        ws.onopen = () => {
+            appendLog("[INFO] WebSocket Connected. Ready.", "text-primary");
+            document.getElementById('status-ping').classList.add('animate-ping');
+            document.getElementById('status-ping').classList.replace('bg-slate-500', 'bg-primary');
+            document.getElementById('status-dot').classList.replace('bg-slate-500', 'bg-primary');
+            document.getElementById('status-text').textContent = "Engine Ready";
+        };
+        
+        ws.onmessage = (event) => {
+            const msg = event.data;
+            let color = "text-slate-300";
+            if (msg.includes("[!]")) color = "text-red-400 font-bold";
+            else if (msg.includes("[*]")) color = "text-yellow-300";
+            else if (msg.toLowerCase().includes("sent")) color = "text-blue-300";
+            appendLog(msg, color);
+            
+            // Re-enable Start button if attack process terminates naturally
+            if (msg.includes("Attack process terminated gracefully.") || msg.includes("Critical Error starting process:")) {
+                resetButtons();
+            }
+        };
+        
+        ws.onclose = () => {
+            appendLog("[!] WebSocket Disconnected. Retrying...", "text-red-500 font-bold");
+            document.getElementById('status-ping').classList.remove('animate-ping');
+            document.getElementById('status-ping').classList.replace('bg-primary', 'bg-red-500');
+            document.getElementById('status-dot').classList.replace('bg-primary', 'bg-red-500');
+            document.getElementById('status-text').textContent = "Disconnected";
+            setTimeout(setupWebSocket, 3000); // Reconnect
+        };
+    }
+
+    async function browseFile(inputId) {
+        try {
+            const res = await fetch('/api/select_file');
+            const data = await res.json();
+            if (data.path) {
+                document.getElementById(inputId).value = data.path;
+                saveToMemory(); // Trigger save after programmatic value change
+            }
+        } catch (e) {
+            console.error("Failed to open file dialog", e);
+        }
+    }
+
+    async function startAttack() {
+        const target = document.getElementById('target').value;
+        if (!target) return alert("Target is required!");
+        
+        startBtn.disabled = true;
+        startBtn.classList.replace('bg-primary', 'bg-surface-darker');
+        startBtn.classList.add('cursor-not-allowed', 'opacity-50');
+        
+        stopBtn.disabled = false;
+        stopBtn.classList.replace('bg-surface-darker', 'bg-red-600');
+        stopBtn.classList.replace('text-red-500/50', 'text-white');
+        stopBtn.classList.add('shadow-[0_0_15px_rgba(220,38,38,0.5)]');
+
+        const params = {
+            target: target,
+            method: document.getElementById('method').value,
+            threads: document.getElementById('threads').value,
+            duration: document.getElementById('duration').value,
+            proxy_type: document.getElementById('proxy_type').value,
+            proxy_list: document.getElementById('proxy_list').value,
+            rpc: document.getElementById('rpc').value,
+            reflector: document.getElementById('reflector').value,
+        };
+
+        saveToMemory(); // Ensure all values are saved before attack
+
+        appendLog("[*] Sending Start Request...", "text-yellow-300");
+        try {
+            const res = await fetch('/api/attack/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            const data = await res.json();
+            if (data.status === 'error') {
+                appendLog(`[!] Error: ${data.message}`, "text-red-500 font-bold");
+                resetButtons();
+            }
+        } catch (e) {
+            appendLog(`[!] API Error: ${e.message}`, "text-red-500 font-bold");
+            resetButtons();
+        }
+    }
+
+    async function stopAttack() {
+        appendLog("[*] Sending Stop Request...", "text-yellow-300");
+        try {
+            const res = await fetch('/api/attack/stop', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success') resetButtons();
+            else appendLog(`[!] Error: ${data.message}`, "text-red-500 font-bold");
+        } catch (e) {
+            appendLog(`[!] API Error: ${e.message}`, "text-red-500 font-bold");
+        }
+    }
+
+    function resetButtons() {
+        startBtn.disabled = false;
+        startBtn.classList.replace('bg-surface-darker', 'bg-primary');
+        startBtn.classList.remove('cursor-not-allowed', 'opacity-50');
+        
+        stopBtn.disabled = true;
+        stopBtn.classList.replace('bg-red-600', 'bg-surface-darker');
+        stopBtn.classList.replace('text-white', 'text-red-500/50');
+        stopBtn.classList.remove('shadow-[0_0_15px_rgba(220,38,38,0.5)]');
+    }
+
+    // LocalStorage Memory functions
+    const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector'];
+
+    // Dynamic Field Visibility
+    function updateFieldVisibility() {
+        const method = document.getElementById('method').value;
+        const rpcContainer = document.getElementById('rpc-container');
+        const proxyContainer = document.getElementById('proxy-container');
+        const reflectorContainer = document.getElementById('reflector-container');
+        
+        const LAYER7 = ["BYPASS", "CFB", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD", "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM", "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP"];
+        const LAYER4_AMP = ["MEM", "NTP", "DNS", "ARD", "CLDAP", "CHAR", "RDP"];
+        
+        if (LAYER7.includes(method)) {
+            if(rpcContainer) rpcContainer.style.display = 'block';
+            if(proxyContainer) proxyContainer.style.display = 'block';
+            if(reflectorContainer) reflectorContainer.style.display = 'none';
+        } else if (LAYER4_AMP.includes(method)) {
+            if(rpcContainer) rpcContainer.style.display = 'none';
+            if(proxyContainer) proxyContainer.style.display = 'none';
+            if(reflectorContainer) reflectorContainer.style.display = 'block';
+        } else {
+            // LAYER4_NORMAL
+            if(rpcContainer) rpcContainer.style.display = 'none';
+            if(proxyContainer) proxyContainer.style.display = 'block';
+            if(reflectorContainer) reflectorContainer.style.display = 'none';
+        }
+    }
+
+    function saveToMemory() {
+        memoryFields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) localStorage.setItem('mhddos_gui_' + id, el.value);
+        });
+    }
+
+    function loadFromMemory() {
+        memoryFields.forEach(id => {
+            const val = localStorage.getItem('mhddos_gui_' + id);
+            if (val !== null) {
+                const el = document.getElementById(id);
+                if (el.tagName === 'SELECT') {
+                    const optionExists = Array.from(el.options).some(opt => opt.value === val);
+                    if (optionExists) el.value = val;
+                } else {
+                    el.value = val;
+                }
+            }
+            
+            // Add auto-save listeners
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', saveToMemory);
+                el.addEventListener('change', saveToMemory);
+                if (id === 'method') {
+                    el.addEventListener('change', updateFieldVisibility);
+                }
+            }
+        });
+    }
+
+    // Initialize
+    window.onload = () => {
+        loadFromMemory();
+        updateFieldVisibility();
+        setupWebSocket();
+    };
+</script>
+</body>
+</html>

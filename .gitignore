@@ -4,3 +4,10 @@ files/proxies/*
 .DS_Store
 MHDDoS.wiki/
 temp/
+.cursorrules
+AGENTS.md
+/log
+PROJECT_INTRODUCTION.md
+RAW_README.md
+/__pycache__
+gui.py
