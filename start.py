@@ -60,7 +60,7 @@ if hasattr(ctx, "minimum_version") and hasattr(ssl, "TLSVersion"):
 # if hasattr(ssl, "OP_NO_TLSv1_1"):
 #     ctx.options |= ssl.OP_NO_TLSv1_1
 
-__version__: str = "2.4 SNAPSHOT"
+__version__: str = "1.0.1"
 __dir__: Path = Path(__file__).parent
 __ip__: Any = None
 tor2webs = [
@@ -1582,7 +1582,7 @@ class ToolsConsole:
     @staticmethod
     def usage():
         print((
-                  '* MHDDoS - DDoS Attack Script With %d Methods\n'
+                  f'* MHDDoS v{__version__} - DDoS Attack Script With %d Methods\n'
                   'Note: If the Proxy list is empty, The attack will run without proxies\n'
                   '      If the Proxy file doesn\'t exist, the script will download proxies and check them.\n'
                   '      Proxy Type 0 = All in config.json\n'

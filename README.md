@@ -7,7 +7,7 @@
     <img src="https://img.icons8.com/color/512/globe--v1.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">MHDDoS-GUI v1.0.0</h3>
+<h3 align="center">MHDDoS-GUI v1.0.1</h3>
 
   <p align="center">
     A Modern, High-Performance Web & Desktop GUI for the renowned MHDDoS Script.
