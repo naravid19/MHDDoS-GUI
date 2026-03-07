@@ -3,6 +3,7 @@ import sys
 import asyncio
 import subprocess
 import re
+import psutil
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -10,7 +11,7 @@ import uvicorn
 import tkinter as tk
 from tkinter import filedialog
 
-app = FastAPI(title="MHDDoS Professional API")
+app = FastAPI(title="MHDDoS Professional API v1.0.3")
 
 # --- Global State ---
 attack_process = None
@@ -28,7 +29,7 @@ LAYER4_AMP = ["MEM", "NTP", "DNS", "ARD", "CLDAP", "CHAR", "RDP"]
 LAYER4_NORMAL = ["TCP", "UDP", "SYN", "VSE", "MINECRAFT", "MCBOT", "CONNECTION", "CPS", 
                  "FIVEM", "FIVEM-TOKEN", "TS3", "MCPE", "ICMP", "OVH-UDP"]
 
-PROXY_TYPES = {"All Proxy": "0", "HTTP": "1", "SOCKS4": "4", "SOCKS5": "5", "RANDOM": "6"}
+PROXY_TYPES = {"All Proxy": "0", "HTTP": "1", "HTTPS": "2", "SOCKS4": "4", "SOCKS5": "5", "RANDOM": "6"}
 
 class AttackParams(BaseModel):
     target: str
@@ -75,7 +76,7 @@ async def run_attack_subprocess(params: AttackParams) -> None:
         else:
             command.extend([params.threads, params.duration])
             
-    await broadcast_log(f"[*] Executing Command: {' '.join(command)}")
+    await broadcast_log(f"[*] DEPLOYING VECTOR: {' '.join(command)}")
 
     try:
         attack_process = await asyncio.create_subprocess_exec(
@@ -85,6 +86,7 @@ async def run_attack_subprocess(params: AttackParams) -> None:
             stderr=asyncio.subprocess.STDOUT
         )
         is_starting_attack = False
+        await broadcast_log("[*] VECTOR DEPLOYED: Attack engine running.")
         
         while True:
             line = await attack_process.stdout.readline()
@@ -100,7 +102,7 @@ async def run_attack_subprocess(params: AttackParams) -> None:
                 await broadcast_log(decoded_line)
                 
         await attack_process.wait()
-        await broadcast_log("[*] Attack process terminated gracefully.")
+        await broadcast_log("[*] VECTOR TERMINATED: Attack process stopped gracefully.")
     except Exception as e:
         await broadcast_log(f"[!] Critical Error starting process: {e}")
         is_starting_attack = False
@@ -124,12 +126,28 @@ async def stop_attack() -> dict:
     if attack_process is None:
         return {"status": "error", "message": "No attack is currently running."}
     
-    await broadcast_log("[!] Attempting to terminate the attack...")
+    await broadcast_log("[!] Attempting to terminate the attack process tree...")
     try:
-        attack_process.terminate()
-        return {"status": "success", "message": "Attack stopped."}
+        # Get the process ID of the attack subprocess
+        pid = attack_process.pid
+        parent = psutil.Process(pid)
+        
+        # Recursively terminate all children
+        for child in parent.children(recursive=True):
+            child.kill()
+        parent.kill()
+        
+        return {"status": "success", "message": "Attack and all sub-processes stopped."}
+    except psutil.NoSuchProcess:
+        attack_process = None
+        return {"status": "success", "message": "Process already terminated."}
     except Exception as e:
-        await broadcast_log(f"[!] Error attempting to stop process: {e}")
+        await broadcast_log(f"[!] Error attempting to stop process tree: {e}")
+        # Fallback to simple termination if psutil fails
+        try:
+            attack_process.kill()
+        except:
+            pass
         return {"status": "error", "message": str(e)}
 
 @app.get("/api/select_file")

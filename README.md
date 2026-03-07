@@ -7,7 +7,7 @@
     <img src="https://img.icons8.com/color/512/globe--v1.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">MHDDoS-GUI v1.0.1</h3>
+<h3 align="center">MHDDoS-GUI v1.0.3</h3>
 
   <p align="center">
     A Modern, High-Performance Web & Desktop GUI for the renowned MHDDoS Script.
@@ -72,14 +72,15 @@ Say goodbye to complex console commands. Now you can select proxies, tune thread
 
 ### Features
 
+- **Professional Tactical Dashboard (v1.0.3)**: A complete UI re-engineering with high-density Slate & Emerald professional aesthetics, optimized grid layouts, and real-time metric visualization.
+- **Enhanced Real-time Visualization**: Optimized Neural Metric Parser (v3.1) ensures 100% reliable data streaming for live PPS and BPS charts.
+- **Complete Proxy Suite**: Full support for all 6 core proxy protocols (All, HTTP, HTTPS, SOCKS4, SOCKS5, RANDOM) with integrated backend mapping.
+- **Infrastructure Analytics**: New diagnostics bar displaying pipeline status, encryption levels, and real-time kernel telemetry.
 - **Dual Architecture**: Run as a responsive Web Dashboard or a native Desktop App.
-- **Premium UX/UI**: Designed using Tailwind CSS and React for a modern, dark-theme `glassmorphism` experience.
-- **Real-time Console**: Live streaming of attack logs directly into the UI via WebSockets.
-- **Easy Configurability**: Intuitive controls for methods, threads, proxies, reflectors, and duration.
-- **Remote Proxy Support**: Streamline proxy logic by importing massive proxy lists straight from `http://` / `https://` URLs seamlessly into memory. The core now reliably logic-scrapes endpoints with custom Regex mapping to ensure no lists are dropped.
-- **Smart Contextual UI**: Dynamically shows or hides relevant Input Fields (like Proxies, Reflectors, and RPC) depending on whether a Layer 4 or Layer 7 attack method is selected.
-- **Auto-Saving Settings**: Retains your configuration (Target, Method, Threads, etc.) across sessions using browser LocalStorage.
-- **Full Compatibility and Stable**: Supports all 57 attack layers (L4 and L7) from the original MHDDoS core with enhanced internal handling for error-free multi-threading.
+- **Premium UX/UI**: Designed using Tailwind CSS for a modern experience with CRT scanline overlays and 20px backdrop blurs.
+- **Full Method Parity**: Categorized support for all 57 attack layers (L4 and L7) with intelligent context-aware form validation.
+- **Remote Proxy Support**: Seamlessly stream massive proxy lists from remote URLs directly into engine memory.
+- **Auto-Saving Settings**: Persists all tactical configurations across sessions using browser LocalStorage.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -87,9 +88,9 @@ Say goodbye to complex console commands. Now you can select proxies, tune thread
 
 - [![Python][Python.org]][Python-url]
 - [![FastAPI][FastAPI.com]][FastAPI-url]
-- [![React][React.js]][React-url]
 - [![TailwindCSS][Tailwind.com]][Tailwind-url]
-- [![Vite][Vite.js]][Vite-url]
+- [![Chart.js][Chart.js.org]][Chart-url]
+- [![JavaScript][JS.org]][JS-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -204,4 +205,8 @@ Huge thanks to the original creators and the open-source community that made thi
 [Tailwind-url]: https://tailwindcss.com/
 [Vite.js]: https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white
 [Vite-url]: https://vitejs.dev/
+[Chart.js.org]: https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white
+[Chart-url]: https://www.chartjs.org/
+[JS.org]: https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black
+[JS-url]: https://developer.mozilla.org/en-US/docs/Web/JavaScript
 [product-screenshot]: images/screenshot.png

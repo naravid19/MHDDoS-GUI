@@ -3,251 +3,393 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MHDDoS Professional Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <title>MHDDoS Professional | Tactical Dashboard</title>
+    <!-- Modern Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#0df259",
-                        "background-light": "#f5f8f6",
-                        "background-dark": "#0a120c",
-                        "surface-dark": "#121d15",
-                        "surface-darker": "#0d160f",
-                        "border-dark": "#1e3023",
-                        "text-muted": "#8bada4"
+                        "primary": "#10b981", 
+                        "primary-hover": "#059669", 
+                        "secondary": "#3b82f6", 
+                        "danger": "#ef4444", 
+                        "warning": "#f59e0b", 
+                        "slate-950": "#020617",
+                        "slate-900": "#0f172a",
+                        "slate-800": "#1e293b",
+                        "slate-700": "#334155"
                     },
                     fontFamily: {
-                        "display": ["Space Grotesk", "sans-serif"],
-                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"]
+                        "sans": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
                     }
                 }
             }
         }
     </script>
     <style>
-        .glass-panel {
-            background: rgba(18, 29, 21, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(30, 48, 35, 0.5);
+        body {
+            background-color: #020617;
+            color: #f1f5f9;
+            -webkit-font-smoothing: antialiased;
         }
-        .neon-glow { box-shadow: 0 0 15px rgba(13, 242, 89, 0.15); }
-        .neon-glow:focus-within { box-shadow: 0 0 20px rgba(13, 242, 89, 0.3); }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #0a120c; }
-        ::-webkit-scrollbar-thumb { background: #1e3023; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #0df259; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .metric-card {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+        }
+        .metric-card:hover {
+            border-color: rgba(16, 185, 129, 0.2);
+            background: rgba(30, 41, 59, 0.6);
+        }
+
+        .terminal-container {
+            background: #000000;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .chart-wrapper { height: 160px; width: 100%; position: relative; }
+        
+        .input-pro {
+            background: #0f172a !important;
+            border: 1px solid #334155 !important;
+            color: #f8fafc !important;
+            transition: all 0.2s ease;
+        }
+        .input-pro:focus {
+            border-color: #10b981 !important;
+            ring-color: #10b981 !important;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+
+        @keyframes pulse-custom {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.95); }
+        }
+        .pulse-status { animation: pulse-custom 2s infinite ease-in-out; }
+        
+        select optgroup { background: #0f172a; color: #10b981; font-weight: bold; font-size: 11px; }
+        select option { background: #1e293b; color: white; padding: 10px; }
     </style>
 </head>
-<body class="bg-background-dark text-slate-100 font-display min-h-screen">
-<div class="relative flex min-h-screen w-full flex-col group/design-root overflow-x-hidden">
-    <!-- Header -->
-    <header class="flex items-center justify-between border-b border-border-dark px-8 py-4 glass-panel sticky top-0 z-50">
-        <div class="flex items-center gap-4">
-            <div class="size-8 text-primary flex items-center justify-center rounded-lg bg-surface-darker border border-border-dark">
-                <span class="material-symbols-outlined">bolt</span>
-            </div>
-            <h2 class="text-xl font-bold tracking-tight">MHDDoS Professional</h2>
-        </div>
-        <div class="flex items-center gap-6">
-            <div id="status-indicator" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-darker border border-border-dark">
-                <span class="relative flex h-3 w-3">
-                    <span id="status-ping" class="absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-75"></span>
-                    <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-slate-500"></span>
-                </span>
-                <span id="status-text" class="text-sm font-medium text-slate-300">Disconnected</span>
-            </div>
-        </div>
-    </header>
+<body class="font-sans overflow-x-hidden selection:bg-primary/20">
 
-    <main class="flex-1 p-8">
-        <div class="max-w-6xl mx-auto space-y-8">
-            <!-- Target Input -->
-            <div class="glass-panel rounded-xl p-8 neon-glow relative overflow-hidden">
-                <div class="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
-                <h3 class="text-lg font-medium text-text-muted mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-xl">radar</span> Target Specification
-                </h3>
-                <div class="relative">
-                    <input id="target" type="text" placeholder="http://target.com OR 192.168.1.1:80" class="w-full bg-surface-darker border border-border-dark rounded-lg py-5 pl-14 pr-4 text-xl font-mono text-white placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-inner" required />
-                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary text-2xl">link</span>
-                </div>
+<div class="min-h-screen flex flex-col lg:flex-row relative z-10">
+    
+    <!-- SIDE NAVIGATION (LEFT) -->
+    <aside class="w-full lg:w-80 xl:w-96 bg-slate-900 border-r border-white/5 flex flex-col shrink-0">
+        <!-- Brand Header -->
+        <div class="px-8 py-8 border-b border-white/5 flex items-center gap-4">
+            <div class="size-10 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary">
+                <span class="material-symbols-rounded text-2xl font-bold">radar</span>
             </div>
+            <div>
+                <h1 class="text-xl font-extrabold tracking-tight text-white leading-none">
+                    MHDDoS <span class="text-primary">PRO</span>
+                </h1>
+                <p class="text-[10px] font-mono text-slate-500 uppercase tracking-widest mt-1">v1.0.3 Tactical HUD</p>
+            </div>
+        </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Parameters -->
-                <div class="lg:col-span-2 glass-panel rounded-xl p-6 space-y-6">
-                    <h3 class="text-lg font-medium text-text-muted flex items-center gap-2 border-b border-border-dark pb-3">
-                        <span class="material-symbols-outlined text-primary">tune</span> Execution Parameters
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-slate-300">Method</label>
-                            <select id="method" class="w-full bg-surface-darker border border-border-dark rounded-lg py-3 px-4 text-white focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer">
-                                <optgroup label="Layer 7">
-                                    <option value="GET">GET (Simple HTTP)</option>
-                                    <option value="POST">POST (POST Flood)</option>
-                                    <option value="OVH">OVH (Bypass OVH)</option>
-                                    <option value="RHEX">RHEX (Random HEX)</option>
-                                    <option value="STOMP">STOMP (Bypass chk_captcha)</option>
-                                    <option value="STRESS">STRESS (Send HTTP Packet With High Byte)</option>
-                                    <option value="DYN">DYN (Random SubDomain)</option>
-                                    <option value="DOWNLOADER">DOWNLOADER (Reading data slowly)</option>
-                                    <option value="SLOW">SLOW (Slowloris Old Method)</option>
-                                    <option value="HEAD">HEAD (HTTP HEAD Method)</option>
-                                    <option value="NULL">NULL (Null UserAgent)</option>
-                                    <option value="COOKIE">COOKIE (Random Cookie PHP)</option>
-                                    <option value="PPS">PPS (Only GET / HTTP/1.1)</option>
-                                    <option value="EVEN">EVEN (GET Method with more header)</option>
-                                    <option value="GSB">GSB (Google Project Shield Bypass)</option>
-                                    <option value="DGB">DGB (DDoS Guard Bypass)</option>
-                                    <option value="AVB">AVB (Arvan Cloud Bypass)</option>
-                                    <option value="BOT">BOT (Like Google bot)</option>
-                                    <option value="APACHE">APACHE (Apache Exploit)</option>
-                                    <option value="XMLRPC">XMLRPC (WP XMLRPC Exploit)</option>
-                                    <option value="CFB">CFB (CloudFlare Bypass)</option>
-                                    <option value="CFBUAM">CFBUAM (CF Under Attack Mode Bypass)</option>
-                                    <option value="BYPASS">BYPASS (Bypass Normal AntiDDoS)</option>
-                                    <option value="BOMB">BOMB (Bypass with bombardier)</option>
-                                    <option value="KILLER">KILLER (Run many threads to kill target)</option>
-                                    <option value="TOR">TOR (Bypass onion website)</option>
+        <!-- Configuration Form -->
+        <div class="flex-1 overflow-y-auto p-8 space-y-8 scroll-smooth">
+            <!-- Trajectory Setup -->
+            <div class="space-y-4">
+                <h2 class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                    <span class="size-1.5 rounded-full bg-primary/50"></span> Vector Configuration
+                </h2>
+                
+                <div class="space-y-4">
+                    <div class="group">
+                        <label for="target" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block group-focus-within:text-primary transition-colors">Target Coordinates</label>
+                        <div class="relative">
+                            <input id="target" type="text" placeholder="URL OR IP:PORT" class="w-full input-pro rounded-xl py-3 pl-10 pr-4 text-sm font-mono placeholder-slate-700 outline-none" />
+                            <span class="material-symbols-rounded absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-primary transition-colors text-lg">gps_fixed</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="method" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Attack Method (57 total)</label>
+                        <div class="relative">
+                            <select id="method" onchange="updateVisibility()" class="w-full input-pro rounded-xl py-3 px-4 text-xs outline-none appearance-none cursor-pointer focus:border-primary">
+                                <optgroup label="LAYER 7 (APPLICATION LAYER)">
+                                    <option value="GET">GET | Standard Flood</option>
+                                    <option value="POST">POST | HTTP POST Flood</option>
+                                    <option value="BYPASS">BYPASS | Anti-DDoS Bypass</option>
+                                    <option value="CFB">CFB | Cloudflare Bypass</option>
+                                    <option value="CFBUAM">CFBUAM | Cloudflare UAM Bypass</option>
+                                    <option value="OVH">OVH | OVH Bypass</option>
+                                    <option value="STRESS">STRESS | High-Byte Packet</option>
+                                    <option value="DYN">DYN | Random Subdomain</option>
+                                    <option value="SLOW">SLOW | Slowloris</option>
+                                    <option value="HEAD">HEAD | HTTP HEAD Flood</option>
+                                    <option value="NULL">NULL | Null UserAgent</option>
+                                    <option value="COOKIE">COOKIE | Random Cookie</option>
+                                    <option value="PPS">PPS | GET / HTTP/1.1</option>
+                                    <option value="EVEN">EVEN | Header Intensive</option>
+                                    <option value="GSB">GSB | Google Shield Bypass</option>
+                                    <option value="DGB">DGB | DDoS Guard Bypass</option>
+                                    <option value="AVB">AVB | Arvan Cloud Bypass</option>
+                                    <option value="BOT">BOT | Googlebot Simulation</option>
+                                    <option value="APACHE">APACHE | Apache Exploit</option>
+                                    <option value="XMLRPC">XMLRPC | WP XMLRPC Exploit</option>
+                                    <option value="BOMB">BOMB | Bombardier Bypass</option>
+                                    <option value="DOWNLOADER">DOWNLOADER | Slow Data Read</option>
+                                    <option value="KILLER">KILLER | Multi-thread Kill</option>
+                                    <option value="TOR">TOR | Onion Website Bypass</option>
+                                    <option value="RHEX">RHEX | Random HEX Flood</option>
+                                    <option value="STOMP">STOMP | Captcha Bypass</option>
                                 </optgroup>
-                                <optgroup label="Layer 4 Normal">
-                                    <option value="TCP">TCP (TCP Flood Bypass)</option>
-                                    <option value="UDP">UDP (UDP Flood Bypass)</option>
-                                    <option value="SYN">SYN (SYN Flood)</option>
-                                    <option value="OVH-UDP">OVH-UDP (UDP flood bypass OVH/WAF)</option>
-                                    <option value="CPS">CPS (Open/close connections with proxy)</option>
-                                    <option value="ICMP">ICMP (Icmp echo request flood)</option>
-                                    <option value="CONNECTION">CONNECTION (Open connection alive with proxy)</option>
-                                    <option value="VSE">VSE (Valve Source Engine Protocol)</option>
-                                    <option value="TS3">TS3 (Teamspeak 3 Status Ping Protocol)</option>
-                                    <option value="FIVEM">FIVEM (FiveM Status Ping Protocol)</option>
-                                    <option value="FIVEM-TOKEN">FIVEM-TOKEN (FiveM confirmation token flood)</option>
-                                    <option value="MCBOT">MCBOT (Minecraft Bot Attack)</option>
-                                    <option value="MINECRAFT">MINECRAFT (Minecraft Status Ping Protocol)</option>
-                                    <option value="MCPE">MCPE (Minecraft PE Status Ping Protocol)</option>
+                                <optgroup label="LAYER 4 (NETWORK LAYER)">
+                                    <option value="TCP">TCP | TCP Flood Bypass</option>
+                                    <option value="UDP">UDP | UDP Flood Bypass</option>
+                                    <option value="SYN">SYN | SYN Flood</option>
+                                    <option value="OVH-UDP">OVH-UDP | OVH WAF Bypass</option>
+                                    <option value="CPS">CPS | Connection Pulse</option>
+                                    <option value="ICMP">ICMP | Echo Request (L3)</option>
+                                    <option value="CONNECTION">CONNECTION | Keep-Alive</option>
+                                    <option value="VSE">VSE | Valve Source Engine</option>
+                                    <option value="TS3">TS3 | Teamspeak 3 Ping</option>
+                                    <option value="FIVEM">FIVEM | FiveM Status Ping</option>
+                                    <option value="FIVEM-TOKEN">FIVEM-TOKEN | Token Flood</option>
+                                    <option value="MCBOT">MCBOT | Minecraft Bot</option>
+                                    <option value="MINECRAFT">MINECRAFT | Minecraft Ping</option>
+                                    <option value="MCPE">MCPE | Minecraft PE Ping</option>
                                 </optgroup>
-                                <optgroup label="Layer 4 Amplification">
-                                    <option value="MEM">MEM (Memcached Amplification)</option>
-                                    <option value="NTP">NTP (NTP Amplification)</option>
-                                    <option value="DNS">DNS (DNS Amplification)</option>
-                                    <option value="CHAR">CHAR (Chargen Amplification)</option>
-                                    <option value="CLDAP">CLDAP (Cldap Amplification)</option>
-                                    <option value="ARD">ARD (Apple Remote Desktop Amplification)</option>
-                                    <option value="RDP">RDP (Remote Desktop Protocol Amplification)</option>
+                                <optgroup label="LAYER 4 (AMPLIFICATION)">
+                                    <option value="DNS">DNS | DNS Amplification</option>
+                                    <option value="NTP">NTP | NTP Amplification</option>
+                                    <option value="MEM">MEM | Memcached Amp</option>
+                                    <option value="CHAR">CHAR | Chargen Amp</option>
+                                    <option value="CLDAP">CLDAP | Cldap Amp</option>
+                                    <option value="ARD">ARD | Apple Remote Desktop</option>
+                                    <option value="RDP">RDP | Remote Desktop Amp</option>
                                 </optgroup>
                             </select>
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-slate-300">Threads</label>
-                            <input id="threads" type="number" value="100" class="w-full bg-surface-darker border border-border-dark rounded-lg py-3 px-4 text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-slate-300">Duration (Seconds)</label>
-                            <input id="duration" type="number" value="3600" class="w-full bg-surface-darker border border-border-dark rounded-lg py-3 px-4 text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
-                        </div>
-                        <div id="rpc-container" class="space-y-2">
-                            <label class="text-sm font-medium text-slate-300">RPC Count</label>
-                            <input id="rpc" type="number" value="100" class="w-full bg-surface-darker border border-border-dark rounded-lg py-3 px-4 text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
+                            <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none text-lg">expand_more</span>
                         </div>
                     </div>
-                </div>
 
-                <!-- Network Config -->
-                <div class="glass-panel rounded-xl p-6 space-y-6">
-                    <h3 class="text-lg font-medium text-text-muted flex items-center gap-2 border-b border-border-dark pb-3">
-                        <span class="material-symbols-outlined text-primary">router</span> Network Config
-                    </h3>
-                    <div class="space-y-4">
-                        <div id="proxy-container" class="space-y-4">
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium text-slate-300">Proxy Type</label>
-                                <select id="proxy_type" class="w-full bg-surface-darker border border-border-dark rounded-lg py-2.5 px-4 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer">
-                                    <option value="SOCKS5">SOCKS5</option>
-                                    <option value="SOCKS4">SOCKS4</option>
-                                    <option value="HTTP">HTTP</option>
-                                    <option value="All Proxy">All Proxy</option>
-                                    <option value="RANDOM">RANDOM</option>
-                                </select>
-                            </div>
-                            <div class="space-y-2">
-                                <label class="text-sm font-medium text-slate-300">Proxy List File</label>
-                                <div class="flex">
-                                    <input id="proxy_list" type="text" placeholder="proxies.txt" value="proxies.txt" class="w-full bg-surface-darker border border-border-dark rounded-l-lg py-2.5 px-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
-                                    <button onclick="browseFile('proxy_list')" class="flex-none bg-surface-dark border border-l-0 border-border-dark rounded-r-lg px-3 hover:bg-border-dark transition-colors text-slate-300 flex items-center">
-                                        <span class="material-symbols-outlined text-base">folder_open</span>
-                                    </button>
-                                </div>
-                            </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="threads" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Worker Threads</label>
+                            <input id="threads" type="number" value="100" class="w-full input-pro rounded-xl py-3 px-4 text-xs font-mono outline-none" />
                         </div>
-                        <div id="reflector-container" class="space-y-2" style="display: none;">
-                            <label class="text-sm font-medium text-slate-300">Reflector File (L4 Amp)</label>
-                            <div class="flex">
-                                <input id="reflector" type="text" placeholder="reflectors.txt" class="w-full bg-surface-darker border border-border-dark rounded-l-lg py-2.5 px-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary font-mono" />
-                                <button onclick="browseFile('reflector')" class="flex-none bg-surface-dark border border-l-0 border-border-dark rounded-r-lg px-3 hover:bg-border-dark transition-colors text-slate-300 flex items-center">
-                                    <span class="material-symbols-outlined text-base">folder_open</span>
-                                </button>
-                            </div>
+                        <div>
+                            <label for="duration" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Duration (Sec)</label>
+                            <input id="duration" type="number" value="3600" class="w-full input-pro rounded-xl py-3 px-4 text-xs font-mono outline-none" />
                         </div>
+                    </div>
+
+                    <div id="rpc-container">
+                        <label for="rpc" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Requests/Conn (RPC)</label>
+                        <input id="rpc" type="number" value="100" class="w-full input-pro rounded-xl py-3 px-4 text-xs font-mono outline-none" />
                     </div>
                 </div>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="flex gap-4 items-center justify-center py-4">
-                <button id="start-btn" onclick="startAttack()" class="flex-1 max-w-md bg-primary hover:bg-[#0be654] text-[#0a120c] font-bold text-lg py-4 px-8 rounded-lg shadow-[0_0_20px_rgba(13,242,89,0.4)] hover:shadow-[0_0_30px_rgba(13,242,89,0.6)] transition-all flex items-center justify-center gap-3 tracking-wide">
-                    <span class="material-symbols-outlined">rocket_launch</span> START ATTACK
-                </button>
-                <button id="stop-btn" onclick="stopAttack()" class="flex-1 max-w-md bg-surface-darker border border-red-900/50 text-red-500/50 hover:bg-red-900/20 font-bold text-lg py-4 px-8 rounded-lg flex items-center justify-center gap-3 tracking-wide transition-all" disabled>
-                    <span class="material-symbols-outlined">stop_circle</span> STOP ATTACK
-                </button>
-            </div>
+            <!-- Asset Neural Hub -->
+            <div class="space-y-4">
+                <h2 class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                    <span class="size-1.5 rounded-full bg-secondary/50"></span> Neural Assets
+                </h2>
+                
+                <div id="proxy-container" class="space-y-4">
+                    <div>
+                        <label for="proxy_type" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Proxy Protocol</label>
+                        <div class="relative">
+                            <select id="proxy_type" class="w-full input-pro rounded-xl py-3 px-4 text-xs outline-none appearance-none cursor-pointer">
+                                <option value="SOCKS5">SOCKS5 (STABLE)</option>
+                                <option value="SOCKS4">SOCKS4 (LEGACY)</option>
+                                <option value="HTTP">HTTP (FAST)</option>
+                                <option value="HTTPS">HTTPS (SECURE)</option>
+                                <option value="All Proxy">ALL (ROTATED)</option>
+                                <option value="RANDOM">RANDOM (MIXED)</option>
+                            </select>
+                            <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none text-lg">expand_more</span>
+                        </div>
+                    </div>
+                    <div class="group">
+                        <label for="proxy_list" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Resource Path (File/URL)</label>
+                        <div class="flex gap-2">
+                            <input id="proxy_list" type="text" value="proxies.txt" class="flex-1 input-pro rounded-xl py-3 px-4 text-[11px] font-mono outline-none" />
+                            <button onclick="browseFile('proxy_list')" title="Browse Proxies" class="size-11 bg-slate-800 border border-slate-700 hover:border-secondary hover:text-secondary rounded-xl flex items-center justify-center text-slate-500 transition-all active:scale-95">
+                                <span class="material-symbols-rounded text-xl">folder_open</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-            <!-- Terminal Output -->
-            <div class="glass-panel rounded-xl overflow-hidden border border-border-dark">
-                <div class="bg-surface-darker px-4 py-2 border-b border-border-dark flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-text-muted text-sm">terminal</span>
-                        <span class="text-xs font-mono text-text-muted">Terminal Output</span>
+                <div id="reflector-container" class="space-y-4 hidden">
+                    <div class="group">
+                        <label for="reflector" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Reflector Asset</label>
+                        <div class="flex gap-2">
+                            <input id="reflector" type="text" placeholder="reflectors.txt" class="flex-1 input-pro rounded-xl py-3 px-4 text-[11px] font-mono outline-none" />
+                            <button onclick="browseFile('reflector')" title="Browse Reflectors" class="size-11 bg-slate-800 border border-slate-700 hover:border-secondary hover:text-secondary rounded-xl flex items-center justify-center text-slate-500 transition-all active:scale-95">
+                                <span class="material-symbols-rounded text-xl">folder_open</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex gap-1.5">
-                        <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
-                        <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-                        <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
-                    </div>
-                </div>
-                <div id="terminal-content" class="bg-black/90 p-6 h-80 overflow-y-auto font-mono text-sm select-text cursor-text">
-                    <p class="text-primary mb-1">[INFO] MHDDoS-GUI Professional Engine UI Initialized...</p>
-                    <p class="text-slate-400 mb-1">[INFO] Connecting to Backend API...</p>
                 </div>
             </div>
-
-            <!-- Footer -->
-            <footer class="mt-12 border-t border-border-dark pt-8 flex flex-col md:flex-row items-center justify-between text-sm text-text-muted glass-panel px-8 py-4 rounded-xl relative overflow-hidden group">
-                <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
-                <div class="flex items-center gap-3 mb-4 md:mb-0 relative z-10">
-                    <div class="size-8 rounded-full bg-surface-dark flex items-center justify-center border border-border-dark shadow-inner">
-                        <span class="material-symbols-outlined text-primary text-sm">terminal</span>
-                    </div>
-                    <span class="font-medium tracking-wide">MHDDoS-GUI 
-                        <span class="ml-2 font-mono text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full shadow-[0_0_10px_rgba(13,242,89,0.2)]">v1.0.1</span>
-                    </span>
-                </div>
-                <div class="relative z-10 flex items-center gap-4">
-                    <a href="https://github.com/naravid19/MHDDoS-GUI" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 hover:text-primary transition-all duration-300 hover:bg-surface-darker px-4 py-2 rounded-lg border border-transparent hover:border-primary/30 group/link">
-                        <svg class="size-5 text-slate-400 group-hover/link:text-primary transition-colors" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path></svg>
-                        <span class="font-medium tracking-wide">naravid19 / MHDDoS-GUI</span>
-                        <span class="material-symbols-outlined text-sm opacity-0 -ml-2 group-hover/link:opacity-100 group-hover/link:translate-x-1 transition-all">arrow_forward</span>
-                    </a>
-                </div>
-            </footer>
         </div>
+
+        <!-- Actions -->
+        <div class="p-8 border-t border-white/5 space-y-4 bg-slate-900/50">
+            <button id="start-btn" onclick="startAttack()" class="w-full bg-primary hover:bg-primary-hover text-slate-950 font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 tracking-tight uppercase text-sm shadow-lg shadow-primary/10 active:scale-[0.98]">
+                <span class="material-symbols-rounded font-bold text-xl">bolt</span>
+                Deploy Vector
+            </button>
+            <button id="stop-btn" onclick="stopAttack()" class="w-full bg-slate-800 border border-danger/20 text-danger/40 hover:text-danger hover:border-danger hover:bg-danger/5 rounded-xl font-bold py-3 transition-all flex items-center justify-center gap-2 tracking-wide uppercase text-[10px] disabled:opacity-20 pointer-events-none" disabled>
+                <span class="material-symbols-rounded text-base">stop_circle</span> Terminate Sequence
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN DASHBOARD AREA -->
+    <main class="flex-1 flex flex-col bg-slate-950 min-w-0">
+        
+        <!-- Top Header Status Bar -->
+        <header class="h-16 border-b border-white/5 flex items-center justify-between px-10 shrink-0">
+            <div class="flex items-center gap-8">
+                <div id="status-chip" class="flex items-center gap-3">
+                    <div class="relative flex h-2.5 w-2.5">
+                        <span id="status-pulse" class="absolute inline-flex h-full w-full rounded-full bg-slate-600 opacity-75"></span>
+                        <span id="status-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-600"></span>
+                    </div>
+                    <span id="status-text" class="text-[11px] font-bold uppercase tracking-wider text-slate-500">System Offline</span>
+                </div>
+                <div class="h-4 w-px bg-white/10"></div>
+                <div class="flex items-center gap-3 text-slate-500">
+                    <span class="material-symbols-rounded text-base">dns</span>
+                    <span id="header-status" class="text-[10px] font-mono uppercase tracking-widest">Engine: Standby</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <div id="uptime-container" class="text-right">
+                    <p class="text-[9px] text-slate-600 uppercase font-bold tracking-widest leading-none mb-1">Session Protocol</p>
+                    <p id="uptime-text" class="text-[11px] text-slate-400 font-mono leading-none uppercase">AUTH: ROOT_X64</p>
+                </div>
+                <button class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-all hover:bg-slate-800">
+                    <span class="material-symbols-rounded text-xl">settings_input_antenna</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Metrics Dashboard Content -->
+        <div class="p-10 flex-1 overflow-y-auto space-y-10">
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <!-- PPS CARD -->
+                <div class="metric-card rounded-3xl p-8 relative overflow-hidden group">
+                    <div class="flex items-center justify-between mb-8 relative z-10">
+                        <div class="flex items-center gap-4">
+                            <div class="size-14 bg-primary/5 rounded-2xl flex items-center justify-center text-primary border border-primary/10">
+                                <span class="material-symbols-rounded text-3xl">query_stats</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Throughput</h3>
+                                <p class="text-[10px] font-mono text-primary/60 uppercase">PPS (Packets / Sec)</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-4xl font-mono font-bold text-white tracking-tighter" id="current-rps">0.00</div>
+                            <p class="text-[9px] font-bold text-slate-600 uppercase mt-1 tracking-widest">Real-time Stream</p>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="rpsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- BPS CARD -->
+                <div class="metric-card rounded-3xl p-8 relative overflow-hidden group">
+                    <div class="flex items-center justify-between mb-8 relative z-10">
+                        <div class="flex items-center gap-4">
+                            <div class="size-14 bg-secondary/5 rounded-2xl flex items-center justify-center text-secondary border border-secondary/10">
+                                <span class="material-symbols-rounded text-3xl">swap_calls</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Transmission</h3>
+                                <p class="text-[10px] font-mono text-secondary/60 uppercase">BPS (Bytes / Sec)</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-4xl font-mono font-bold text-white tracking-tighter" id="current-bps">0.00 B</div>
+                            <p class="text-[9px] font-bold text-slate-600 uppercase mt-1 tracking-widest">Logic Fiber Link</p>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="bpsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TERMINAL FEED -->
+            <div class="terminal-container rounded-3xl overflow-hidden flex flex-col min-h-[500px] border border-white/5 shadow-2xl">
+                <div class="bg-slate-900/50 px-8 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
+                    <div class="flex items-center gap-4">
+                        <div class="flex gap-1.5">
+                            <div class="size-2.5 rounded-full bg-danger/50"></div>
+                            <div class="size-2.5 rounded-full bg-warning/50"></div>
+                            <div class="size-2.5 rounded-full bg-primary/50"></div>
+                        </div>
+                        <span class="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-500 ml-4">Tactical Engine Pipeline</span>
+                    </div>
+                    <div class="flex gap-8 items-center">
+                        <span class="text-[10px] font-mono text-slate-600 uppercase tracking-widest">BUFFER: 500_LINES</span>
+                        <div class="h-4 w-px bg-white/10"></div>
+                        <button class="text-[10px] font-bold text-primary/60 uppercase hover:text-primary transition-colors tracking-widest active:scale-95" onclick="clearTerminal()">Purge Buffer</button>
+                    </div>
+                </div>
+                <div id="terminal-content" aria-live="polite" class="p-8 flex-1 overflow-y-auto font-mono text-[13px] leading-relaxed scroll-smooth selection:bg-primary/20">
+                    <div class="flex items-center gap-4 mb-3 border-l-2 border-primary/40 pl-4 py-1.5 bg-primary/5 rounded-r-xl">
+                        <span class="text-primary font-bold uppercase tracking-tighter text-[11px]">[SYSTEM]</span>
+                        <span class="text-slate-300 font-medium">Tactical Command Interface v1.0.3 Stable Operational.</span>
+                    </div>
+                    <div class="flex items-center gap-4 mb-6 pl-4 border-l-2 border-slate-700">
+                        <span class="text-slate-600 font-bold uppercase tracking-tighter text-[11px]">[KERNEL]</span>
+                        <span class="text-slate-500 italic text-[11px] tracking-wider">Ready for transmission... Standing by.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Stats Bar -->
+        <footer class="h-14 bg-slate-900 border-t border-white/5 px-10 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-10">
+                <div class="flex gap-2 items-center">
+                    <span class="text-[10px] text-slate-600 font-bold uppercase tracking-wider">Engine:</span>
+                    <span class="text-[10px] text-primary font-mono uppercase tracking-tighter">Sync_Active</span>
+                </div>
+                <div class="h-3 w-px bg-white/10"></div>
+                <div class="flex gap-2 items-center">
+                    <span class="text-[10px] text-slate-600 font-bold uppercase tracking-wider">Algorithm:</span>
+                    <span class="text-[10px] text-secondary font-mono uppercase tracking-tighter">AES-256-GCM</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-8 text-[10px] font-bold text-slate-700 uppercase tracking-[0.2em] italic">
+                MH-Ultimate-Professional-Interface
+            </div>
+        </footer>
     </main>
 </div>
 
@@ -256,13 +398,162 @@
     const term = document.getElementById('terminal-content');
     const startBtn = document.getElementById('start-btn');
     const stopBtn = document.getElementById('stop-btn');
+    const statusPulse = document.getElementById('status-pulse');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const uptimeText = document.getElementById('uptime-text');
+    const headerStatus = document.getElementById('header-status');
     
-    function appendLog(msg, colorClass = "text-slate-300") {
-        const p = document.createElement('p');
-        p.className = `mb-1 ${colorClass}`;
-        p.textContent = msg;
-        term.appendChild(p);
+    // --- Optimized Charting Engine ---
+    const buildChart = (color, label) => ({
+        type: 'line',
+        data: {
+            labels: Array(60).fill(''),
+            datasets: [{
+                label: label,
+                data: Array(60).fill(0),
+                borderColor: color,
+                borderWidth: 3,
+                fill: 'start',
+                backgroundColor: (ctx) => {
+                    const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 160);
+                    gradient.addColorStop(0, color + '33');
+                    gradient.addColorStop(1, 'transparent');
+                    return gradient;
+                },
+                pointRadius: 0,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            scales: {
+                x: { display: false },
+                y: {
+                    beginAtZero: true,
+                    suggestedMax: 10,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                    ticks: { 
+                        color: '#64748b', 
+                        font: { size: 9, family: 'JetBrains Mono' },
+                        maxTicksLimit: 5,
+                        callback: (v) => v >= 1000 ? (v/1000).toFixed(1) + 'k' : v
+                    }
+                }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    const rpsChart = new Chart(document.getElementById('rpsChart'), buildChart('#10b981', 'PPS'));
+    const bpsChart = new Chart(document.getElementById('bpsChart'), buildChart('#3b82f6', 'BPS'));
+
+    function updateCharts(rpsRaw, bpsStr) {
+        let valRps = parseFloat(rpsRaw.replace(/[^0-9.]/g, '')) || 0;
+        if (rpsRaw.toLowerCase().includes('k')) valRps *= 1000;
+        else if (rpsRaw.toLowerCase().includes('m')) valRps *= 1000000;
+        
+        document.getElementById('current-rps').textContent = rpsRaw;
+        rpsChart.data.datasets[0].data.push(valRps);
+        rpsChart.data.datasets[0].data.shift();
+        rpsChart.update('none');
+
+        document.getElementById('current-bps').textContent = bpsStr;
+        let valBps = parseFloat(bpsStr.replace(/[^0-9.]/g, '')) || 0;
+        const bpsLower = bpsStr.toLowerCase();
+
+        // Normalize everything to Mbps for consistent charting
+        if (bpsLower.includes('gb')) {
+            valBps *= 1024;
+        } else if (bpsLower.includes('mb')) {
+            valBps *= 1;
+        } else if (bpsLower.includes('kb')) {
+            valBps /= 1024;
+        } else {
+            // Assume bytes if no unit found
+            valBps /= (1024 * 1024);
+        }
+
+        bpsChart.data.datasets[0].data.push(valBps);
+        bpsChart.data.datasets[0].data.shift();
+        bpsChart.update('none');
+    }
+
+    function parseMetrics(msg) {
+        const cleanMsg = msg.replace(/\x1B\[[0-9;]*[mK]/g, '').trim(); 
+        
+        // Robust regex: Look for PPS and BPS values
+        const rpsMatch = cleanMsg.match(/PPS:\s*([\d\.kmgtp]+)/i);
+        const bpsMatch = cleanMsg.match(/BPS:\s*([\d\.]+\s*[a-zA-Z\/]*)/i);
+        
+        if (rpsMatch || bpsMatch) {
+            const rps = rpsMatch ? rpsMatch[1] : "0.00";
+            let bps = "0.00 B";
+            
+            if (bpsMatch) {
+                // Handle potential trailing characters like commas or percentages from the log
+                bps = bpsMatch[1].split(',')[0].split('%')[0].trim();
+            }
+            
+            updateCharts(rps, bps);
+            return true;
+        }
+        
+        // Debugging: Log if we see a metric-like line that failed parsing
+        if (cleanMsg.includes('PPS:') || cleanMsg.includes('BPS:')) {
+            console.debug("Metric parse missed:", cleanMsg);
+        }
+        
+        return false;
+    }
+
+    function appendLog(msg) {
+        const line = document.createElement('div');
+        line.className = "flex items-start gap-4 mb-2 hover:bg-white/[0.02] px-4 py-1.5 rounded-lg border-l-2 border-transparent hover:border-slate-700 group transition-all";
+        
+        let labelColor = "text-primary";
+        let labelText = "[SYSTEM]";
+        let msgColor = "text-slate-400";
+
+        const upperMsg = msg.toUpperCase();
+        if (msg.includes("[!]")) { 
+            labelColor = "text-danger"; 
+            labelText = "[ERROR]"; 
+            msgColor = "text-danger/90 font-semibold";
+        } else if (msg.includes("[*]")) { 
+            labelColor = "text-warning"; 
+            labelText = "[INTEL]"; 
+            msgColor = "text-warning/90";
+        } else if (upperMsg.includes("STARTED") || upperMsg.includes("EXECUTING") || upperMsg.includes("DEPLOYED")) {
+            labelColor = "text-primary";
+            labelText = "[LAUNCH]";
+            msgColor = "text-slate-100 font-bold italic";
+        } else if (upperMsg.includes("TERMINATED") || upperMsg.includes("STOPPED")) {
+            labelColor = "text-secondary";
+            labelText = "[PURGED]";
+            msgColor = "text-secondary/80 font-semibold";
+        }
+
+        const label = document.createElement('span');
+        label.className = `${labelColor} font-bold min-w-[80px] tracking-tighter text-[10px] uppercase mt-0.5`;
+        label.textContent = labelText;
+
+        const content = document.createElement('span');
+        content.className = `${msgColor} flex-1 group-hover:text-slate-200 transition-colors`;
+        content.textContent = msg;
+
+        line.appendChild(label);
+        line.appendChild(content);
+        term.appendChild(line);
         term.scrollTop = term.scrollHeight;
+        if (term.childNodes.length > 500) term.removeChild(term.firstChild);
+    }
+
+    function clearTerminal() {
+        term.innerHTML = '';
+        appendLog("Buffer purged. Tactical feed cleared.");
     }
 
     function setupWebSocket() {
@@ -270,63 +561,49 @@
         ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
         
         ws.onopen = () => {
-            appendLog("[INFO] WebSocket Connected. Ready.", "text-primary");
-            document.getElementById('status-ping').classList.add('animate-ping');
-            document.getElementById('status-ping').classList.replace('bg-slate-500', 'bg-primary');
-            document.getElementById('status-dot').classList.replace('bg-slate-500', 'bg-primary');
-            document.getElementById('status-text').textContent = "Engine Ready";
+            appendLog("Neural handshake successful. Encryption link established.");
+            statusPulse.classList.add('pulse-status');
+            statusPulse.classList.replace('bg-slate-600', 'bg-primary');
+            statusPulse.classList.replace('bg-danger', 'bg-primary');
+            statusDot.classList.replace('bg-slate-600', 'bg-primary');
+            statusDot.classList.replace('bg-danger', 'bg-primary');
+            statusText.textContent = "Operational";
+            statusText.classList.replace('text-slate-500', 'text-primary');
+            statusText.classList.replace('text-danger', 'text-primary');
+            headerStatus.textContent = "Engine: Active_Link";
+            headerStatus.classList.replace('text-slate-600', 'text-primary/70');
         };
         
         ws.onmessage = (event) => {
             const msg = event.data;
-            let color = "text-slate-300";
-            if (msg.includes("[!]")) color = "text-red-400 font-bold";
-            else if (msg.includes("[*]")) color = "text-yellow-300";
-            else if (msg.toLowerCase().includes("sent")) color = "text-blue-300";
-            appendLog(msg, color);
-            
-            // Re-enable Start button if attack process terminates naturally
-            if (msg.includes("Attack process terminated gracefully.") || msg.includes("Critical Error starting process:")) {
-                resetButtons();
+            if (!parseMetrics(msg)) {
+                appendLog(msg);
+            }
+            if (msg.toLowerCase().includes("terminated gracefully") || msg.toLowerCase().includes("terminated")) {
+                resetUI();
             }
         };
         
         ws.onclose = () => {
-            appendLog("[!] WebSocket Disconnected. Retrying...", "text-red-500 font-bold");
-            document.getElementById('status-ping').classList.remove('animate-ping');
-            document.getElementById('status-ping').classList.replace('bg-primary', 'bg-red-500');
-            document.getElementById('status-dot').classList.replace('bg-primary', 'bg-red-500');
-            document.getElementById('status-text').textContent = "Disconnected";
-            setTimeout(setupWebSocket, 3000); // Reconnect
+            appendLog("[!] Signal lost. Re-establishing link...", "critical");
+            statusPulse.classList.remove('pulse-status');
+            statusPulse.classList.replace('bg-primary', 'bg-danger');
+            statusDot.classList.replace('bg-primary', 'bg-danger');
+            statusText.textContent = "Connection Lost";
+            statusText.classList.replace('text-primary', 'text-danger');
+            headerStatus.textContent = "Engine: Link_Failure";
+            setTimeout(setupWebSocket, 3000);
         };
-    }
-
-    async function browseFile(inputId) {
-        try {
-            const res = await fetch('/api/select_file');
-            const data = await res.json();
-            if (data.path) {
-                document.getElementById(inputId).value = data.path;
-                saveToMemory(); // Trigger save after programmatic value change
-            }
-        } catch (e) {
-            console.error("Failed to open file dialog", e);
-        }
     }
 
     async function startAttack() {
         const target = document.getElementById('target').value;
-        if (!target) return alert("Target is required!");
+        if (!target) return alert("CRITICAL: TARGET COORDINATES REQUIRED");
         
         startBtn.disabled = true;
-        startBtn.classList.replace('bg-primary', 'bg-surface-darker');
-        startBtn.classList.add('cursor-not-allowed', 'opacity-50');
-        
         stopBtn.disabled = false;
-        stopBtn.classList.replace('bg-surface-darker', 'bg-red-600');
-        stopBtn.classList.replace('text-red-500/50', 'text-white');
-        stopBtn.classList.add('shadow-[0_0_15px_rgba(220,38,38,0.5)]');
-
+        stopBtn.classList.remove('pointer-events-none');
+        
         const params = {
             target: target,
             method: document.getElementById('method').value,
@@ -338,9 +615,9 @@
             reflector: document.getElementById('reflector').value,
         };
 
-        saveToMemory(); // Ensure all values are saved before attack
-
-        appendLog("[*] Sending Start Request...", "text-yellow-300");
+        saveToMemory();
+        appendLog("[*] Calibrating attack vectors... deploying threads.");
+        
         try {
             const res = await fetch('/api/attack/start', {
                 method: 'POST',
@@ -349,103 +626,99 @@
             });
             const data = await res.json();
             if (data.status === 'error') {
-                appendLog(`[!] Error: ${data.message}`, "text-red-500 font-bold");
-                resetButtons();
+                appendLog(`[!] DEPLOYMENT FAILED: ${data.message}`);
+                resetUI();
             }
         } catch (e) {
-            appendLog(`[!] API Error: ${e.message}`, "text-red-500 font-bold");
-            resetButtons();
+            appendLog(`[!] API CONNECTION FAILED: ${e.message}`);
+            resetUI();
         }
     }
 
     async function stopAttack() {
-        appendLog("[*] Sending Stop Request...", "text-yellow-300");
+        stopBtn.disabled = true;
+        appendLog("[*] Broadcasting termination signal to process tree...");
         try {
             const res = await fetch('/api/attack/stop', { method: 'POST' });
             const data = await res.json();
-            if (data.status === 'success') resetButtons();
-            else appendLog(`[!] Error: ${data.message}`, "text-red-500 font-bold");
+            if (data.status === 'success') {
+                appendLog("[*] TERMINATION SIGNAL RECEIVED: Cleaning up assets.");
+            } else {
+                appendLog(`[!] STOP FAILED: ${data.message}`);
+                stopBtn.disabled = false;
+            }
         } catch (e) {
-            appendLog(`[!] API Error: ${e.message}`, "text-red-500 font-bold");
+            appendLog(`[!] SHUTDOWN API ERROR: ${e.message}`);
+            stopBtn.disabled = false;
         }
     }
 
-    function resetButtons() {
+    function resetUI() {
         startBtn.disabled = false;
-        startBtn.classList.replace('bg-surface-darker', 'bg-primary');
-        startBtn.classList.remove('cursor-not-allowed', 'opacity-50');
-        
         stopBtn.disabled = true;
-        stopBtn.classList.replace('bg-red-600', 'bg-surface-darker');
-        stopBtn.classList.replace('text-white', 'text-red-500/50');
-        stopBtn.classList.remove('shadow-[0_0_15px_rgba(220,38,38,0.5)]');
+        stopBtn.classList.add('pointer-events-none');
+        rpsChart.data.datasets[0].data = Array(60).fill(0);
+        bpsChart.data.datasets[0].data = Array(60).fill(0);
+        rpsChart.update('none');
+        bpsChart.update('none');
+        document.getElementById('current-rps').textContent = "0.00";
+        document.getElementById('current-bps').textContent = "0.00 B";
     }
 
-    // LocalStorage Memory functions
-    const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector'];
-
-    // Dynamic Field Visibility
-    function updateFieldVisibility() {
+    function updateVisibility() {
         const method = document.getElementById('method').value;
-        const rpcContainer = document.getElementById('rpc-container');
-        const proxyContainer = document.getElementById('proxy-container');
-        const reflectorContainer = document.getElementById('reflector-container');
+        const rpcC = document.getElementById('rpc-container');
+        const proxyC = document.getElementById('proxy-container');
+        const reflC = document.getElementById('reflector-container');
         
-        const LAYER7 = ["BYPASS", "CFB", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD", "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM", "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP"];
-        const LAYER4_AMP = ["MEM", "NTP", "DNS", "ARD", "CLDAP", "CHAR", "RDP"];
+        const L7 = ["CFB", "BYPASS", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD", "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM", "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP"];
+        const L4_AMP = ["MEM", "NTP", "DNS", "ARD", "CLDAP", "CHAR", "RDP"];
         
-        if (LAYER7.includes(method)) {
-            if(rpcContainer) rpcContainer.style.display = 'block';
-            if(proxyContainer) proxyContainer.style.display = 'block';
-            if(reflectorContainer) reflectorContainer.style.display = 'none';
-        } else if (LAYER4_AMP.includes(method)) {
-            if(rpcContainer) rpcContainer.style.display = 'none';
-            if(proxyContainer) proxyContainer.style.display = 'none';
-            if(reflectorContainer) reflectorContainer.style.display = 'block';
-        } else {
-            // LAYER4_NORMAL
-            if(rpcContainer) rpcContainer.style.display = 'none';
-            if(proxyContainer) proxyContainer.style.display = 'block';
-            if(reflectorContainer) reflectorContainer.style.display = 'none';
-        }
+        rpcC.style.display = L7.includes(method) ? 'block' : 'none';
+        reflC.style.display = L4_AMP.includes(method) ? 'block' : 'none';
+        
+        const L4_PROXIED = ["MINECRAFT", "MCBOT", "TCP", "CPS", "CONNECTION"];
+        proxyC.style.display = (L7.includes(method) || L4_PROXIED.includes(method)) ? 'block' : 'none';
     }
+
+    const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector'];
 
     function saveToMemory() {
         memoryFields.forEach(id => {
             const el = document.getElementById(id);
-            if (el) localStorage.setItem('mhddos_gui_' + id, el.value);
+            if (el) localStorage.setItem('mhddos_pro_v3_' + id, el.value);
         });
     }
 
     function loadFromMemory() {
         memoryFields.forEach(id => {
-            const val = localStorage.getItem('mhddos_gui_' + id);
-            if (val !== null) {
-                const el = document.getElementById(id);
-                if (el.tagName === 'SELECT') {
-                    const optionExists = Array.from(el.options).some(opt => opt.value === val);
-                    if (optionExists) el.value = val;
-                } else {
-                    el.value = val;
-                }
-            }
-            
-            // Add auto-save listeners
+            const val = localStorage.getItem('mhddos_pro_v3_' + id);
             const el = document.getElementById(id);
+            if (val !== null && el) el.value = val;
             if (el) {
                 el.addEventListener('input', saveToMemory);
-                el.addEventListener('change', saveToMemory);
-                if (id === 'method') {
-                    el.addEventListener('change', updateFieldVisibility);
-                }
+                el.addEventListener('change', () => { 
+                    saveToMemory(); 
+                    if(id==='method') updateVisibility(); 
+                });
             }
         });
     }
 
-    // Initialize
+    async function browseFile(inputId) {
+        try {
+            const res = await fetch('/api/select_file');
+            const data = await res.json();
+            if (data.path) {
+                document.getElementById(inputId).value = data.path;
+                saveToMemory();
+            }
+        } catch (e) { console.error(e); }
+    }
+
     window.onload = () => {
         loadFromMemory();
-        updateFieldVisibility();
+        updateVisibility();
         setupWebSocket();
     };
 </script>

@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <!-- Version: 1.0.3 Stable (Ultimate Tactical) Build: 2026-03-07-2100 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MHDDoS Professional | Control Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,FILL@0..1,GRAD@-25..0,opsz@20..48" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0df259",
+                        "secondary": "#3b82f6",
+                        "accent": "#f59e0b",
+                        "danger": "#ef4444",
+                        "background": "#020403",
+                        "surface": "#0a0f0d",
+                        "surface-light": "#111814",
+                        "border-tactical": "rgba(13, 242, 89, 0.12)"
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            background-color: #020403; 
+            color: #e2e8f0; 
+            background-image: 
+                linear-gradient(rgba(13, 242, 89, 0.01) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(13, 242, 89, 0.01) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .cyber-panel {
+            background: rgba(10, 15, 13, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(13, 242, 89, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95);
+        }
+        .neon-glow-primary { border-color: rgba(13, 242, 89, 0.4); box-shadow: 0 0 40px rgba(13, 242, 89, 0.02); }
+        .neon-text-primary { text-shadow: 0 0 15px rgba(13, 242, 89, 0.5); }
+        
+        .scanline {
+            width: 100%; height: 100%;
+            position: fixed; top: 0; left: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%);
+            background-size: 100% 4px;
+            pointer-events: none; z-index: 999; opacity: 0.1;
+        }
+
+        .chart-container { position: relative; height: 180px; width: 100%; }
+        
+        ::-webkit-scrollbar { width: 2px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #0df259; border-radius: 10px; }
+
+        .input-tactical {
+            background: #050806 !important;
+            border: 1px solid rgba(13, 242, 89, 0.1) !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .input-tactical:focus {
+            border-color: #0df259 !important;
+            box-shadow: 0 0 20px rgba(13, 242, 89, 0.1);
+        }
+        
+        .btn-initiate {
+            background: #0df259;
+            color: #020403;
+            box-shadow: 0 0 30px rgba(13, 242, 89, 0.2);
+        }
+        .btn-initiate:hover {
+            background: #0bff5e;
+            box-shadow: 0 0 50px rgba(13, 242, 89, 0.4);
+            transform: scale(1.02);
+        }
+        
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .blink { animation: blink 1.2s infinite; }
+        
+        select optgroup { background: #050806; font-family: sans-serif; font-size: 10px; color: #0df259; }
+        select option { background: #0d120f; color: white; padding: 12px; }
+    </style>
+</head>
+<body class="font-display overflow-x-hidden selection:bg-primary/20">
+<div class="scanline"></div>
+<div class="min-h-screen flex flex-col relative z-10">
+    
+    <!-- TOP NAVIGATION -->
+    <header class="cyber-panel sticky top-0 z-[100] px-12 py-5 flex items-center justify-between border-b border-primary/5">
+        <div class="flex items-center gap-6 group">
+            <div class="size-12 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-[0_0_30px_rgba(13,242,89,0.1)] group-hover:scale-110 transition-transform duration-500">
+                <span class="material-symbols-outlined text-3xl font-bold">radar</span>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black tracking-tighter uppercase italic">
+                    MHDDoS <span class="text-primary neon-text-primary">ULTIMATE</span>
+                </h1>
+                <div class="flex items-center gap-3">
+                    <span class="text-[8px] font-mono text-primary/60 tracking-[0.5em] uppercase">Tactical GUI v1.0.3</span>
+                    <div class="h-px w-8 bg-primary/20"></div>
+                    <span id="header-status" class="text-[8px] font-mono text-slate-600 uppercase tracking-widest">Engine: Standby</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-10">
+            <div id="status-chip" class="flex items-center gap-5 px-6 py-3 rounded-xl bg-black/60 border border-white/[0.03] hover:border-primary/20 transition-all">
+                <div class="relative flex h-3 w-3">
+                    <span id="status-pulse" class="absolute inline-flex h-full w-full rounded-full bg-slate-600 opacity-75"></span>
+                    <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-slate-600"></span>
+                </div>
+                <div class="flex flex-col">
+                    <span id="status-text" class="text-[10px] font-black uppercase tracking-widest text-slate-500 leading-none mb-1.5">Offline</span>
+                    <span id="uptime-text" class="text-[7px] font-mono text-slate-700 uppercase leading-none tracking-tighter italic">Auth: Root_X64</span>
+                </div>
+            </div>
+            <button class="size-10 rounded-full border border-white/5 flex items-center justify-center text-slate-600 hover:text-primary transition-all hover:bg-primary/5 hover:rotate-90 duration-500">
+                <span class="material-symbols-outlined text-2xl">settings_input_antenna</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 p-10 xl:p-16 max-w-[1920px] mx-auto w-full grid grid-cols-12 gap-12">
+        
+        <!-- CONTROL COLUMN (LEFT) -->
+        <aside class="col-span-12 lg:col-span-4 xl:col-span-3 flex flex-col gap-10">
+            
+            <!-- Target Intel Section -->
+            <section class="cyber-panel rounded-[2.5rem] p-10 space-y-10 neon-glow-primary relative overflow-hidden">
+                <div class="absolute -right-16 -top-16 size-48 bg-primary/5 rounded-full blur-[80px] pointer-events-none"></div>
+                <div class="flex items-center justify-between border-b border-primary/5 pb-6">
+                    <h2 class="text-[11px] font-black uppercase tracking-[0.4em] text-primary flex items-center gap-4">
+                        <span class="size-2 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center">
+                            <span class="size-1 rounded-full bg-primary blink"></span>
+                        </span> Trajectory
+                    </h2>
+                    <span class="text-[9px] font-mono text-slate-700">OSINT_SYNC_TAC</span>
+                </div>
+                
+                <div class="space-y-8">
+                    <div class="space-y-3 group">
+                        <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 block group-focus-within:text-primary transition-colors">Target Spec</label>
+                        <div class="relative">
+                            <input id="target" type="text" placeholder="URL OR IP:PORT" class="w-full input-tactical rounded-2xl py-5 pl-14 pr-4 text-sm font-mono text-white placeholder-slate-800 outline-none" />
+                            <span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-primary/30 group-focus-within:text-primary transition-colors text-xl">gps_fixed</span>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 block">Attack Vector (57 Methods)</label>
+                        <div class="relative">
+                            <select id="method" class="w-full input-tactical rounded-2xl py-4 px-6 text-xs text-white outline-none appearance-none cursor-pointer focus:bg-surface-light">
+                                <optgroup label="LAYER 7 (APPLICATION)">
+                                    <option value="GET">GET (Standard)</option>
+                                    <option value="POST">POST (HTTP Flood)</option>
+                                    <option value="BYPASS">BYPASS (Anti-DDoS)</option>
+                                    <option value="CFB">CFB (Cloudflare)</option>
+                                    <option value="CFBUAM">CFBUAM (UAM)</option>
+                                    <option value="OVH">OVH (Bypass)</option>
+                                    <option value="STRESS">STRESS (Payload)</option>
+                                    <option value="DYN">DYN (Subdomain)</option>
+                                    <option value="SLOW">SLOW (Slowloris)</option>
+                                    <option value="HEAD">HEAD (Standard)</option>
+                                    <option value="NULL">NULL (UserAgent)</option>
+                                    <option value="COOKIE">COOKIE (Random)</option>
+                                    <option value="PPS">PPS (HTTP/1.1)</option>
+                                    <option value="EVEN">EVEN (Headers)</option>
+                                    <option value="GSB">GSB (Shield)</option>
+                                    <option value="DGB">DGB (Guard)</option>
+                                    <option value="AVB">AVB (Arvan)</option>
+                                    <option value="BOT">BOT (Google)</option>
+                                    <option value="APACHE">APACHE (Exploit)</option>
+                                    <option value="XMLRPC">XMLRPC (WP)</option>
+                                    <option value="BOMB">BOMB (Bombardier)</option>
+                                    <option value="DOWNLOADER">DOWNLOADER</option>
+                                    <option value="KILLER">KILLER (Threads)</option>
+                                    <option value="TOR">TOR (Onion)</option>
+                                    <option value="RHEX">RHEX (Random HEX)</option>
+                                    <option value="STOMP">STOMP (Captcha)</option>
+                                </optgroup>
+                                <optgroup label="LAYER 4 (NORMAL)">
+                                    <option value="TCP">TCP (Standard)</option>
+                                    <option value="UDP">UDP (Standard)</option>
+                                    <option value="SYN">SYN (Flood)</option>
+                                    <option value="OVH-UDP">OVH-UDP</option>
+                                    <option value="CPS">CPS (Proxied)</option>
+                                    <option value="ICMP">ICMP (Echo)</option>
+                                    <option value="CONNECTION">CONNECTION</option>
+                                    <option value="VSE">VSE (Valve)</option>
+                                    <option value="TS3">TS3 (Teamspeak)</option>
+                                    <option value="FIVEM">FIVEM (Status)</option>
+                                    <option value="FIVEM-TOKEN">FIVEM-TOKEN</option>
+                                    <option value="MCBOT">MCBOT (Minecraft)</option>
+                                    <option value="MINECRAFT">MINECRAFT</option>
+                                    <option value="MCPE">MCPE (Pocket)</option>
+                                </optgroup>
+                                <optgroup label="LAYER 4 (AMPLIFICATION)">
+                                    <option value="DNS">DNS (Reflective)</option>
+                                    <option value="NTP">NTP (Reflective)</option>
+                                    <option value="MEM">MEM (Memcached)</option>
+                                    <option value="CHAR">CHAR (Chargen)</option>
+                                    <option value="CLDAP">CLDAP (Amp)</option>
+                                    <option value="ARD">ARD (Apple)</option>
+                                    <option value="RDP">RDP (Remote)</option>
+                                </optgroup>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-6 top-1/2 -translate-y-1/2 text-primary/40 pointer-events-none">expand_more</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="space-y-3 group">
+                            <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Threads</label>
+                            <input id="threads" type="number" value="100" class="w-full input-tactical rounded-2xl py-4 px-6 text-xs font-mono text-white outline-none" />
+                        </div>
+                        <div class="space-y-3 group">
+                            <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Limit (S)</label>
+                            <input id="duration" type="number" value="3600" class="w-full input-tactical rounded-2xl py-4 px-6 text-xs font-mono text-white outline-none" />
+                        </div>
+                    </div>
+
+                    <div id="rpc-container" class="space-y-3">
+                        <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Requests/Conn (RPC)</label>
+                        <input id="rpc" type="number" value="100" class="w-full input-tactical rounded-2xl py-4 px-6 text-xs font-mono text-white outline-none" />
+                    </div>
+                </div>
+            </section>
+
+            <!-- Asset Neural Hub -->
+            <section class="cyber-panel rounded-[2.5rem] p-10 space-y-8 border-l-2 border-l-secondary/20 relative overflow-hidden">
+                <div class="flex items-center gap-4 text-secondary mb-2 border-b border-white/[0.03] pb-6">
+                    <span class="material-symbols-outlined text-2xl font-bold">hub</span>
+                    <h2 class="text-[11px] font-black uppercase tracking-[0.4em]">Neural Assets</h2>
+                </div>
+                
+                <div id="proxy-container" class="space-y-8">
+                    <div class="space-y-3">
+                        <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 block">Proxy Logic (6 Methods)</label>
+                        <div class="relative">
+                            <select id="proxy_type" class="w-full input-tactical rounded-2xl py-4 px-6 text-xs text-white outline-none appearance-none cursor-pointer">
+                                <option value="SOCKS5">SOCKS5 (STABLE)</option>
+                                <option value="SOCKS4">SOCKS4 (LEGACY)</option>
+                                <option value="HTTP">HTTP (FAST)</option>
+                                <option value="HTTPS">HTTPS (SECURE)</option>
+                                <option value="All Proxy">ALL (ROTATED)</option>
+                                <option value="RANDOM">RANDOM (MIXED)</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-6 top-1/2 -translate-y-1/2 text-secondary/40 pointer-events-none">expand_more</span>
+                        </div>
+                    </div>
+                    <div class="space-y-3 group">
+                        <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 block">Payload Source (Local / Remote)</label>
+                        <div class="flex gap-4">
+                            <input id="proxy_list" type="text" value="proxies.txt" class="flex-1 input-tactical rounded-2xl py-4 px-6 text-[10px] font-mono text-white outline-none" />
+                            <button onclick="browseFile('proxy_list')" class="size-14 bg-surface-light border border-secondary/10 hover:border-secondary hover:text-secondary rounded-2xl flex items-center justify-center text-slate-500 transition-all active:scale-90 shadow-lg">
+                                <span class="material-symbols-outlined text-2xl">folder_managed</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="reflector-container" class="space-y-3 hidden">
+                    <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 block">Reflector Assets</label>
+                    <div class="flex gap-4">
+                        <input id="reflector" type="text" placeholder="reflectors.txt" class="flex-1 input-tactical rounded-2xl py-4 px-6 text-[10px] font-mono text-white outline-none" />
+                        <button onclick="browseFile('reflector')" class="size-14 bg-surface-light border border-secondary/10 hover:border-secondary hover:text-secondary rounded-2xl flex items-center justify-center text-slate-500 transition-all active:scale-90 shadow-lg">
+                            <span class="material-symbols-outlined text-2xl">folder_managed</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <div class="flex flex-col gap-6 mt-auto">
+                <button id="start-btn" onclick="startAttack()" class="w-full btn-initiate font-black py-7 rounded-[2rem] transition-all flex items-center justify-center gap-5 tracking-tighter uppercase text-xl group overflow-hidden relative active:scale-95">
+                    <div class="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-[1.5s] skew-x-12"></div>
+                    <span class="material-symbols-outlined font-black text-3xl group-hover:rotate-[360deg] transition-transform duration-1000">bolt</span>
+                    Deploy Vector
+                </button>
+                <button id="stop-btn" onclick="stopAttack()" class="w-full bg-black/40 border border-danger/20 text-danger/40 hover:bg-danger/5 hover:text-danger hover:border-danger rounded-[2rem] font-black py-5 transition-all flex items-center justify-center gap-4 tracking-widest uppercase text-[10px] disabled:opacity-10 disabled:grayscale pointer-events-none" disabled>
+                    <span class="material-symbols-outlined text-lg">power_settings_new</span> Terminate Sequence
+                </button>
+            </div>
+        </aside>
+
+        <!-- DATA COLUMN (RIGHT) -->
+        <div class="col-span-12 lg:col-span-8 xl:col-span-9 flex flex-col gap-12">
+            
+            <!-- Metrics Matrix -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-12">
+                <!-- PPS GRID -->
+                <div class="cyber-panel rounded-[3rem] p-12 border-l-[10px] border-l-primary shadow-2xl relative overflow-hidden group">
+                    <div class="absolute -right-24 -bottom-24 size-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none group-hover:bg-primary/10 transition-all duration-1000"></div>
+                    <div class="flex items-center justify-between mb-12 relative z-10">
+                        <div class="flex items-center gap-6">
+                            <div class="size-20 bg-primary/5 rounded-3xl flex items-center justify-center text-primary border border-primary/10 shadow-inner">
+                                <span class="material-symbols-outlined text-5xl">query_stats</span>
+                            </div>
+                            <div>
+                                <h3 class="text-[14px] font-black uppercase tracking-[0.5em] text-slate-500 mb-2 leading-none italic">Throughput</h3>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-[11px] font-mono text-primary/40 uppercase tracking-widest">PPS (Packets / Sec)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <div class="text-6xl font-mono font-black text-primary neon-text-primary tabular-nums tracking-tighter" id="current-rps">0.00</div>
+                            <span class="text-[9px] font-black text-slate-700 uppercase mt-3 tracking-[0.3em] flex items-center gap-3 italic">
+                                <span class="size-1.5 rounded-full bg-primary blink"></span> Real-time Stream
+                            </span>
+                        </div>
+                    </div>
+                    <div class="chart-container relative z-10">
+                        <canvas id="rpsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- BPS GRID -->
+                <div class="cyber-panel rounded-[3rem] p-12 border-l-[10px] border-l-secondary shadow-2xl relative overflow-hidden group">
+                    <div class="absolute -right-24 -bottom-24 size-96 bg-secondary/5 rounded-full blur-[120px] pointer-events-none group-hover:bg-secondary/10 transition-all duration-1000"></div>
+                    <div class="flex items-center justify-between mb-12 relative z-10">
+                        <div class="flex items-center gap-6">
+                            <div class="size-20 bg-secondary/5 rounded-3xl flex items-center justify-center text-secondary border border-secondary/10 shadow-inner">
+                                <span class="material-symbols-outlined text-5xl">swap_calls</span>
+                            </div>
+                            <div>
+                                <h3 class="text-[14px] font-black uppercase tracking-[0.5em] text-slate-500 mb-2 leading-none italic">Transmission</h3>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-[11px] font-mono text-secondary/40 uppercase tracking-widest">BPS (Bytes / Sec)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <div class="text-6xl font-mono font-black text-secondary tabular-nums tracking-tighter" id="current-bps">0.00 B</div>
+                            <span class="text-[9px] font-black text-slate-700 uppercase mt-3 tracking-[0.3em] flex items-center gap-3 italic">
+                                <span class="size-1.5 rounded-full bg-secondary blink"></span> Fiber Logic Link
+                            </span>
+                        </div>
+                    </div>
+                    <div class="chart-container relative z-10">
+                        <canvas id="bpsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TACTICAL FEED CONSOLE -->
+            <div class="cyber-panel rounded-[3rem] overflow-hidden flex flex-col flex-1 min-h-[600px] border border-white/[0.02] shadow-2xl">
+                <div class="bg-surface-light/50 px-12 py-6 border-b border-white/[0.03] flex items-center justify-between">
+                    <div class="flex items-center gap-6">
+                        <div class="flex items-center gap-2">
+                            <div class="size-2 rounded-full bg-danger/40 border border-danger/60"></div>
+                            <div class="size-2 rounded-full bg-accent/40 border border-accent/60"></div>
+                            <div class="size-2 rounded-full bg-primary/40 border border-primary/60"></div>
+                        </div>
+                        <h3 class="text-[12px] font-black uppercase tracking-[0.6em] text-slate-500 ml-6 italic">Tactical Engine Pipeline</h3>
+                    </div>
+                    <div class="flex gap-10 items-center">
+                        <span class="text-[10px] font-mono text-slate-700 uppercase tracking-widest">LOG_BUFFER: 500_LINES</span>
+                        <div class="h-6 w-px bg-white/5"></div>
+                        <button class="text-[10px] font-black text-primary/40 uppercase hover:text-primary transition-colors tracking-[0.2em] active:scale-95" onclick="term.innerHTML=''">Purge Matrix</button>
+                    </div>
+                </div>
+                <div id="terminal-content" class="bg-[#010201] p-12 flex-1 overflow-y-auto font-mono text-[12px] leading-relaxed scroll-smooth selection:bg-primary/10">
+                    <div class="flex items-center gap-6 mb-4 border-l-4 border-primary/40 pl-8 py-3 bg-primary/5 rounded-r-3xl">
+                        <span class="text-primary font-black uppercase tracking-tighter">[SYSTEM]</span>
+                        <span class="text-slate-200 font-bold text-sm tracking-tighter">Tactical Command Interface v1.0.3 Stable Operational.</span>
+                    </div>
+                    <div class="flex items-center gap-6 mb-10 pl-8 border-l-4 border-slate-800">
+                        <span class="text-slate-600 font-black uppercase tracking-tighter">[KERNEL]</span>
+                        <span class="text-slate-600 italic uppercase text-[11px] tracking-[0.3em] font-medium">Neural-Handshaking Complete... Standing by.</span>
+                    </div>
+                </div>
+                <!-- Infrastructure Matrix -->
+                <div class="bg-black/90 px-12 py-5 flex items-center justify-between border-t border-white/[0.03]">
+                    <div class="flex gap-16 items-center">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[9px] text-slate-700 font-black uppercase tracking-widest">Transmission_IO</span>
+                            <span class="text-[11px] text-primary/60 font-mono tracking-tighter uppercase">Status: Sync_Enabled</span>
+                        </div>
+                        <div class="flex flex-col gap-1 border-l border-white/5 pl-16">
+                            <span class="text-[9px] text-slate-700 font-black uppercase tracking-widest">Enc_Algorithm</span>
+                            <span class="text-[11px] text-secondary/60 font-mono tracking-tighter uppercase">AES-256-TAC-SYNC</span>
+                        </div>
+                    </div>
+                    <div class="font-mono text-[11px] text-slate-800 tracking-[0.8em] uppercase italic font-bold">MH-ULTIMATE-TACTICAL</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER NAV -->
+    <footer class="mt-auto px-20 py-12 flex items-center justify-between border-t border-white/[0.02] bg-black/60 backdrop-blur-3xl">
+        <div class="flex items-center gap-20">
+            <div class="flex flex-col gap-2">
+                <span class="text-slate-700 font-black text-[10px] uppercase tracking-[0.3em]">Build Architecture</span>
+                <div class="flex items-center gap-5">
+                    <span class="text-primary font-black text-sm italic tracking-tighter uppercase">v1.0.3 STABLE</span>
+                    <span class="size-2 rounded-full bg-slate-800"></span>
+                    <span class="text-slate-400 font-black text-[12px] uppercase tracking-widest italic">Ultimate Command HUD Edition</span>
+                </div>
+            </div>
+            <div class="h-16 w-px bg-white/[0.05]"></div>
+            <div class="flex flex-col gap-2">
+                <span class="text-slate-700 font-black text-[10px] uppercase tracking-[0.3em]">Deployment Profile</span>
+                <span class="text-white font-black text-[12px] uppercase tracking-widest leading-none">Tier-1 High-Density Tactical GUI</span>
+            </div>
+        </div>
+        
+        <div class="flex flex-col items-end gap-3">
+            <span class="text-slate-700 font-black text-[10px] uppercase tracking-widest italic leading-none">Control Origin</span>
+            <a href="https://github.com/naravid19/MHDDoS-GUI" target="_blank" class="flex items-center gap-5 group px-8 py-4 rounded-[2rem] bg-white/[0.02] border border-white/[0.03] hover:border-primary/20 hover:bg-primary/5 transition-all shadow-2xl active:scale-95">
+                <svg class="size-7 text-slate-600 group-hover:text-primary transition-all group-hover:scale-110" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path></svg>
+                <span class="text-slate-500 group-hover:text-slate-200 font-black text-sm tracking-tighter uppercase">naravid19 / MHDDoS-GUI</span>
+            </a>
+        </div>
+    </footer>
+</div>
+
+<script>
+    let ws;
+    const term = document.getElementById('terminal-content');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const statusPulse = document.getElementById('status-pulse');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const uptimeText = document.getElementById('uptime-text');
+    const headerStatus = document.getElementById('header-status');
+    
+    // --- Tactical Charting Engine ---
+    const buildChart = (color, label) => ({
+        type: 'line',
+        data: {
+            labels: Array(60).fill(''),
+            datasets: [{
+                label: label,
+                data: Array(60).fill(0),
+                borderColor: color,
+                borderWidth: 5,
+                fill: 'start',
+                backgroundColor: (ctx) => {
+                    const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 200);
+                    gradient.addColorStop(0, color + '66');
+                    gradient.addColorStop(1, 'transparent');
+                    return gradient;
+                },
+                pointRadius: 0,
+                tension: 0.45,
+                cubicInterpolationMode: 'monotone'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 350 },
+            scales: {
+                x: { display: false },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.01)', drawBorder: false },
+                    ticks: { 
+                        color: '#334155', 
+                        font: { size: 10, family: 'JetBrains Mono', weight: 'bold' },
+                        maxTicksLimit: 6,
+                        callback: (v) => v >= 1000 ? (v/1000).toFixed(1) + 'k' : v
+                    }
+                }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    const rpsChart = new Chart(document.getElementById('rpsChart'), buildChart('#0df259', 'PPS'));
+    const bpsChart = new Chart(document.getElementById('bpsChart'), buildChart('#3b82f6', 'BPS'));
+
+    function updateCharts(rpsRaw, bpsStr) {
+        // Data Normalization Hub
+        let valRps = parseFloat(rpsRaw.replace(/[^0-9.]/g, '')) || 0;
+        if (rpsRaw.toLowerCase().includes('k')) valRps *= 1000;
+        else if (rpsRaw.toLowerCase().includes('m')) valRps *= 1000000;
+        
+        document.getElementById('current-rps').textContent = rpsRaw;
+        rpsChart.data.datasets[0].data.push(valRps);
+        rpsChart.data.datasets[0].data.shift();
+        rpsChart.update('none');
+
+        document.getElementById('current-bps').textContent = bpsStr;
+        let valBps = parseFloat(bpsStr.replace(/[^0-9.]/g, '')) || 0;
+        const bpsLower = bpsStr.toLowerCase();
+        if (bpsLower.includes('gb')) valBps *= 1024;
+        else if (bpsLower.includes('mb')) valBps *= 1;
+        else if (bpsLower.includes('kb')) valBps /= 1024;
+        else valBps /= (1024 * 1024); // Normalized to Mbps
+
+        bpsChart.data.datasets[0].data.push(valBps);
+        bpsChart.data.datasets[0].data.shift();
+        bpsChart.update('none');
+    }
+
+    // --- Neural Metric Parser (V3.1 Enhanced) ---
+    function parseMetrics(msg) {
+        // Essential: Deep clean logs before regex (strip ANSI & whitespace)
+        const cleanMsg = msg.replace(/\x1B\[[0-9;]*[mK]/g, '').trim(); 
+        
+        // Exact Regex Matching for MHDDoS v1.0.2/1.0.3 INFO Log Format
+        const rpsMatch = cleanMsg.match(/PPS:\s*([\d\.kmgtp]+)/i);
+        const bpsMatch = cleanMsg.match(/BPS:\s*([\d\.]+\s*[a-zA-Z\/]+)/i);
+        
+        if (rpsMatch || bpsMatch) {
+            const rps = rpsMatch ? rpsMatch[1] : "0.00";
+            const bps = bpsMatch ? bpsMatch[1].split('/')[0].trim() : "0.00 B";
+            updateCharts(rps, bps);
+            return true;
+        }
+        return false;
+    }
+
+    function appendLog(msg) {
+        const line = document.createElement('div');
+        line.className = "flex items-start gap-6 mb-4 transition-all hover:bg-white/[0.03] px-6 py-2 rounded-2xl border-l-2 border-transparent hover:border-primary/20 group";
+        
+        let labelColor = "text-primary";
+        let labelText = "[SYSTEM]";
+        let msgColor = "text-slate-400";
+
+        const upperMsg = msg.toUpperCase();
+        if (msg.includes("[!]")) { 
+            labelColor = "text-danger"; 
+            labelText = "[CRITICAL]"; 
+            msgColor = "text-danger/90 font-black tracking-tight";
+        } else if (msg.includes("[*]")) { 
+            labelColor = "text-accent"; 
+            labelText = "[INTEL]"; 
+            msgColor = "text-accent/90";
+        } else if (upperMsg.includes("STARTED") || upperMsg.includes("EXECUTING")) {
+            labelColor = "text-primary";
+            labelText = "[DEPLOY]";
+            msgColor = "text-white font-black italic tracking-tight uppercase";
+        } else if (upperMsg.includes("TERMINATED") || upperMsg.includes("STOPPED")) {
+            labelColor = "text-secondary";
+            labelText = "[PURGED]";
+            msgColor = "text-secondary/80 font-black italic";
+        }
+
+        line.innerHTML = `
+            <span class="${labelColor} font-black min-w-[95px] tracking-tighter text-[10px] uppercase mt-0.5">${labelText}</span>
+            <span class="${msgColor} flex-1 group-hover:text-slate-200 transition-colors">${msg}</span>
+        `;
+        term.appendChild(line);
+        term.scrollTop = term.scrollHeight;
+        if (term.childNodes.length > 500) term.removeChild(term.firstChild);
+    }
+
+    function setupWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
+        
+        ws.onopen = () => {
+            appendLog("Tactical neural link verified. Grid connection secured.");
+            statusPulse.classList.add('animate-ping');
+            statusPulse.classList.replace('bg-slate-600', 'bg-primary');
+            statusDot.classList.replace('bg-slate-600', 'bg-primary');
+            statusText.textContent = "Operational";
+            statusText.classList.replace('text-slate-500', 'text-primary');
+            uptimeText.textContent = "C2 Status: Active";
+            headerStatus.textContent = "Engine: Active_Uplink";
+            headerStatus.classList.replace('text-slate-600', 'text-primary/80');
+        };
+        
+        ws.onmessage = (event) => {
+            const msg = event.data;
+            if (!parseMetrics(msg)) {
+                appendLog(msg);
+            }
+            if (msg.toLowerCase().includes("terminated gracefully") || msg.toLowerCase().includes("critical error")) {
+                resetUI();
+            }
+        };
+        
+        ws.onclose = () => {
+            appendLog("[!] Critical: Transmission link severed. Re-shuffling frequencies...", "critical");
+            statusPulse.classList.remove('animate-ping');
+            statusPulse.classList.replace('bg-primary', 'bg-danger');
+            statusDot.classList.replace('bg-primary', 'bg-danger');
+            statusText.textContent = "Link Broken";
+            statusText.classList.replace('text-primary', 'text-danger');
+            uptimeText.textContent = "Signal Search";
+            headerStatus.textContent = "Engine: Link_Loss";
+            setTimeout(setupWebSocket, 3000);
+        };
+    }
+
+    async function startAttack() {
+        const target = document.getElementById('target').value;
+        if (!target) return alert("ACCESS DENIED: TARGET COORDINATES MISSING");
+        
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        
+        const params = {
+            target: target,
+            method: document.getElementById('method').value,
+            threads: document.getElementById('threads').value,
+            duration: document.getElementById('duration').value,
+            proxy_type: document.getElementById('proxy_type').value,
+            proxy_list: document.getElementById('proxy_list').value,
+            rpc: document.getElementById('rpc').value,
+            reflector: document.getElementById('reflector').value,
+        };
+
+        saveToMemory();
+        appendLog("[*] Calibrating primary engines... deploying threads.");
+        
+        try {
+            const res = await fetch('/api/attack/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            const data = await res.json();
+            if (data.status === 'error') {
+                appendLog(`[!] DEPLOYMENT ABORTED: ${data.message}`);
+                resetUI();
+            }
+        } catch (e) {
+            appendLog(`[!] API LINK ERROR: ${e.message}`);
+            resetUI();
+        }
+    }
+
+    async function stopAttack() {
+        appendLog("[*] Broadcasting global emergency kill-switch signal...");
+        try {
+            await fetch('/api/attack/stop', { method: 'POST' });
+        } catch (e) {
+            appendLog(`[!] SHUTDOWN SEQUENCE FAILED: ${e.message}`);
+        }
+    }
+
+    function resetUI() {
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        rpsChart.data.datasets[0].data = Array(60).fill(0);
+        bpsChart.data.datasets[0].data = Array(60).fill(0);
+        rpsChart.update();
+        bpsChart.update();
+        document.getElementById('current-rps').textContent = "0.00";
+        document.getElementById('current-bps').textContent = "0.00 B";
+    }
+
+    const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector'];
+
+    function updateVisibility() {
+        const method = document.getElementById('method').value;
+        const rpcC = document.getElementById('rpc-container');
+        const proxyC = document.getElementById('proxy-container');
+        const reflC = document.getElementById('reflector-container');
+        
+        const L7 = ["CFB", "BYPASS", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD", "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM", "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP"];
+        const L4_AMP = ["MEM", "NTP", "DNS", "ARD", "CLDAP", "CHAR", "RDP"];
+        
+        rpcC.style.display = L7.includes(method) ? 'block' : 'none';
+        reflC.style.display = L4_AMP.includes(method) ? 'block' : 'none';
+        
+        const L4_PROXIED = ["MINECRAFT", "MCBOT", "TCP", "CPS", "CONNECTION"];
+        proxyC.style.display = (L7.includes(method) || L4_PROXIED.includes(method)) ? 'block' : 'none';
+    }
+
+    function saveToMemory() {
+        memoryFields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) localStorage.setItem('mhddos_v3_final_' + id, el.value);
+        });
+    }
+
+    function loadFromMemory() {
+        memoryFields.forEach(id => {
+            const val = localStorage.getItem('mhddos_v3_final_' + id);
+            const el = document.getElementById(id);
+            if (val !== null && el) el.value = val;
+            if (el) {
+                el.addEventListener('input', saveToMemory);
+                el.addEventListener('change', () => { 
+                    saveToMemory(); 
+                    if(id==='method') updateVisibility(); 
+                });
+            }
+        });
+    }
+
+    async function browseFile(inputId) {
+        try {
+            const res = await fetch('/api/select_file');
+            const data = await res.json();
+            if (data.path) {
+                document.getElementById(inputId).value = data.path;
+                saveToMemory();
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    window.onload = () => {
+        loadFromMemory();
+        updateVisibility();
+        setupWebSocket();
+    };
+</script>
+</body>
+</html>

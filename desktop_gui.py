@@ -6,7 +6,7 @@ import webview
 from typing import Optional
 
 def main() -> None:
-    print("[*] Starting MHDDoS Professional API Server v1.0.1...")
+    print("[*] Starting MHDDoS Professional API Server v1.0.3...")
     # Start the FastAPI server asynchronously relative to this script
     server_process: Optional[subprocess.Popen] = None
     try:
@@ -20,12 +20,12 @@ def main() -> None:
         
         # Create the pywebview window
         webview.create_window(
-            title="MHDDoS-GUI v1.0.1", 
+            title="MHDDoS Professional v1.0.3 | Tactical Dashboard", 
             url=url, 
-            width=1200, 
-            height=800, 
+            width=1280, 
+            height=850, 
             resizable=True,
-            background_color='#111827' # Tailwind gray-900 to match the dark theme
+            background_color='#020617' # Tailwind slate-950 to match the new dark theme
         )
         
         # Start the webview application. This blocks until the window is closed.

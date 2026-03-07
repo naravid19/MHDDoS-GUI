@@ -60,7 +60,7 @@ if hasattr(ctx, "minimum_version") and hasattr(ssl, "TLSVersion"):
 # if hasattr(ssl, "OP_NO_TLSv1_1"):
 #     ctx.options |= ssl.OP_NO_TLSv1_1
 
-__version__: str = "1.0.1"
+__version__: str = "1.0.3"
 __dir__: Path = Path(__file__).parent
 __ip__: Any = None
 tor2webs = [
@@ -1896,8 +1896,8 @@ if __name__ == '__main__':
             event.set()
             ts = time()
             while time() < ts + timer:
-                logger.debug(
-                    f'{bcolors.WARNING}Target:{bcolors.OKBLUE} %s,{bcolors.WARNING} Port:{bcolors.OKBLUE} %s,{bcolors.WARNING} Method:{bcolors.OKBLUE} %s{bcolors.WARNING} PPS:{bcolors.OKBLUE} %s,{bcolors.WARNING} BPS:{bcolors.OKBLUE} %s / %d%%{bcolors.RESET}' %
+                logger.info(
+                    f'Target: %s, Port: %s, Method: %s PPS: %s, BPS: %s / %d%%' %
                     (target or url.host,
                      port or (url.port or 80),
                      method,

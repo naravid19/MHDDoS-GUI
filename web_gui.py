@@ -6,7 +6,7 @@ import sys
 from typing import Optional
 
 def main() -> None:
-    print("[*] Starting MHDDoS Professional Web Server v1.0.1...")
+    print("[*] Starting MHDDoS Professional Web Server v1.0.3...")
     # Start the FastAPI server as a subprocess
     server_process: Optional[subprocess.Popen] = None
     try:

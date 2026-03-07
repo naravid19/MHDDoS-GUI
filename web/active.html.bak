@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MHDDoS Active Attack Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f20d0d",
+                        "background-light": "#f8f5f5",
+                        "background-dark": "#221010",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: "Space Grotesk", sans-serif; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display min-h-screen flex flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col w-full">
+<div class="px-4 sm:px-10 lg:px-40 flex flex-1 justify-center py-5 w-full">
+<div class="layout-content-container flex flex-col max-w-[1200px] w-full flex-1 gap-6">
+<!-- Header -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-primary/20 pb-4">
+<div class="flex items-center gap-4 text-primary">
+<span class="material-symbols-outlined text-2xl">radar</span>
+<h2 class="text-xl font-bold leading-tight tracking-[-0.015em] text-slate-900 dark:text-slate-100">MHDDoS Professional</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-primary font-bold leading-normal border-b-2 border-primary pb-1" href="#">Dashboard</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 font-medium leading-normal transition-colors" href="#">Targets</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 font-medium leading-normal transition-colors" href="#">Proxies</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 font-medium leading-normal transition-colors" href="#">Settings</a>
+</nav>
+<div class="bg-primary/20 bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 flex items-center justify-center text-primary font-bold">
+<span class="material-symbols-outlined">person</span>
+</div>
+</div>
+</header>
+<!-- Status Banner & Timer -->
+<div class="flex flex-col md:flex-row items-center justify-between bg-primary/10 border border-primary/30 rounded-xl p-6 shadow-[0_0_15px_rgba(242,13,13,0.15)]">
+<div class="flex flex-col mb-4 md:mb-0">
+<div class="flex items-center gap-3 mb-2">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+</span>
+<h2 class="text-primary text-2xl font-bold leading-tight tracking-wide uppercase">Attack in Progress</h2>
+</div>
+<p class="text-xl font-medium text-slate-700 dark:text-slate-300">Target: <span class="text-blue-500 dark:text-blue-400 font-mono tracking-wider drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]">192.168.1.100</span> | Port: 80</p>
+</div>
+<div class="flex gap-4">
+<div class="flex flex-col items-center gap-1">
+<div class="flex h-14 w-14 items-center justify-center rounded-lg bg-background-light dark:bg-black/40 border border-primary/20 shadow-inner">
+<p class="text-primary text-xl font-bold font-mono">00</p>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Days</p>
+</div>
+<div class="text-primary text-2xl font-bold mt-2">:</div>
+<div class="flex flex-col items-center gap-1">
+<div class="flex h-14 w-14 items-center justify-center rounded-lg bg-background-light dark:bg-black/40 border border-primary/20 shadow-inner">
+<p class="text-primary text-xl font-bold font-mono">00</p>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Hours</p>
+</div>
+<div class="text-primary text-2xl font-bold mt-2">:</div>
+<div class="flex flex-col items-center gap-1">
+<div class="flex h-14 w-14 items-center justify-center rounded-lg bg-background-light dark:bg-black/40 border border-primary/20 shadow-inner">
+<p class="text-primary text-xl font-bold font-mono">15</p>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Mins</p>
+</div>
+<div class="text-primary text-2xl font-bold mt-2">:</div>
+<div class="flex flex-col items-center gap-1">
+<div class="flex h-14 w-14 items-center justify-center rounded-lg bg-background-light dark:bg-black/40 border border-primary/20 shadow-inner">
+<p class="text-primary text-xl font-bold font-mono">42</p>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Secs</p>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex gap-4 justify-end">
+<button class="px-6 py-3 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider cursor-not-allowed flex items-center gap-2 border border-slate-300 dark:border-slate-700" disabled="">
+<span class="material-symbols-outlined">play_arrow</span>
+                        Start Attack
+                    </button>
+<button class="px-8 py-3 rounded-lg bg-primary text-white font-bold uppercase tracking-wider hover:bg-red-700 transition-colors shadow-[0_0_20px_rgba(242,13,13,0.4)] border border-red-400 flex items-center gap-2">
+<span class="material-symbols-outlined">stop</span>
+                        Stop Attack
+                    </button>
+</div>
+<!-- Statistics Grid -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="flex flex-col gap-2 rounded-xl p-5 bg-white dark:bg-black/30 border border-slate-200 dark:border-primary/10 shadow-sm backdrop-blur-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 p-3 opacity-20"><span class="material-symbols-outlined text-4xl">cloud_upload</span></div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider z-10">Total Data Sent</p>
+<p class="text-slate-900 dark:text-slate-100 tracking-tight text-3xl font-bold z-10">45.2 <span class="text-lg text-slate-500">GB</span></p>
+<div class="flex items-center gap-1 text-green-500 dark:text-green-400 text-sm font-medium z-10 mt-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +1.2%
+                        </div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl p-5 bg-white dark:bg-black/30 border border-slate-200 dark:border-primary/10 shadow-sm backdrop-blur-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 p-3 opacity-20"><span class="material-symbols-outlined text-4xl">memory</span></div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider z-10">Current Threads</p>
+<p class="text-slate-900 dark:text-slate-100 tracking-tight text-3xl font-bold z-10">98<span class="text-lg text-slate-500">/100</span></p>
+<div class="flex items-center gap-1 text-blue-500 dark:text-blue-400 text-sm font-medium z-10 mt-1">
+<span class="material-symbols-outlined text-sm">check_circle</span> Near Max Capacity
+                        </div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl p-5 bg-white dark:bg-black/30 border border-slate-200 dark:border-primary/10 shadow-sm backdrop-blur-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 p-3 opacity-20"><span class="material-symbols-outlined text-4xl">verified</span></div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider z-10">Success Rate</p>
+<p class="text-slate-900 dark:text-slate-100 tracking-tight text-3xl font-bold z-10">99.8<span class="text-lg text-slate-500">%</span></p>
+<div class="flex items-center gap-1 text-green-500 dark:text-green-400 text-sm font-medium z-10 mt-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +0.1%
+                        </div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl p-5 bg-white dark:bg-black/30 border border-slate-200 dark:border-primary/10 shadow-sm backdrop-blur-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 p-3 opacity-20"><span class="material-symbols-outlined text-4xl">router</span></div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider z-10">Proxy Health</p>
+<p class="text-slate-900 dark:text-slate-100 tracking-tight text-3xl font-bold z-10">95<span class="text-lg text-slate-500">%</span></p>
+<div class="flex items-center gap-1 text-primary text-sm font-medium z-10 mt-1">
+<span class="material-symbols-outlined text-sm">trending_down</span> -1.5%
+                        </div>
+</div>
+</div>
+<!-- Live Traffic Visualization -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Traffic Volume -->
+<div class="flex flex-col gap-4 rounded-xl border border-slate-200 dark:border-primary/20 bg-white/50 dark:bg-black/40 backdrop-blur-md p-6 shadow-lg">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider">Traffic Volume</p>
+<p class="text-slate-900 dark:text-slate-100 tracking-tight text-3xl font-bold leading-tight mt-1 flex items-baseline gap-2">
+                                    15.2 <span class="text-lg text-slate-500">Gbps</span>
+</p>
+</div>
+<div class="text-right">
+<p class="text-slate-500 dark:text-slate-400 text-xs">Last 5 mins</p>
+<p class="text-green-500 dark:text-green-400 text-sm font-medium drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]">+2.5 Gbps</p>
+</div>
+</div>
+<div class="flex min-h-[200px] flex-1 flex-col justify-end relative mt-2 border-b border-l border-slate-200 dark:border-slate-700 pb-2 pl-2">
+<!-- Abstract Chart Representation -->
+<div class="absolute inset-0 pl-2 pb-2">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<!-- Neon Green Line -->
+<path class="drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]" d="M0,80 Q10,75 20,60 T40,50 T60,20 T80,30 T100,10" fill="none" stroke="#22c55e" stroke-width="2"></path>
+<!-- Area Fill -->
+<path d="M0,80 Q10,75 20,60 T40,50 T60,20 T80,30 T100,10 L100,100 L0,100 Z" fill="url(#gradGreen)" opacity="0.2"></path>
+<defs>
+<lineargradient id="gradGreen" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#22c55e" stop-opacity="1"></stop>
+<stop offset="100%" stop-color="#22c55e" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+<!-- Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between opacity-10 pointer-events-none">
+<div class="border-b border-slate-500 w-full h-0"></div>
+<div class="border-b border-slate-500 w-full h-0"></div>
+<div class="border-b border-slate-500 w-full h-0"></div>
+<div class="border-b border-slate-500 w-full h-0"></div>
+</div>
+</div>
+<div class="flex justify-between text-slate-400 dark:text-slate-500 text-xs font-medium px-2">
+<p>14:00</p>
+<p>14:01</p>
+<p>14:02</p>
+<p>14:03</p>
+<p>14:04</p>
+</div>
+</div>
+<!-- Requests per Second -->
+<div class="flex flex-col gap-4 rounded-xl border border-slate-200 dark:border-primary/20 bg-white/50 dark:bg-black/40 backdrop-blur-md p-6 shadow-lg">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase tracking-wider">Requests per Second</p>
+<p class="text-slate-900 dark:text-slate-100 tracking-tight text-3xl font-bold leading-tight mt-1 flex items-baseline gap-2">
+                                    245K <span class="text-lg text-slate-500">RPS</span>
+</p>
+</div>
+<div class="text-right">
+<p class="text-slate-500 dark:text-slate-400 text-xs">Last 5 mins</p>
+<p class="text-blue-500 dark:text-blue-400 text-sm font-medium drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]">+15K RPS</p>
+</div>
+</div>
+<div class="flex min-h-[200px] flex-1 flex-col justify-end relative mt-2 border-b border-l border-slate-200 dark:border-slate-700 pb-2 pl-2">
+<!-- Abstract Chart Representation -->
+<div class="absolute inset-0 pl-2 pb-2">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<!-- Neon Blue Line -->
+<path class="drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]" d="M0,90 Q15,80 25,65 T45,40 T65,35 T85,15 T100,5" fill="none" stroke="#3b82f6" stroke-width="2"></path>
+<!-- Area Fill -->
+<path d="M0,90 Q15,80 25,65 T45,40 T65,35 T85,15 T100,5 L100,100 L0,100 Z" fill="url(#gradBlue)" opacity="0.2"></path>
+<defs>
+<lineargradient id="gradBlue" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#3b82f6" stop-opacity="1"></stop>
+<stop offset="100%" stop-color="#3b82f6" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+<!-- Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between opacity-10 pointer-events-none">
+<div class="border-b border-slate-500 w-full h-0"></div>
+<div class="border-b border-slate-500 w-full h-0"></div>
+<div class="border-b border-slate-500 w-full h-0"></div>
+<div class="border-b border-slate-500 w-full h-0"></div>
+</div>
+</div>
+<div class="flex justify-between text-slate-400 dark:text-slate-500 text-xs font-medium px-2">
+<p>14:00</p>
+<p>14:01</p>
+<p>14:02</p>
+<p>14:03</p>
+<p>14:04</p>
+</div>
+</div>
+</div>
+<!-- Console Output -->
+<div class="flex flex-col rounded-xl border border-slate-700 bg-[#0a0a0a] shadow-inner mt-4 overflow-hidden h-64">
+<div class="bg-slate-800/80 px-4 py-2 border-b border-slate-700 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400 text-sm">terminal</span>
+<span class="text-slate-300 text-xs font-mono uppercase tracking-wider">Live Attack Log</span>
+</div>
+<div class="flex gap-1.5">
+<div class="w-3 h-3 rounded-full bg-slate-600"></div>
+<div class="w-3 h-3 rounded-full bg-slate-600"></div>
+<div class="w-3 h-3 rounded-full bg-slate-600"></div>
+</div>
+</div>
+<div class="p-4 overflow-y-auto font-mono text-sm leading-relaxed text-green-400/90 flex-1">
+<div class="opacity-50 text-slate-400">[14:00:12] Initializing attack vectors...</div>
+<div class="opacity-50 text-slate-400">[14:00:15] Resolving target IP: 192.168.1.100</div>
+<div>[14:00:18] Threads allocated: 98/100</div>
+<div>[14:01:05] <span class="text-white">Attacking target...</span></div>
+<div>[14:01:22] <span class="text-blue-300">Packet sent...</span> [Size: 65500 bytes]</div>
+<div>[14:01:23] <span class="text-blue-300">Packet sent...</span> [Size: 65500 bytes]</div>
+<div class="text-yellow-400">[14:01:45] Proxy node 4 latency spike detected (150ms). Retrying...</div>
+<div>[14:02:10] <span class="text-white">L7 bypass successful...</span> (CF-Ray ID generated)</div>
+<div>[14:02:11] Flooding endpoint /api/v1/auth</div>
+<div>[14:02:15] <span class="text-blue-300">Packet sent...</span> [Status: 200 OK]</div>
+<div>[14:02:16] <span class="text-blue-300">Packet sent...</span> [Status: 503 Service Unavailable]</div>
+<div class="text-primary font-bold">[14:02:20] Target response timeout. Possible mitigation triggered.</div>
+<div>[14:02:25] Rotating User-Agents and IP addresses...</div>
+<div>[14:02:30] <span class="text-white">Attacking target...</span> (Layer 4 TCP SYN flood resumed)</div>
+<div class="animate-pulse">_</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>
