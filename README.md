@@ -76,9 +76,10 @@ Say goodbye to complex console commands. Now you can select proxies, tune thread
 - **Premium UX/UI**: Designed using Tailwind CSS and React for a modern, dark-theme `glassmorphism` experience.
 - **Real-time Console**: Live streaming of attack logs directly into the UI via WebSockets.
 - **Easy Configurability**: Intuitive controls for methods, threads, proxies, reflectors, and duration.
+- **Remote Proxy Support**: Streamline proxy logic by importing massive proxy lists straight from `http://` / `https://` URLs seamlessly into memory. The core now reliably logic-scrapes endpoints with custom Regex mapping to ensure no lists are dropped.
 - **Smart Contextual UI**: Dynamically shows or hides relevant Input Fields (like Proxies, Reflectors, and RPC) depending on whether a Layer 4 or Layer 7 attack method is selected.
 - **Auto-Saving Settings**: Retains your configuration (Target, Method, Threads, etc.) across sessions using browser LocalStorage.
-- **Full Compatibility**: Supports all 57 attack layers (L4 and L7) from the original MHDDoS core.
+- **Full Compatibility and Stable**: Supports all 57 attack layers (L4 and L7) from the original MHDDoS core with enhanced internal handling for error-free multi-threading.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
