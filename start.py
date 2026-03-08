@@ -57,8 +57,8 @@ from psutil import cpu_percent, net_io_counters, process_iter, virtual_memory
 from requests import Response, Session, get, cookies
 from yarl import URL
 
-# --- Tactical Configuration (v1.1.1) ---
-__version__: str = "1.1.1"
+# --- Tactical Configuration (v1.1.2) ---
+__version__: str = "1.1.2"
 __dir__: Path = Path(__file__).parent
 
 # Setup High-Signal Logging
@@ -144,6 +144,56 @@ def exit(*message: str) -> None:
         logger.error(bcolors.FAIL + " ".join(message) + bcolors.RESET)
     shutdown()
     _exit(1)
+
+
+# --- Dynamic Scaling Globals ---
+class EngineState:
+    def __init__(self):
+        self.active_threads_target = RawValue("i", 0)
+        self.max_threads = 0
+
+ENGINE_STATE = EngineState()
+
+class DynamicScaler(Thread):
+    def __init__(self, target_host: str, interval: int = 5):
+        Thread.__init__(self, daemon=True)
+        self.interval = interval
+        self.target_host = target_host
+        self.consecutive_high_load = 0
+        self.consecutive_low_load = 0
+
+    def run(self):
+        while True:
+            sleep(self.interval)
+            cpu = cpu_percent(interval=1)
+            mem = virtual_memory().percent
+            lat = CURRENT_LATENCY.value
+            current_target = ENGINE_STATE.active_threads_target.value
+
+            # Downscale if host is struggling (CPU > 85% or RAM > 85% or Latency Timeout)
+            if cpu > 85 or mem > 85 or lat == -1.0:
+                self.consecutive_high_load += 1
+                self.consecutive_low_load = 0
+                if self.consecutive_high_load >= 2:
+                    new_target = max(10, int(current_target * 0.8)) # Drop by 20%
+                    if new_target < current_target:
+                        logger.warning(f"{bcolors.WARNING}[!] Dynamic Scaler: High load detected (CPU: {cpu}%, RAM: {mem}%). Downscaling workers to {new_target}.{bcolors.RESET}")
+                        ENGINE_STATE.active_threads_target.value = new_target
+                    self.consecutive_high_load = 0
+            
+            # Upscale if host is bored and target is responding well (CPU < 50%, RAM < 60%, Latency < 1000ms)
+            elif cpu < 50 and mem < 60 and 0 < lat < 1000:
+                self.consecutive_low_load += 1
+                self.consecutive_high_load = 0
+                if self.consecutive_low_load >= 3:
+                    new_target = min(ENGINE_STATE.max_threads, int(current_target * 1.1) + 10) # Increase by 10%
+                    if new_target > current_target:
+                        logger.info(f"{bcolors.OKCYAN}[*] Dynamic Scaler: System optimal. Upscaling workers to {new_target}.{bcolors.RESET}")
+                        ENGINE_STATE.active_threads_target.value = new_target
+                    self.consecutive_low_load = 0
+            else:
+                self.consecutive_high_load = 0
+                self.consecutive_low_load = 0
 
 
 class Methods:

@@ -65,6 +65,7 @@ class AttackParams(BaseModel):
     proxy_refresh: int = Field(default=0, ge=0)
     auto_harvest: bool = False
     smart_rpc: bool = False
+    autoscale: bool = False
 
 class ProxyProvider(BaseModel):
     type: int

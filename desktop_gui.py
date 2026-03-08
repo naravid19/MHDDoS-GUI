@@ -36,7 +36,7 @@ def wait_for_api(timeout: float = 10.0) -> bool:
     return False
 
 def main() -> None:
-    print("[*] Initializing MHDDoS Professional Desktop Launcher v1.1.1...")
+    print("[*] Initializing MHDDoS Professional Desktop Launcher v1.1.2...")
     
     # 1. Check if server is already active
     server_process: Optional[subprocess.Popen[bytes]] = None
@@ -76,7 +76,7 @@ def main() -> None:
         
         # Create the pywebview window
         webview.create_window(
-            title="MHDDoS Professional v1.1.1 | Tactical Dashboard", 
+            title="MHDDoS Professional v1.1.2 | Tactical Dashboard", 
             url=API_URL, 
             width=1280, 
             height=850, 

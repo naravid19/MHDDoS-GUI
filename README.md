@@ -70,6 +70,9 @@
 
 ### Features
 
+- **Engine Optimization Dimension (v1.1.2)**: Advanced features for maximizing attack capabilities.
+    - **Dynamic Worker Scaling**: Automatically scales the number of active threads based on the host machine's CPU/RAM resources to ensure peak performance without crashing the system.
+    - **Smart RPC Rotation**: Enhanced `--smart` logic dynamically randomizes RPC values, User-Agents, and headers when target mitigation (latency spikes, 403s) is detected.
 - **Log Intensity Controller (v1.1.1)**: Integrated a multi-tier verbosity management system. Users can toggle between **MINIMAL**, **TACTICAL**, and **VERBOSE** modes to filter engine output based on technical requirements (Diagnostics vs. Status).
 - **Advanced Proxy Ecosystem (v1.1.1)**: A self-healing, protocol-aware resource management system.
     - **Non-Lethal Stability Scoring**: Real-time node failure tracking with dynamic weight penalties. Proxies are never discarded; instead, traffic is mathematically shifted toward high-uptime "Elite-Tier" proxies.

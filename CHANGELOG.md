@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-03-08
+
+### Added
+- **Dynamic Worker Scaling**: Integrated an intelligent auto-scaling module (`DynamicScaler`) that monitors host CPU and Memory load. The system will dynamically adjust the number of active worker threads to maintain peak offensive pressure without crashing the host machine.
+- **Smart RPC Rotation**: Enhanced the `--smart` logic in Layer 7 attacks to dynamically regenerate payloads and rotate User-Agents whenever target latency spikes, helping to evade dynamic anti-DDoS mitigations.
+
+### Changed
+- **Architectural Refinement**: Conducted a meticulous audit of `start.py`, optimizing proxy ingestion streams and consolidating imports to improve memory efficiency and initialization speed.
+- **Telemetry Throttling**: Upgraded the backend websocket broadcaster to use a 50ms batching buffer, completely resolving UI lag and websocket flooding during high-intensity deployments.
+
 ## [1.1.1] - 2026-03-08
 
 ### Added

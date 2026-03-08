@@ -173,7 +173,7 @@
                         MHDDoS <span class="text-primary">PRO</span>
                     </h1>
                     <div class="flex items-center gap-2 mt-1">
-                        <span class="text-[10px] font-mono text-slate-500 font-bold">TACTICAL_V1.1.1</span>
+                        <span class="text-[10px] font-mono text-slate-500 font-bold">TACTICAL_V1.1.2</span>
                         <div id="connection-status" class="size-2 rounded-full bg-slate-600"></div>
                     </div>
                 </div>
@@ -265,6 +265,11 @@
                             <input id="duration" type="number" value="3600" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
                         </div>
                     </div>
+                    
+                    <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                        <label for="auto_scale" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dynamic Worker Scaling</label>
+                        <input type="checkbox" id="auto_scale" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Automatically adjust threads based on system load" value="on" checked>
+                    </div>
 
                     <div id="rpc-container" class="space-y-4">
                         <div class="space-y-2">
@@ -273,7 +278,7 @@
                         </div>
                         <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
                             <label for="smart_rpc" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Smart RPC Tuning</label>
-                            <input type="checkbox" id="smart_rpc" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Dynamically adjust RPC based on target latency" />
+                            <input type="checkbox" id="smart_rpc" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Dynamically adjust RPC and payloads based on target latency" />
                         </div>
                     </div>
                 </div>
@@ -637,7 +642,7 @@
                     CLUSTER_NODES: 1
                 </div>
             </div>
-            <p class="text-[10px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.1.1_BUILD_2026</p>
+            <p class="text-[10px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.1.2_BUILD_2026</p>
         </footer>
     </main>
 </div>
@@ -1108,7 +1113,8 @@
             reflector: document.getElementById('reflector').value,
             proxy_refresh: document.getElementById('auto_refresh').checked ? parseInt(document.getElementById('proxy_refresh').value) : 0,
             auto_harvest: document.getElementById('auto_harvest').checked,
-            smart_rpc: document.getElementById('smart_rpc').checked
+            smart_rpc: document.getElementById('smart_rpc').checked,
+            autoscale: document.getElementById('auto_scale').checked
         };
 
         try {
@@ -1174,7 +1180,7 @@
         }
     }
 
-    const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector', 'auto_refresh', 'proxy_refresh', 'auto_harvest', 'smart_rpc'];
+    const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector', 'auto_refresh', 'proxy_refresh', 'auto_harvest', 'smart_rpc', 'auto_scale'];
     function saveToMemory() {
         memoryFields.forEach(id => {
             const el = document.getElementById(id);
