@@ -140,7 +140,18 @@
         body[data-app-state="starting"] [data-state="starting"] { display: flex; }
         body[data-app-state="running"] [data-state="running"] { display: flex; }
         body[data-app-state="stopping"] [data-state="stopping"] { display: flex; }
+        
+        #tactical-map { height: 280px; border-radius: 1.5rem; border: 1px solid var(--border-alpha); z-index: 10; }
+        .recon-badge { padding: 4px 12px; border-radius: 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge-cloudflare { background: rgba(243, 128, 32, 0.2); color: #f38020; border: 1px solid rgba(243, 128, 32, 0.3); }
+        .badge-ddosguard { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge-sucuri { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge-none { background: rgba(71, 85, 105, 0.2); color: #94a3b8; border: 1px solid rgba(71, 85, 105, 0.3); }
+        .leaflet-container { background: #020617 !important; }
     </style>
+    <!-- Leaflet.js for Mapping -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body data-app-state="idle" class="selection:bg-primary/30">
 
@@ -162,7 +173,7 @@
                         MHDDoS <span class="text-primary">PRO</span>
                     </h1>
                     <div class="flex items-center gap-2 mt-1">
-                        <span class="text-[10px] font-mono text-slate-500 font-bold">TACTICAL_V1.0.6</span>
+                        <span class="text-[10px] font-mono text-slate-500 font-bold">TACTICAL_V1.1.1</span>
                         <div id="connection-status" class="size-2 rounded-full bg-slate-600"></div>
                     </div>
                 </div>
@@ -498,6 +509,71 @@
                 </div>
             </div>
 
+            <!-- INTELLIGENCE RECON MATRIX -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" id="intelligence-section">
+                <!-- Tactical Map & Geo-IP -->
+                <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[480px]">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-4">
+                            <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
+                                <span class="material-symbols-rounded">public</span>
+                            </div>
+                            <div>
+                                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Geographical Recon</h3>
+                                <p class="text-xs font-mono text-slate-400 font-bold">Visual Asset Mapping</p>
+                            </div>
+                        </div>
+                        <div id="recon-waf-badge"></div>
+                    </div>
+                    <div id="tactical-map" class="mb-6 bg-slate-900/50"></div>
+                    <div class="grid grid-cols-2 gap-4 text-[10px] font-mono">
+                        <div class="p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                            <span class="text-slate-600 block mb-1 uppercase">Tactical Provider</span>
+                            <span id="geo-isp" class="text-slate-300 font-bold truncate block">WAITING_...</span>
+                        </div>
+                        <div class="p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                            <span class="text-slate-600 block mb-1 uppercase">Neural Location</span>
+                            <span id="geo-loc" class="text-slate-300 font-bold truncate block">WAITING_...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subdomain Explorer -->
+                <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[480px]">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-4">
+                            <div class="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
+                                <span class="material-symbols-rounded">target</span>
+                            </div>
+                            <div>
+                                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Surface Explorer</h3>
+                                <p class="text-xs font-mono text-slate-400 font-bold">Subdomain Vulnerabilities</p>
+                            </div>
+                        </div>
+                        <button onclick="scanSubdomains()" id="subdomain-scan-btn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2">
+                            <span class="material-symbols-rounded text-sm">radar</span>
+                            Scan Network
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50">
+                        <table class="w-full text-left text-[11px] font-mono">
+                            <thead class="text-slate-600 border-b border-white/5 sticky top-0 bg-slate-900 z-10">
+                                <tr>
+                                    <th class="py-3 px-4">ENDPOINT</th>
+                                    <th class="py-3 px-4">IP_NODE</th>
+                                    <th class="py-3 px-4 text-right">TACTICAL</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subdomain-results" class="divide-y divide-white/5">
+                                <tr>
+                                    <td colspan="3" class="py-12 text-center text-slate-600 italic">No targets discovered.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- INTELLIGENCE LOGS -->
             <div class="flex-1 flex flex-col bg-slate-950 border border-white/5 rounded-3xl overflow-hidden shadow-2xl min-h-[500px]">
                 <!-- Log Toolbar -->
@@ -514,6 +590,15 @@
                             <button onclick="setLogFilter('SYSTEM')" id="filter-SYSTEM" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">System</button>
                             <button onclick="setLogFilter('ERROR')" id="filter-ERROR" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">Errors</button>
                         </nav>
+                        <div class="h-6 w-px bg-white/10 mx-2"></div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[9px] font-black uppercase text-slate-600 tracking-widest italic">Intensity</span>
+                            <select onchange="setLogLevel(this.value)" id="log-level-selector" class="bg-slate-950 border border-white/5 text-slate-400 text-[10px] font-bold rounded-lg px-3 py-1 outline-none focus:border-primary/50 transition-all cursor-pointer hover:bg-slate-900">
+                                <option value="DEBUG">VERBOSE</option>
+                                <option value="INFO" selected>TACTICAL</option>
+                                <option value="ERROR">MINIMAL</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="flex gap-4">
                         <button onclick="copyLogs()" class="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-colors">
@@ -552,7 +637,7 @@
                     CLUSTER_NODES: 1
                 </div>
             </div>
-            <p class="text-[10px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.0.6_BUILD_2026</p>
+            <p class="text-[10px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.1.1_BUILD_2026</p>
         </footer>
     </main>
 </div>
@@ -746,7 +831,48 @@
         }
     }
 
+    // --- Log Control Logic ---
+    const LOG_LEVELS = { 'DEBUG': 0, 'INFO': 1, 'ERROR': 2 };
+    let currentLogLevel = localStorage.getItem('mhddos_log_level') || 'INFO';
+
+    function getMsgLevel(msg) {
+        if (msg.includes("[!]") || msg.includes("ENGINE_CRASH") || msg.includes("API_FAIL") || msg.includes("ERROR")) return 'ERROR';
+        if (msg.includes("[*]") || msg.includes("LAUNCHING") || msg.includes("DEPLOYED") || msg.includes("COMMAND") || msg.includes("Scoring complete")) return 'INFO';
+        return 'DEBUG';
+    }
+
+    function setLogLevel(level) {
+        currentLogLevel = level;
+        localStorage.setItem('mhddos_log_level', level);
+        refreshLogVisibility();
+    }
+
+    function refreshLogVisibility() {
+        const filter = currentLogFilter;
+        const levelThreshold = LOG_LEVELS[currentLogLevel];
+        
+        document.querySelectorAll('.log-entry').forEach(entry => {
+            const entryType = entry.dataset.type;
+            const entryLevel = entry.dataset.level;
+            const entryLevelVal = LOG_LEVELS[entryLevel] || 0;
+            
+            const matchesFilter = (filter === 'ALL' || entryType === filter);
+            const matchesLevel = (entryLevelVal >= levelThreshold);
+            
+            entry.style.display = (matchesFilter && matchesLevel) ? 'flex' : 'none';
+        });
+    }
+
     function appendLog(msg, type = 'SYSTEM') {
+        if (!msg) return;
+        
+        // Handle batch messages from throttled backend
+        const lines = msg.split('\n');
+        if (lines.length > 1) {
+            lines.forEach(line => appendLog(line, type));
+            return;
+        }
+
         const cleanMsg = msg.replace(/\x1B\[[0-9;]*[mK]/g, '').trim();
         if (!cleanMsg) return;
 
@@ -771,24 +897,40 @@
         else if (cleanMsg.includes("LAUNCHING") || cleanMsg.includes("DEPLOYED")) logType = 'ATTACK';
         else if (cleanMsg.includes("[*]")) logType = 'SYSTEM';
 
-        entry.className = `log-entry flex gap-4 ${logType === 'ERROR' ? 'text-danger' : 'text-slate-400'}`;
+        const entryLevel = getMsgLevel(cleanMsg);
+        entry.dataset.level = entryLevel;
         entry.dataset.type = logType;
-        if (currentLogFilter !== 'ALL' && currentLogFilter !== logType) entry.style.display = 'none';
+
+        const levelThreshold = LOG_LEVELS[currentLogLevel];
+        const matchesLevel = (LOG_LEVELS[entryLevel] >= levelThreshold);
+        const matchesFilter = (currentLogFilter === 'ALL' || logType === currentLogFilter);
+
+        if (!(matchesLevel && matchesFilter)) entry.style.display = 'none';
+
+        entry.className = `log-entry flex gap-4 ${logType === 'ERROR' ? 'text-danger' : entryLevel === 'DEBUG' ? 'text-slate-500 opacity-60' : 'text-slate-400'}`;
 
         const label = document.createElement('span');
         label.className = `shrink-0 font-bold w-20 ${logType === 'ERROR' ? 'text-danger' : logType === 'ATTACK' ? 'text-primary' : 'text-slate-600'}`;
         label.textContent = `[${logType}]`;
 
         const content = document.createElement('span');
+        content.className = "flex-1 break-all";
         content.textContent = cleanMsg;
 
         entry.appendChild(label);
         entry.appendChild(content);
         term.appendChild(entry);
-        term.scrollTop = term.scrollHeight;
         
-        // Simple Virtualization: Keep last 500 lines
-        if (term.childNodes.length > 500) term.removeChild(term.firstChild);
+        // Auto-scroll logic
+        const isAtBottom = term.scrollHeight - term.clientHeight <= term.scrollTop + 50;
+        if (isAtBottom) term.scrollTop = term.scrollHeight;
+        
+        // Virtualization: Keep last 1000 lines for stability
+        if (term.childNodes.length > 1000) {
+            for (let i = 0; i < 10; i++) {
+                if (term.firstChild) term.removeChild(term.firstChild);
+            }
+        }
     }
 
     function setLogFilter(filter) {
@@ -800,9 +942,7 @@
         activeChip.classList.add('active', 'bg-primary', 'text-slate-950');
         activeChip.classList.remove('text-slate-500');
 
-        document.querySelectorAll('.log-entry').forEach(entry => {
-            entry.style.display = (filter === 'ALL' || entry.dataset.type === filter) ? 'flex' : 'none';
-        });
+        refreshLogVisibility();
     }
 
     function setupWebSocket() {
@@ -831,29 +971,125 @@
         };
     }
 
+    // --- Recon & Mapping Logic ---
+    let tacticalMap;
+    let targetMarker;
+
+    function initTacticalMap(lat = 0, lon = 0) {
+        if (tacticalMap) tacticalMap.remove();
+        tacticalMap = L.map('tactical-map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([lat, lon], 2);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(tacticalMap);
+    }
+
     async function analyzeTarget() {
         const target = document.getElementById('target').value;
         if (!target) return appendLog("[!] VALIDATION_FAILED: Destination target required for analysis.", "ERROR");
         
         appendLog(`[*] INITIATING RADAR SCAN: Analyzing infrastructure for ${target}...`);
+        
+        // 1. Analyze WAF & Method
         try {
-            const res = await fetch('/api/analyze', {
+            const res = await fetch('/api/recon/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ target })
             });
             const data = await res.json();
-            if (data.status === 'error') {
-                appendLog(`[!] SCAN_ERR: ${data.message}`, "ERROR");
+            if (!res.ok || data.status !== 'success') {
+                appendLog(`[!] SCAN_ERR: ${data.message || data.detail || 'Endpoint unreachable. Please restart the application to apply the latest update.'}`, "ERROR");
+                return;
+            }
+            appendLog(`[*] RADAR LOCK: Detected Stack = [${data.server}], HTTP ${data.status_code}`);
+            appendLog(`[*] TACTICAL RECOMMENDATION: Applying ${data.recommendation} sequence.`);
+            document.getElementById('method').value = data.recommendation;
+            updateVisibility();
+            
+            // Update Badge
+            const badgeContainer = document.getElementById('recon-waf-badge');
+            const wafClass = (data.server || '').toLowerCase().replace(/[\/\s]/g, '');
+            badgeContainer.innerHTML = `<span class="recon-badge badge-${wafClass}">${data.server} PROTECTED</span>`;
+        } catch (e) { appendLog(`[!] API_FAIL: ${e.message}`, "ERROR"); }
+
+        // 2. Geo-IP Recon
+        try {
+            const res = await fetch(`/api/recon/geo?target=${encodeURIComponent(target)}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.status === 'success') {
+                document.getElementById('geo-isp').textContent = data.isp || data.org || 'UNKNOWN';
+                document.getElementById('geo-loc').textContent = `${data.city || 'Unknown'}, ${data.country || 'Unknown'}`;
+                
+                if (data.lat && data.lon) {
+                    if (!tacticalMap) initTacticalMap(data.lat, data.lon);
+                    tacticalMap.setView([data.lat, data.lon], 10);
+                    if (targetMarker) targetMarker.remove();
+                    targetMarker = L.circleMarker([data.lat, data.lon], {
+                        radius: 8,
+                        fillColor: "#10b981",
+                        color: "#fff",
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(tacticalMap).bindPopup(`<b>TARGET_NODE</b><br>${data.ip || 'Unknown IP'}`).openPopup();
+                }
+            }
+        } catch (e) { console.error("Geo-IP Error:", e); }
+    }
+
+    async function scanSubdomains() {
+        const target = document.getElementById('target').value;
+        const btn = document.getElementById('subdomain-scan-btn');
+        const resultsTable = document.getElementById('subdomain-results');
+        
+        if (!target) return alert("Target required for surface scan.");
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-rounded text-sm animate-spin">refresh</span> Scanning...';
+        resultsTable.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-primary animate-pulse font-bold uppercase tracking-widest">Discovering attack surfaces...</td></tr>';
+
+        try {
+            const res = await fetch('/api/recon/subdomains', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target })
+            });
+            const data = await res.json();
+            
+            if (!res.ok || data.status !== 'success') {
+                resultsTable.innerHTML = `<tr><td colspan="3" class="py-12 text-center text-danger">SCAN_FAILED: ${data.message || data.detail || 'Endpoint unreachable. Please restart the application.'}</td></tr>`;
+                return;
+            }
+
+            if (data.subdomains && data.subdomains.length > 0) {
+                resultsTable.innerHTML = data.subdomains.map(sub => `
+                    <tr>
+                        <td class="py-3 px-4 font-bold text-slate-300 underline underline-offset-4 decoration-slate-800 cursor-pointer hover:text-primary transition-colors" onclick="setTarget('${sub.subdomain}')">${sub.subdomain}</td>
+                        <td class="py-3 px-4 text-slate-500">${sub.ip}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="setTarget('${sub.subdomain}', true)" class="px-2 py-1 bg-slate-800 hover:bg-primary hover:text-slate-950 rounded border border-white/5 transition-all">LOCK</button>
+                        </td>
+                    </tr>
+                `).join('');
             } else {
-                appendLog(`[*] RADAR LOCK: Detected Stack = [${data.server}], HTTP ${data.status_code}`);
-                appendLog(`[*] TACTICAL RECOMMENDATION: Applying ${data.recommendation} sequence.`);
-                document.getElementById('method').value = data.recommendation;
-                updateVisibility();
+                resultsTable.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-slate-600 italic">No additional endpoints identified.</td></tr>';
             }
         } catch (e) {
-            appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
+            resultsTable.innerHTML = `<tr><td colspan="3" class="py-12 text-center text-danger">SCAN_FAILED: ${e.message}</td></tr>`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-rounded text-sm">radar</span> Scan Network';
         }
+    }
+
+    function setTarget(host, autoScan = false) {
+        document.getElementById('target').value = host;
+        if (autoScan) analyzeTarget();
     }
 
     async function startAttack() {
@@ -1249,6 +1485,10 @@
         toggleHarvest();
         setupWebSocket();
         setLogFilter('ALL');
+        
+        // Initialize Log Level
+        document.getElementById('log-level-selector').value = currentLogLevel;
+        refreshLogVisibility();
         
         // Auto-check health
         fetch('/api/health').then(r => r.json()).then(d => {

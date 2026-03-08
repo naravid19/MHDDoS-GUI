@@ -20,7 +20,7 @@ def is_api_running() -> bool:
             try:
                 response = requests.get(HEALTH_ENDPOINT, timeout=1)
                 if response.status_code == 200:
-                    return True  # It is our API (v1.0.6+)
+                    return True  # It is our API (v1.0.8+)
             except requests.RequestException:
                 pass
             return True  # It's busy, likely an old version or another app
@@ -36,11 +36,11 @@ def wait_for_api(timeout: float = 10.0) -> bool:
     return False
 
 def main() -> None:
-    print("[*] Initializing MHDDoS Professional Web Launcher v1.0.6...")
+    print("[*] Initializing MHDDoS Professional Web Launcher v1.1.1...")
     
     # 1. Check if server is already active
     if is_api_running():
-        print("[*] API Server already active. Redirecting to existing instance...")
+        print("[*] Tactical API Server already active. Redirecting to existing instance...")
         webbrowser.open(API_URL)
         return
 
@@ -60,7 +60,7 @@ def main() -> None:
         )
         
         # 4. Wait for readiness via health check
-        print("[*] Synchronizing with engine...", end="", flush=True)
+        print("[*] Synchronizing with tactical engine...", end="", flush=True)
         if wait_for_api():
             print(" SUCCESS.")
             print(f"[*] Opening {API_URL} in your web browser...")
@@ -69,7 +69,7 @@ def main() -> None:
             server_process.wait()
         else:
             print(" FAILED.")
-            print("[!] Critical Error: API server failed to start within timeout.")
+            print("[!] Critical Error: Tactical API server failed to start within timeout.")
             print("[!] Possible cause: Port 8000 might be occupied by another application.")
             if server_process:
                 server_process.terminate()

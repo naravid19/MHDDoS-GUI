@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-03-08
+
+### Added
+- **Log Intensity Controller**: Integrated a new log verbosity management system. Users can now toggle between **MINIMAL** (Critical only), **TACTICAL** (Standard operations), and **VERBOSE** (Developer diagnostics) to filter engine output based on their technical needs.
+- **Hierarchical Log Filtering**: Implemented a secondary filtering layer that works alongside existing category filters, allowing for precise control over real-time activity streams.
+- **Non-Lethal Tactical Scoring**: Redesigned the proxy validation engine to be non-destructive. Proxies that exhibit high latency or SSL handshake issues during the scoring phase are now penalized with a high latency score (e.g., 2000ms+) rather than being discarded. This ensures the attack proceeds even with low-quality resource lists.
+- **Full-Spectrum Stability Feedback**: Integrated the `report_failure` mechanism into `HttpFlood` (Layer 7) threads. The engine now learns from connection failures across both Layer 4 and Layer 7 in real-time, mathematically deprioritizing unstable nodes.
+- **Elite-Tier Reporting**: Replaced the "Usable vs Total" metrics with a more granular "Elite-Tier" (latency < 1000ms) vs "Total Assets Synchronized" report.
+- **Engine Deadlock Resolution**: Switched the `TacticalProxyPool` internal locking mechanism to `RLock` (Reentrant Lock), eliminating a critical deadlock that caused the engine to freeze during proxy synchronization cycles.
+
+### Changed
+- **Global Synchronization**: Standardized all internal and external version identifiers to v1.1.1 across the Core Engine, API, Dashboard UI, and Launchers.
+- **Autonomous Harvester Hardening**: Improved parsing logic to handle raw IP:PORT formats from global fallback matrices.
+
+## [1.1.0] - 2026-03-08
+
+### Added
+- **Advanced Proxy Ecosystem**: A comprehensive overhaul of proxy resource management for maximum tactical throughput.
+- **Stability-Based Scoring**: Introduced real-time failure tracking. Nodes that time out or disconnect are penalized, shifting traffic dynamically to high-uptime "Elite-Tier" proxies.
+- **Protocol-Specific Validation**:
+    - **Layer 7 SSL Check**: Explicit TLS handshake verification for HTTPS targets.
+    - **Layer 4 UDP Associate**: SOCKS5 UDP tunneling verification for network-layer floods.
+- **Autonomous Proxy Sourcing**: Heuristic AI that triggers a deep global scrape from emergency fallback matrices if the active pool drops below 10 nodes mid-attack.
+
+### Changed
+- **Tactical Pool Implementation**: Upgraded core data structures to `TacticalProxyPool`, enabling weighted random selection based on combined Latency and Stability scores.
+- **Global Version Unification**: Synchronized all project layers (Engine, API, UI, Launchers) to v1.1.0.
+
+### Fixed
+- **NameError Regression**: Resolved `NameError: name 'ProxyPool' is not defined` in the main execution block.
+- **UI Data Mismatch**: Fixed `undefined` property errors in the reconnaissance dashboard by implementing robust API response validation.
+
+## [1.0.9] - 2026-03-08
+
+### Added
+- **Intelligence Recon Matrix**: A new dashboard dimension for advanced target analysis.
+- **Auto-Method Recommendation**: Signature-based WAF detection (Cloudflare, DDoS-Guard, Sucuri, etc.) that automatically suggests the most effective attack method.
+- **Visual Geo-IP Mapping**: Integrated Leaflet.js for real-time visual tracking of target server locations and infrastructure providers.
+- **Surface Explorer**: Automated subdomain discovery tool using passive (SSL-based) and active techniques to identify unprotected attack surfaces.
+- **Tactical Lock-On**: "Quick Attack" integration for discovered subdomains directly from the dashboard.
+
+### Changed
+- **API Version 1.0.8**: Major update to the backend reconnaissance engine and endpoints.
+- **UI/UX Refinement**: Enhanced Glassmorphism 2.0 aesthetics with new reconnaissance badges and tactical markers.
+
+### Fixed
+- **Thread Safety**: Corrected `AttributeError` in the proxy sentinel by properly importing `current_thread`.
+
+## [1.0.7] - 2026-03-08
+
+### Added
+- **Tactical Proxy Efficiency Reporting**: Upgraded the proxy loading sequence to report "Total Identified" vs "Usable Assets" after validation, including an efficiency percentage metric for professional situational awareness.
+- **Enhanced Dynamic Proxy Rotation (DNPR) Feedback**: Improved the `ReloadSentinel` and `ProxyPool` logging to use professional tactical terminology (e.g., "Tactical resources synchronized", "Periodic proxy refresh initiated").
+- **Auto-Harvest Optimization**: Refined the Auto-Harvest logic to ensure that explicitly requested harvests are always reflected accurately in the tactical logs.
+
+### Changed
+- **Professional Terminology Alignment**: Standardized all engine logs to use high-signal, professional technical language (e.g., "Engine initialized", "Emergency fallback sequence", "Tactical profile limited").
+- **API Metadata Update**: Updated API versioning and internal metadata to v1.0.7.
+- **UI & Launcher Synchronization**: Unified the version string to v1.0.7 across the Desktop Launcher and Web Tactical Dashboard.
+
+### Fixed
+- **Proxy Harvest Logic**: Fixed a potential redundant file deletion in the API layer that could cause race conditions during rapid tactical re-deployments.
+
 ## [1.0.6] - 2026-03-07
 
 ### Added

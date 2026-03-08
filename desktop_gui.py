@@ -20,7 +20,7 @@ def is_api_running() -> bool:
             try:
                 response = requests.get(HEALTH_ENDPOINT, timeout=1)
                 if response.status_code == 200:
-                    return True  # It is our API (v1.0.6+)
+                    return True  # It is our API (v1.0.8+)
             except requests.RequestException:
                 pass
             return True  # It's busy, likely an old version or another app
@@ -36,7 +36,7 @@ def wait_for_api(timeout: float = 10.0) -> bool:
     return False
 
 def main() -> None:
-    print("[*] Initializing MHDDoS Professional Desktop Launcher v1.0.6...")
+    print("[*] Initializing MHDDoS Professional Desktop Launcher v1.1.1...")
     
     # 1. Check if server is already active
     server_process: Optional[subprocess.Popen[bytes]] = None
@@ -56,10 +56,10 @@ def main() -> None:
             )
             
             # 4. Wait for readiness via health check
-            print("[*] Synchronizing with engine...", end="", flush=True)
+            print("[*] Synchronizing with tactical engine...", end="", flush=True)
             if not wait_for_api():
                 print(" FAILED.")
-                print("[!] Critical Error: API server failed to start within timeout.")
+                print("[!] Critical Error: Tactical API server failed to start within timeout.")
                 if server_process:
                     server_process.terminate()
                 return
@@ -68,15 +68,15 @@ def main() -> None:
             print(f"\n[!] Critical Launcher Error: {e}")
             return
     else:
-        print("[*] API Server already active. Connecting to existing instance...")
+        print("[*] Tactical API Server already active. Connecting to existing instance...")
 
     # 5. Launch UI
     try:
-        print(f"[*] Launching Desktop Interface to {API_URL}...")
+        print(f"[*] Launching Tactical Desktop Interface to {API_URL}...")
         
         # Create the pywebview window
         webview.create_window(
-            title="MHDDoS Professional v1.0.6 | Tactical Dashboard", 
+            title="MHDDoS Professional v1.1.1 | Tactical Dashboard", 
             url=API_URL, 
             width=1280, 
             height=850, 
