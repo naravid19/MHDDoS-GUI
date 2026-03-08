@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-03-08
+
+### Added
+- **Persistent Intelligence Database (SQLite)**: The `TacticalProxyPool` now persists node performance metrics across sessions. The engine instantly leverages historical latency and failure data upon restart, drastically reducing scoring time and accelerating deployment.
+- **Advanced Browser Fingerprinting**: Added an "Advanced Evasion" mode. When enabled, the engine dynamically reconstructs the Layer 7 HTTP payload with highly realistic, randomized browser profiles (Chrome/Windows, Firefox/Mac, Safari/iOS) including TLS/Headers manipulation to bypass strict WAF fingerprinting.
+- **Command & Control (C2) Foundation**: Refactored the `api.py` architecture to support Controller and Worker modes. Added a persistent `NODE_ID` and telemetry sync endpoints, laying the groundwork for distributed multi-node attacks.
+
+### Changed
+- **Lock-Free Hot Path Optimization**: Completely re-engineered the `get_proxy` selection mechanism to operate lock-free (`_pool_copy`), entirely eliminating thread contention during extreme scaling.
+
 ## [1.1.2] - 2026-03-08
 
 ### Added
