@@ -7,7 +7,7 @@
     <img src="https://img.icons8.com/color/512/globe--v1.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">MHDDoS-GUI v1.0.3</h3>
+<h3 align="center">MHDDoS Professional v1.0.6</h3>
 
   <p align="center">
     A Modern, High-Performance Web & Desktop GUI for the renowned MHDDoS Script.
@@ -66,19 +66,26 @@
 
 [![Product Name Screen Shot][product-screenshot]](https://github.com/naravid19/MHDDoS-GUI)
 
-**MHDDoS-GUI** is an advanced evolution of the original [MatrixTM/MHDDoS](https://github.com/MatrixTM/MHDDoS) script, now equipped with a stunning, highly optimized graphical user interface. Designed with premium glassmorphism aesthetics and built for absolute performance, this project provides both a Web Dashboard and a standalone Desktop Application to launch, monitor, and manage up to 57 distinct DDoS attack methods.
+**MHDDoS-GUI** is an advanced evolution of the original [MatrixTM/MHDDoS](https://github.com/MatrixTM/MHDDoS) script, now equipped with a stunning, highly optimized graphical user interface. Designed with premium glassmorphism aesthetics and built for absolute performance, this project provides both a Web Dashboard and a standalone Desktop Application to launch, monitor, and manage up to 47 distinct DDoS attack methods.
 
 Say goodbye to complex console commands. Now you can select proxies, tune threads, choose your Layer 4 or Layer 7 attack methods, and view real-time log outputs all through an incredibly intuitive and visually striking dashboard.
 
 ### Features
 
-- **Professional Tactical Dashboard (v1.0.3)**: A complete UI re-engineering with high-density Slate & Emerald professional aesthetics, optimized grid layouts, and real-time metric visualization.
-- **Enhanced Real-time Visualization**: Optimized Neural Metric Parser (v3.1) ensures 100% reliable data streaming for live PPS and BPS charts.
-- **Complete Proxy Suite**: Full support for all 6 core proxy protocols (All, HTTP, HTTPS, SOCKS4, SOCKS5, RANDOM) with integrated backend mapping.
+- **Tactical Recon Tools (v1.0.6)**: Built-in suite of diagnostic tools including **ICMP Ping**, **HTTP Status Checker**, and **Geo-IP Recon** for rapid pre-attack infrastructure analysis.
+- **Config Modal Validation (v1.0.6)**: Built-in safety checks for Proxy Auto-Harvest configurations, complete with inline error notifications and hover tooltips.
+- **Local File Auto-Harvest Support (v1.0.6)**: Natively supports reading proxy sources from absolute local file paths (e.g., `C:\path\to\proxies.txt`), bypassing network overhead for local proxy assets.
+- **Hacker-Professional Hybrid UI (v1.0.6)**: Redesigned dashboard using Fira Sans and Fira Code typography, with a robust state machine (`idle | starting | running | stopping`) to ensure precise control.
+- **Enhanced Log Filtering (v1.0.6)**: Granular log categories (`ALL`, `ATTACK`, `SYSTEM`, `ERROR`) with an optimized filtering engine and accurate target logging.
+- **Launcher Resilience (v1.0.6)**: Upgraded backend synchronization with health checks and port conflict detection for robust startups.
+- **Premium Enterprise Overhaul (v1.0.5)**: Re-engineered UI with **Glassmorphism 2.0** aesthetics, deep 24px backdrop blurs, and a refined professional Slate-950 color palette.
+- **System Health Matrix**: Real-time header-level monitoring of engine status, proxy sync health, and encryption protocol stability.
+- **Dynamic Proxy Rotation (v1.0.4)**: Integrated thread-safe proxy hot-swapping with configurable auto-refresh intervals (15/30/60m) for sustained long-duration attacks.
+- **Smoothed Real-time Visualization**: Upgraded metric charts with cubic interpolation and area-fill gradients for fluid, high-fidelity data tracking.
 - **Infrastructure Analytics**: New diagnostics bar displaying pipeline status, encryption levels, and real-time kernel telemetry.
 - **Dual Architecture**: Run as a responsive Web Dashboard or a native Desktop App.
 - **Premium UX/UI**: Designed using Tailwind CSS for a modern experience with CRT scanline overlays and 20px backdrop blurs.
-- **Full Method Parity**: Categorized support for all 57 attack layers (L4 and L7) with intelligent context-aware form validation.
+- **Full Method Parity**: Categorized support for all 47 attack methods + 10 utility/control commands (57 total) with intelligent context-aware form validation.
 - **Remote Proxy Support**: Seamlessly stream massive proxy lists from remote URLs directly into engine memory.
 - **Auto-Saving Settings**: Persists all tactical configurations across sessions using browser LocalStorage.
 
@@ -159,7 +166,7 @@ You can still use the core script directly from the terminal if needed:
 
 ## Supported Methods
 
-MHDDoS-GUI supports 57 methods. Here is a brief overview:
+MHDDoS-GUI supports 47 methods. Here is a brief overview:
 
 **Layer 7**  
 `GET` | `POST` | `OVH` | `RHEX` | `STOMP` | `STRESS` | `DYN` | `DOWNLOADER` | `SLOW` | `HEAD` | `NULL` | `COOKIE` | `PPS` | `EVEN` | `GSB` | `DGB` | `AVB` | `BOT` | `APACHE` | `XMLRPC` | `CFB` | `CFBUAM` | `BYPASS` | `BOMB` | `KILLER` | `TOR`

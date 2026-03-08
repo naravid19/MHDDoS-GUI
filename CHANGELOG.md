@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-03-07
+
+### Added
+- **Tactical Recon Tools**: Integrated a suite of diagnostic tools (ICMP Ping, HTTP Status Check, and Geo-IP Recon) with a dedicated UI modal and automated host filling for rapid target analysis.
+- **Config Modal Validation & UI**: Added robust input validation to the Proxy Harvest Configuration modal to prevent malformed URLs or invalid local file paths. Enhanced the UI with inline error notifications and hover tooltips detailing supported formats.
+- **Local File Auto-Harvest Support**: Upgraded the `ProxyManager` to natively support reading proxy sources from absolute local file paths (e.g., `C:\path\to\proxies.txt`), bypassing network overhead for local assets.
+- **Configurable Auto-Harvest Sources**: Added an "Edit Sources" modal to the UI, allowing users to define custom URLs and timeout rules for Auto-Harvest operations, with persistent storage in `config.json`.
+- **MIXED Proxy Parsing**: Upgraded `ProxyManager` to support mixed-protocol proxy lists (e.g., `all.txt` containing `socks5://`, `http://`). Auto-Harvest can now parse and instantiate mixed proxy lists gracefully.
+- **Hacker-Professional Hybrid UI (v1.0.6)**: Redesigned the dashboard with a technical aesthetic using **Fira Sans** and **Fira Code** typography, refined spacing, and improved accessibility.
+- **UI State Machine**: Implemented a robust frontend state machine (`idle | starting | running | stopping`) to ensure precise control over attack sequences and prevent UI race conditions.
+- **Health Monitoring**: Added a new `/api/health` endpoint for real-time backend readiness checks.
+- **Enhanced Log Filtering**: Introduced granular log categories (`ALL`, `ATTACK`, `SYSTEM`, `ERROR`) with an optimized filtering engine.
+
+### Changed
+- **Comprehensive Code Refactoring**: Executed a massive architectural cleanup across the entire codebase (`api.py`, `start.py`, `web_gui.py`, `desktop_gui.py`) adopting strict Python 3.11+ Type Hinting, Pydantic V2 schemas, async `subprocess` management, and PEP-8 compliance via `black` and `ruff`.
+- **API Hardening**: Refactored `api.py` to use a dedicated command-building engine with strict parameter validation and type enforcement.
+- **Resource Protocol Alignment**: Removed the incompatible `HTTPS` proxy type from the UI and API to align with the core engine's capabilities.
+- **Launcher Resilience**: Updated `web_gui.py` and `desktop_gui.py` to use absolute path resolution and correct working directories, enabling reliable execution from any location.
+
+### Fixed
+- **Metric Parsing & Scaling**: Fixed a critical bug in the JavaScript telemetry parser where non-numeric BPS strings (e.g., "-- B", "7.70 kB") caused `NaN` values and broke Chart.js rendering. Normalization now correctly scales units (kB, MB, GB) to Bytes.
+- **UI Methods Parity**: Updated the frontend dropdown menu to include the complete set of 47 attack methods, perfectly aligning with the core backend engine (`start.py`) and official documentation.
+- **Original Target Logging**: Decoupled Layer 7 and Layer 4 target resolution logic so that the live activity matrix now accurately displays the original target domain/URL entered by the user (rather than the resolved IP), while seamlessly using the resolved IP under the hood for engine operations.
+- **BOT Method Formatting**: Resolved a critical string formatting bug in `start.py` that caused the `BOT` method to crash during execution.
+- **L4 Hostname Resolution**: Fixed a variable reference error in the Layer 4 exception handler that led to crashes on unresolved hostnames.
+- **Websocket Stability**: Improved connection management to proactively purge dead websocket clients, preventing memory leaks and stale broadcasts.
+
+## [1.0.5] - 2026-03-07
+
+### Added
+- **Premium Enterprise Overhaul**: Re-engineered the UI with **Glassmorphism 2.0** aesthetics, featuring deep 24px backdrop blurs, precision 0.5px borders, and a refined Slate-950 color palette.
+- **System Health Matrix**: Integrated a new header-level matrix displaying real-time system health (Engine Uplink, Proxy Sync, and Encryption Protocol).
+- **Smoothed Visualization Engine**: Upgraded Chart.js to use cubic interpolation (0.45 tension) and area-fill gradients for fluid, professional-grade metric visualization.
+- **Enterprise-Grade Typography**: Unified the interface with the Inter (UI) and JetBrains Mono (Data) font pairing for maximum readability.
+- **Advanced Micro-Interactions**: Implemented fluid CSS transitions and micro-animations for button states, card hover effects, and collapsible resource sections.
+
+### Changed
+- **Terminology Standardization**: Fully unified all UI and log messages with industry-standard professional terminology (e.g., "Network Resources", "Activity Pipeline", "Launch Attack").
+- **Metric Hub Optimization**: Enhanced information density by refining grid layouts and metric card typography.
+
+### Fixed
+- **API/Engine Synchronization**: Corrected terminology drift in log broadcasting between `api.py` and the frontend.
+- **Log Highlighting Logic**: Refined the regex engine to properly categorize enterprise-standard status messages in the activity log.
+
+## [1.0.4] - 2026-03-07
+
+### Added
+- **Dynamic Proxy Rotation (DNPR)**: Implemented a thread-safe `ProxyPool` and background `ReloadSentinel` in the core engine. Supports hot-swapping proxy lists from files or URLs every 15, 30, or 60 minutes without stopping the attack.
+- **Advanced Resource UI**: Added a collapsible "Advanced Resource Settings" section in the sidebar for granular control over proxy auto-refresh logic.
+- **Professional Terminology Overhaul**: Replaced abstract "cyber" labels with industry-standard terminology (e.g., "Target Configuration", "Network Resources", "System Activity Log") for improved usability.
+
+### Changed
+- **UI Density Optimization**: Refined the dashboard layout for higher information density and reduced cognitive load.
+- **Improved Tooling Integration**: Enhanced the `handleProxyList` logic to natively support a wider range of external proxy list formats using robust regex patterns.
+
+### Fixed
+- **Proxy Staleness**: Resolved the issue where long-duration attacks (3+ hours) would lose efficiency due to dead proxies.
+- **Input Persistence**: Fixed auto-saving logic for new advanced settings (Auto-Refresh toggle and Interval).
+
 ## [1.0.3] - 2026-03-07
 
 ### Added
