@@ -280,64 +280,10 @@
                             <label for="smart_rpc" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Smart RPC Tuning</label>
                             <input type="checkbox" id="smart_rpc" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Dynamically adjust RPC and payloads based on target latency" />
                         </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="space-y-4">
-                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Resource Routing</h2>
-                
-                <div id="proxy-container" class="space-y-5">
-                    <div class="space-y-2">
-                        <label for="proxy_type" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Proxy Protocol</label>
-                        <select id="proxy_type" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer font-bold">
-                            <option value="SOCKS5">SOCKS5 (STABLE)</option>
-                            <option value="SOCKS4">SOCKS4 (LEGACY)</option>
-                            <option value="HTTP">HTTP (FAST)</option>
-                            <option value="All Proxy">ALL (ROTATED)</option>
-                            <option value="RANDOM">RANDOM (MIXED)</option>
-                        </select>
-                    </div>
-
-                    <div class="space-y-2">
-                        <label for="proxy_list" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Resource Path (txt/url)</label>
-                        <div class="flex gap-2">
-                            <input id="proxy_list" type="text" value="proxies.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[11px]" />
-                            <button onclick="browseFile('proxy_list')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90">
-                                <span class="material-symbols-rounded">folder_open</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
                         <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                            <div class="flex items-center gap-2">
-                                <label for="auto_harvest" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Auto-Harvest</label>
-                                <button onclick="openConfigModal()" class="text-slate-500 hover:text-primary transition-colors focus:outline-none" title="Edit Proxy Sources">
-                                    <span class="material-symbols-rounded text-[14px]">edit</span>
-                                </button>
-                            </div>
-                            <input type="checkbox" id="auto_harvest" onchange="toggleHarvest()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Scrape and verify proxies automatically" />
+                            <label for="advanced_evasion" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Advanced Evasion</label>
+                            <input type="checkbox" id="advanced_evasion" class="rounded bg-slate-800 border-slate-700 text-warning focus:ring-warning focus:ring-offset-slate-900" title="Use realistic dynamic browser fingerprints (Higher CPU)" />
                         </div>
-                        <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                            <label for="auto_refresh" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Auto-Refresh</label>
-                            <input type="checkbox" id="auto_refresh" onchange="toggleRefreshDropdown()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" />
-                        </div>
-                    </div>
-
-                    <div id="refresh-interval-container" class="space-y-2 opacity-30 pointer-events-none transition-opacity">
-                        <label for="proxy_refresh" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Refresh Interval (min)</label>
-                        <input id="proxy_refresh" type="number" value="15" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
-                    </div>
-                </div>
-
-                <div id="reflector-container" class="space-y-2 hidden">
-                    <label for="reflector" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Reflector File</label>
-                    <div class="flex gap-2">
-                        <input id="reflector" type="text" placeholder="reflectors.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[11px]" />
-                        <button onclick="browseFile('reflector')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90">
-                            <span class="material-symbols-rounded">database</span>
-                        </button>
                     </div>
                 </div>
             </section>
@@ -354,7 +300,7 @@
                 Abort Attack
             </button>
             <div id="action-loader" class="mt-4 flex items-center justify-center gap-3 text-slate-500 font-mono text-[10px] uppercase tracking-widest hidden">
-                <div class="size-2 bg-primary rounded-full animate-ping"></div>
+                <span class="material-symbols-rounded animate-spin">sync</span>
                 Initializing Neural Uplink...
             </div>
         </div>
@@ -376,6 +322,13 @@
                     <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Core Engine</span>
                     <div class="flex items-center gap-2 mt-1">
                         <span class="text-xs font-mono font-bold text-primary">STABLE_SECURE</span>
+                    </div>
+                </div>
+                <div class="h-8 w-px bg-white/5"></div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">C2 Node ID</span>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span id="c2-node-id" class="text-xs font-mono font-bold text-secondary">AWAITING_SYNC</span>
                     </div>
                 </div>
             </div>
@@ -1114,7 +1067,8 @@
             proxy_refresh: document.getElementById('auto_refresh').checked ? parseInt(document.getElementById('proxy_refresh').value) : 0,
             auto_harvest: document.getElementById('auto_harvest').checked,
             smart_rpc: document.getElementById('smart_rpc').checked,
-            autoscale: document.getElementById('auto_scale').checked
+            autoscale: document.getElementById('auto_scale').checked,
+            evasion: document.getElementById('advanced_evasion').checked
         };
 
         try {
@@ -1129,7 +1083,6 @@
                 setAppState(STATE.IDLE);
             } else {
                 saveToMemory();
-                document.getElementById('session-uuid').textContent = "UUID: " + Math.random().toString(36).substring(2, 15).toUpperCase();
             }
         } catch (e) {
             appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
@@ -1180,23 +1133,59 @@
         }
     }
 
-    const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector', 'auto_refresh', 'proxy_refresh', 'auto_harvest', 'smart_rpc', 'auto_scale'];
+    const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector', 'auto_refresh', 'proxy_refresh', 'auto_harvest', 'smart_rpc', 'auto_scale', 'advanced_evasion'];
     function saveToMemory() {
         memoryFields.forEach(id => {
             const el = document.getElementById(id);
-            localStorage.setItem('mhddos_gui_v106_' + id, el.type === 'checkbox' ? el.checked : el.value);
+            if(el) localStorage.setItem('mhddos_gui_v113_' + id, el.type === 'checkbox' ? el.checked : el.value);
         });
     }
+
     function loadFromMemory() {
         memoryFields.forEach(id => {
-            const val = localStorage.getItem('mhddos_gui_v106_' + id);
+            const val = localStorage.getItem('mhddos_gui_v113_' + id);
             if (val !== null) {
                 const el = document.getElementById(id);
-                if (el.type === 'checkbox') el.checked = (val === 'true');
-                else el.value = val;
+                if (el && el.type === 'checkbox') el.checked = (val === 'true');
+                else if(el) el.value = val;
             }
         });
     }
+
+    async function checkC2Status() {
+        try {
+            const res = await fetch('/api/c2/status');
+            const data = await res.json();
+            if(data.status === 'success') {
+                document.getElementById('c2-node-id').textContent = data.node_id;
+                document.getElementById('c2-node-id').className = data.is_worker ? 'text-xs font-mono font-bold text-warning' : 'text-xs font-mono font-bold text-secondary';
+                document.getElementById('session-uuid').textContent = `NODE_ID: ${data.node_id} | MODE: ${data.is_worker ? 'WORKER' : 'CONTROLLER'}`;
+            }
+        } catch(e) {
+            console.error("C2 Status Check Failed", e);
+        }
+    }
+
+    // --- Init ---
+    window.onload = () => {
+        loadFromMemory();
+        updateVisibility();
+        toggleRefreshDropdown();
+        toggleHarvest();
+        setupWebSocket();
+        setLogFilter('ALL');
+        checkC2Status();
+        
+        // Initialize Log Level
+        const levelSelect = document.getElementById('log-level-selector');
+        if(levelSelect) levelSelect.value = currentLogLevel;
+        refreshLogVisibility();
+        
+        // Auto-check health
+        fetch('/api/health').then(r => r.json()).then(d => {
+            if (d.engine_active) setAppState(STATE.RUNNING);
+        }).catch(() => {});
+    };
 
     async function browseFile(inputId) {
         try {

