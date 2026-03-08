@@ -8,12 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.3] - 2026-03-08
 
 ### Added
+- **Time-Series Analytics Matrix**: Completely overhauled the metric visualization engine. Replaced the static 20-second Chart.js window with an interactive, scrollable time-series matrix that logs history up to a full week. Added a glassmorphic Timeframe Selector (`1M`, `5M`, `15M`, `1H`, `4H`, `1D`, `1W`) using high-performance downsampling algorithms.
 - **Persistent Intelligence Database (SQLite)**: The `TacticalProxyPool` now persists node performance metrics across sessions. The engine instantly leverages historical latency and failure data upon restart, drastically reducing scoring time and accelerating deployment.
 - **Advanced Browser Fingerprinting**: Added an "Advanced Evasion" mode. When enabled, the engine dynamically reconstructs the Layer 7 HTTP payload with highly realistic, randomized browser profiles (Chrome/Windows, Firefox/Mac, Safari/iOS) including TLS/Headers manipulation to bypass strict WAF fingerprinting.
 - **Command & Control (C2) Foundation**: Refactored the `api.py` architecture to support Controller and Worker modes. Added a persistent `NODE_ID` and telemetry sync endpoints, laying the groundwork for distributed multi-node attacks.
 
 ### Changed
 - **Lock-Free Hot Path Optimization**: Completely re-engineered the `get_proxy` selection mechanism to operate lock-free (`_pool_copy`), entirely eliminating thread contention during extreme scaling.
+- **Persistence Hardening**: Implemented proactive auto-save listeners on the dashboard. Tactical configurations (Method, Threads, Duration, Evasion) are now persisted to LocalStorage instantly upon modification.
+
+### Fixed
+- **Database Concurrency Lock**: Fixed a critical `sqlite3.OperationalError: database is locked` exception that crashed the engine during high-concurrency intelligence gathering. Deployed a global `threading.Lock()` and a connection `timeout=30.0` to serialize proxy scoring writes across multiple processes.
+- **C2 Worker Disconnection**: Fixed a major bug where Worker nodes (`worker.py`) would be dropped by the Master API (`Connected Nodes: 0`) after 30 seconds due to missing heartbeats. Refactored process execution (`active_process.wait()`) into a background daemon thread so polling loops continue uninterrupted.
+- **Worker Execution Error**: Resolved `ModuleNotFoundError: No module named 'PyRoxy'` on Worker nodes by dynamically resolving the active virtual environment (`venv/Scripts/python.exe`) instead of relying purely on the global `sys.executable`.
+- **UI State Isolation**: Fixed a bug where starting an attack disabled interactive components (like the Time-Series Matrix) across the entire dashboard. Input freezing is now strictly scoped to the tactical sidebar controls.
+- **Critical Feature Restoration**: Restored missing tactical matrices inadvertently removed during refactoring, including **Proxy Protocol** selection, **Reflector File** inputs, and the **Auto-Harvest/Refresh** suite.
+- **Stop Sequence Integrity**: Resolved a major regression where the "Abort Attack" button failed to reset the UI state. State synchronization now correctly processes the `COMMAND TERMINATED` signal.
+- **L4 Argument Collision**: Hardened the engine's argument parser to ignore tactical flags (e.g., `--evasion`) when identifying positional asset paths (e.g., reflectors), preventing engine crashes.
+- **Z-Index Conflict**: Fixed UI overlap issues where the Geographical Recon map would display on top of tactical modals.
+- **Python 3.12 Compatibility**: Resolved `DeprecationWarning` in `sqlite3` integration by converting `datetime` objects to ISO strings.
 
 ## [1.1.2] - 2026-03-08
 

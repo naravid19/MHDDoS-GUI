@@ -15,3 +15,5 @@ gui.py
 /.agent
 MHDDoS Professional.html
 config.json
+/chat
+/files

