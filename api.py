@@ -52,7 +52,7 @@ class EngineState:
     max_concurrent: int = 5
 
 state = EngineState()
-app = FastAPI(title="MHDDoS Professional API", version="1.1.5")
+app = FastAPI(title="MHDDoS Professional API", version="1.1.6")
 
 # --- Command & Control (C2) State ---
 class C2State:
@@ -160,6 +160,10 @@ def build_attack_command(params: AttackParams) -> list[str]:
         command.append("--autoscale")
     if params.evasion:
         command.append("--evasion")
+    # For now, append --debug always for testing, or we can wait to see if it's passed from UI.
+    # Actually, let's keep the API clean. If we want it we can pass it later.
+    # We will pass --debug if the user chooses 'verbose' in the frontend. Wait, the frontend just filters the logs, it doesn't send a param yet.
+    # Let's add a 'verbose' param to AttackParams.
         
     return command
 
@@ -433,7 +437,7 @@ async def health_check() -> HealthResponse:
         status="online",
         engine_active=state.process is not None,
         is_starting=state.is_starting,
-        version="1.1.5"
+        version="1.1.6"
     )
 
 # --- C2 Master Endpoints ---

