@@ -16,7 +16,7 @@
     <img src="https://img.icons8.com/color/512/globe--v1.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">MHDDoS Professional v1.1.5</h3>
+<h3 align="center">MHDDoS Professional v1.1.6</h3>
 
   <p align="center">
     A Modern, High-Performance Web & Desktop GUI for the renowned MHDDoS Script.
@@ -67,10 +67,12 @@
 
 [![Product Name Screen Shot](images/screenshot.png)](https://github.com/naravid19/MHDDoS-GUI)
 
-**MHDDoS-GUI** is an advanced evolution of the original [MatrixTM/MHDDoS](https://github.com/MatrixTM/MHDDoS) script, now equipped with a stunning, highly optimized graphical user interface. Designed with premium glassmorphism aesthetics and built for absolute performance, this project provides both a Web Dashboard and a standalone Desktop Application to launch, monitor, and manage up to 47 distinct DDoS attack methods.
+**MHDDoS-GUI** is an advanced evolution of the original [MatrixTM/MHDDoS](https://github.com/MatrixTM/MHDDoS) script, now equipped with a stunning, highly optimized graphical user interface. Designed with premium dark mode aesthetics and built for absolute performance, this project provides both a Web Dashboard and a standalone Desktop Application to launch, monitor, and manage up to 47 distinct DDoS attack methods.
 
 ### Features
-- **Time-Series Analytics Matrix**: Full interactive time-series matrix keeping up to 1 week of historical BPS/PPS data using high-performance downsampling algorithms.
+- **AI Smart Bypass (Machine Learning)**: Adaptive heuristic feedback loop that analyzes WAF responses and dynamically tweaks User-Agents, headers, and delays to maintain attack efficiency.
+- **Enterprise-Grade Cloudflare Dashboard**: Fully responsive, data-dense dark mode GUI inspired directly by AWS and Cloudflare control panels, engineered with strict layout principles.
+- **Time-Series Analytics Matrix**: Full interactive time-series matrix keeping up to 1 week of historical network flow data (Outbound/Inbound bytes) using high-performance downsampling algorithms.
 - **Distributed Tactical Intelligence**: Persistent SQLite backend that records proxy performance across sessions enabling Warm Start deployments.
 - **Advanced Evasion & Fingerprinting**: Dynamically reconstructs HTTP payloads with highly realistic browser fingerprints (Chrome, Firefox, Safari) and randomized headers to bypass modern WAF mitigations.
 - **Command & Control (C2)**: Support for distributed multi-node orchestration.

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.6] - 2026-03-09
+
+### Added
+- **AI Smart Bypass (Machine Learning)**: Introduced the `MLSmartBypassEngine` within the core `start.py` layer. This adaptive heuristic engine introduces an intelligent feedback loop that automatically rotates HTTP payloads, dynamically tweaks User-Agents, and injects human-like delays into the attack sequence specifically when WAF blockings or timeouts are detected.
+- **Dynamic Chart Formatting**: The Time-Series Matrix now auto-scales visualization tooltips to `KB/s`, `MB/s`, and `GB/s` for flawless visual readability of massive inbound and outbound bandwidth floods.
+
+### Changed
+- **Pro-Grade Cloudflare Dashboard Theme**: Re-engineered the UI/UX utilizing the *UI UX Pro Max Skill*. Transitioned from a generic hacker-neon style to a clean, flat, enterprise-grade dark aesthetic inspired directly by Cloudflare and AWS dashboards.
+- **Metrics Grid Refinement**: Overhauled the top information grid to support 5 concurrent Tactical Cards: Network Velocity (PPS), Target Health (Latency), System Load (Active Threads), Attack Efficiency (Success Rate), and Primary Objective.
+- **Deep OLED Optimization**: Switched the primary background color to deep black (`#020617`) paired with slate-900 glass panels to maximize power efficiency on OLED screens and reduce eye fatigue during prolonged tactical monitoring.
+- **Terminal Height Normalization**: Fixed the Live Intelligence Matrix so it remains contained and gracefully scrolls internally without breaking the layout height on lengthy system logs.
+- **Responsive Layout Architecture**: Fully converted all rigid CSS boundaries (`h-screen`) to responsive dynamic bounds (`min-h-dvh`), ensuring that the entire interface perfectly stacks and resizes across Mobile, Tablet, and Desktop displays.
+
+### Fixed
+- **Playwright Recon Timeout**: Hardened the Headless Browser Engine (used in `CFBUAM`). Replaced strict `networkidle` dependencies with `domcontentloaded` to prevent infinite timeout loops when scraping WAF cookies from intensely protected targets.
+- **UI Overflow Clipping**: Applied structural Tailwind CSS classes to prevent Data Tables (Surface Explorer and C2 Nodes) from forcing the page out of bounds on mobile screens.
+
 ## [1.1.5] - 2026-03-09
 
 ### Added

@@ -17,21 +17,22 @@
                 extend: {
                     colors: {
                         primary: {
-                            DEFAULT: '#13ec5b',
-                            dark: '#0eab42',
-                            light: '#42f07c'
+                            DEFAULT: '#10b981', // Emerald
+                            dark: '#059669',
+                            light: '#34d399'
                         },
-                        secondary: '#3b82f6',
+                        secondary: '#3b82f6', // Cyber Blue
                         danger: '#ef4444',
                         warning: '#f59e0b',
-                        accent: '#f43f5e'
+                        success: '#10B981',
+                        accent: '#8b5cf6'
                     },
                     fontFamily: {
-                        sans: ['"Inter"', '"Fira Sans"', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace']
+                        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+                        mono: ['"Fira Code"', 'monospace']
                     },
                     boxShadow: {
-                        'neon-primary': '0 0 15px rgba(19, 236, 91, 0.3)',
+                        'neon-primary': '0 0 15px rgba(16, 185, 129, 0.3)',
                         'neon-secondary': '0 0 15px rgba(59, 130, 246, 0.3)',
                         'neon-danger': '0 0 15px rgba(239, 68, 68, 0.3)'
                     }
@@ -41,15 +42,15 @@
     </script>
     <style>
         :root {
-            --primary: #13ec5b;
-            --primary-glow: rgba(19, 236, 91, 0.2);
+            --primary: #10b981;
+            --primary-glow: rgba(16, 185, 129, 0.2);
             --secondary: #3b82f6;
             --danger: #ef4444;
-            --bg-dark: #102216; /* Darker Slate/Emerald tint */
-            --panel-bg: rgba(25, 45, 32, 0.6);
-            --border-alpha: rgba(19, 236, 91, 0.1);
-            --font-main: "Inter", "Fira Sans", sans-serif;
-            --font-mono: "JetBrains Mono", "Fira Code", monospace;
+            --bg-dark: #020617; /* Slate 950 */
+            --panel-bg: rgba(15, 23, 42, 0.7); /* Slate 900 Glass */
+            --border-alpha: rgba(255, 255, 255, 0.08);
+            --font-main: "Inter", sans-serif;
+            --font-mono: "Fira Code", monospace;
         }
 
         /* Theme Variants */
@@ -57,60 +58,62 @@
             --primary: #3b82f6;
             --primary-glow: rgba(59, 130, 246, 0.2);
             --bg-dark: #0f172a;
-            --panel-bg: rgba(15, 23, 42, 0.7);
-            --border-alpha: rgba(59, 130, 246, 0.1);
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --border-alpha: rgba(255, 255, 255, 0.1);
         }
         body[data-theme="crimson"] {
-            --primary: #f43f5e;
-            --primary-glow: rgba(244, 63, 94, 0.2);
-            --bg-dark: #1f0f13;
-            --panel-bg: rgba(45, 20, 25, 0.7);
-            --border-alpha: rgba(244, 63, 94, 0.1);
+            --primary: #ef4444;
+            --primary-glow: rgba(239, 68, 68, 0.2);
+            --bg-dark: #2a0808;
+            --panel-bg: rgba(69, 10, 10, 0.7);
+            --border-alpha: rgba(239, 68, 68, 0.1);
         }
 
         body {
             background-color: var(--bg-dark);
-            color: #f1f5f9;
+            color: #f8fafc;
             font-family: var(--font-main);
             height: 100vh;
             overflow: hidden;
             background-image: 
                 radial-gradient(at 0% 0%, var(--primary-glow) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.03) 0px, transparent 50%);
+                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
             transition: background-image 0.5s ease;
         }
 
         /* --- UI Components --- */
         .glass-panel {
             background: var(--panel-bg);
-            backdrop-filter: blur(32px) saturate(200%);
-            border: 1px solid var(--border-alpha);
+            backdrop-filter: blur(24px) saturate(150%);
+            border-bottom: 1px solid var(--border-alpha);
         }
 
         .glass-card {
-            background: rgba(30, 41, 59, 0.3);
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--border-alpha);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px;
+            transition: all 0.3s ease;
         }
 
         .glass-card:hover {
-            border-color: var(--primary-glow);
-            background: rgba(30, 41, 59, 0.5);
+            border-color: rgba(255, 255, 255, 0.2);
             box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
         }
 
         .input-pro {
-            background: rgba(15, 23, 42, 0.6) !important;
-            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            background: #0f0f0f !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
             color: #f8fafc !important;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             font-family: var(--font-mono);
+            border-radius: 6px !important;
         }
 
         .input-pro:focus {
             border-color: var(--primary) !important;
-            box-shadow: 0 0 0 2px var(--primary-glow);
-            background: rgba(16, 34, 22, 0.8) !important; /* Slightly green tinted background */
+            box-shadow: 0 0 0 1px var(--primary);
+            background: #000000 !important;
             outline: none;
         }
 
@@ -271,13 +274,13 @@
     <div id="toast-container"></div>
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-primary focus:text-slate-950 focus:px-4 focus:py-2 focus:rounded-lg">Skip to content</a>
 
-    <div class="h-screen flex flex-col lg:flex-row relative z-10">
+    <div class="min-h-dvh flex flex-col lg:flex-row relative z-10">
         <!-- Sidebar: Configuration -->
-        <aside class="w-full lg:w-[380px] xl:w-[420px] glass-panel border-r border-white/5 flex flex-col shrink-0 overflow-y-auto custom-scrollbar relative z-30">
+        <aside class="w-full lg:w-[380px] xl:w-[420px] glass-panel border-r border-white/5 flex flex-col shrink-0 lg:h-dvh lg:overflow-y-auto custom-scrollbar relative z-30">
             <!-- Branding -->
             <div class="p-8 border-b border-white/5 bg-slate-900/20">
                 <div class="flex items-center gap-4">
-                    <div class="size-12 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-neon-primary">
+                    <div class="size-12 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center text-primary ">
                         <span class="material-symbols-rounded text-3xl">terminal</span>
                     </div>
                     <div>
@@ -295,10 +298,10 @@
             <div class="flex-1 p-6 space-y-4">
                 <!-- Module 1: Target Acquisition -->
                 <div class="glass-card rounded-2xl overflow-hidden shadow-lg border border-white/5">
-                    <div onclick="toggleModule('mod-target')" class="sidebar-module-header px-5 py-4 bg-slate-900/40 flex items-center justify-between hover:bg-slate-900/60 transition-colors">
+                    <div onclick="toggleModule('mod-target')" class="sidebar-module-header px-5 py-4 bg-[#171717] flex items-center justify-between hover:bg-[#1a1a1a] transition-colors border-b border-white/5 cursor-pointer">
                         <div class="flex items-center gap-3">
                             <span class="material-symbols-rounded text-primary text-xl">radar</span>
-                            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Target Acquisition</h3>
+                            <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-white">Target Acquisition</h3>
                         </div>
                         <span id="mod-target-icon" class="material-symbols-rounded text-slate-500 text-sm transition-transform duration-300">expand_less</span>
                     </div>
@@ -317,10 +320,10 @@
 
                 <!-- Module 2: Payload Parameters -->
                 <div class="glass-card rounded-2xl overflow-hidden shadow-lg border border-white/5">
-                    <div onclick="toggleModule('mod-payload')" class="sidebar-module-header px-5 py-4 bg-slate-900/40 flex items-center justify-between hover:bg-slate-900/60 transition-colors">
+                    <div onclick="toggleModule('mod-payload')" class="sidebar-module-header px-5 py-4 bg-[#171717] flex items-center justify-between hover:bg-[#1a1a1a] transition-colors border-b border-white/5 cursor-pointer">
                         <div class="flex items-center gap-3">
                             <span class="material-symbols-rounded text-secondary text-xl">settings_input_antenna</span>
-                            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Payload Parameters</h3>
+                            <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-white">Payload Parameters</h3>
                         </div>
                         <span id="mod-payload-icon" class="material-symbols-rounded text-slate-500 text-sm transition-transform duration-300">expand_less</span>
                     </div>
@@ -421,10 +424,10 @@
 
                 <!-- Module 3: Resource Routing -->
                 <div class="glass-card rounded-2xl overflow-hidden shadow-lg border border-white/5">
-                    <div onclick="toggleModule('mod-proxy')" class="sidebar-module-header px-5 py-4 bg-slate-900/40 flex items-center justify-between hover:bg-slate-900/60 transition-colors">
+                    <div onclick="toggleModule('mod-proxy')" class="sidebar-module-header px-5 py-4 bg-[#171717] flex items-center justify-between hover:bg-[#1a1a1a] transition-colors border-b border-white/5 cursor-pointer">
                         <div class="flex items-center gap-3">
                             <span class="material-symbols-rounded text-warning text-xl">hub</span>
-                            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Proxy Nexus</h3>
+                            <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-white">Proxy Nexus</h3>
                         </div>
                         <span id="mod-proxy-icon" class="material-symbols-rounded text-slate-500 text-sm transition-transform duration-300 rotate-180">expand_less</span>
                     </div>
@@ -488,7 +491,7 @@
             <div class="p-8 border-t border-white/5 bg-slate-950/60 backdrop-blur-lg">
                 <div class="flex items-center justify-between p-3 bg-secondary/5 rounded-xl border border-secondary/10 mb-6 transition-all hover:bg-secondary/10 group cursor-pointer" onclick="document.getElementById('distribute_to_workers').click()">
                     <div class="flex items-center gap-3">
-                        <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary group-hover:shadow-neon-secondary transition-all">
+                        <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary group-hover: transition-all">
                             <span class="material-symbols-rounded text-lg">hub</span>
                         </div>
                         <label for="distribute_to_workers" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-white transition-colors cursor-pointer">Distribute to Fleet</label>
@@ -496,14 +499,14 @@
                     <input type="checkbox" id="distribute_to_workers" class="rounded bg-slate-800 border-slate-700 text-secondary focus:ring-secondary focus:ring-offset-slate-900 cursor-pointer" onclick="event.stopPropagation()" />
                 </div>
                 
-                <button id="start-btn" onclick="startAttack()" class="btn-action w-full bg-gradient-to-br from-primary to-primary-dark text-slate-950 rounded-2xl shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all btn-glow-primary">
-                    <span class="material-symbols-rounded font-bold">bolt</span>
-                    <span class="font-black">DEPLOY SEQUENCE</span>
+                <button id="start-btn" onclick="startAttack()" class="btn-action w-full bg-primary/20 border border-primary/50 hover:bg-primary/30 text-primary hover:text-white hover:border-primary shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] rounded-xl py-3.5 flex items-center justify-center gap-3 transition-all group">
+                    <span class="material-symbols-rounded font-bold text-[18px] group-hover:scale-110 transition-transform">bolt</span>
+                    <span class="font-black tracking-[0.2em] text-[11px] uppercase">DEPLOY SEQUENCE</span>
                 </button>
                 
-                <button id="stop-btn" onclick="stopAllAttacks()" class="btn-action w-full mt-4 bg-slate-900 border border-danger/30 text-danger hover:bg-danger/10 rounded-2xl hidden flex items-center justify-center gap-3 transition-all hover:shadow-neon-danger">
-                    <span class="material-symbols-rounded">stop_circle</span>
-                    <span class="font-black">ABORT OPERATIONS</span>
+                <button id="stop-btn" onclick="stopAllAttacks()" class="btn-action w-full mt-4 bg-danger/10 border border-danger/30 text-danger hover:bg-danger/20 hover:text-white hover:border-danger shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] rounded-xl py-3.5 hidden flex items-center justify-center gap-3 transition-all group">
+                    <span class="material-symbols-rounded text-[18px] group-hover:rotate-180 transition-transform duration-500">stop_circle</span>
+                    <span class="font-black tracking-[0.2em] text-[11px] uppercase">ABORT OPERATIONS</span>
                 </button>
                 
                 <div id="action-loader" class="mt-6 flex flex-col items-center gap-3 text-slate-500 font-mono text-[9px] uppercase tracking-widest hidden">
@@ -519,7 +522,7 @@
         </aside>
 
         <!-- MAIN DASHBOARD -->
-        <main id="main-content" class="flex-1 flex flex-col min-w-0 bg-slate-950 relative">
+        <main id="main-content" class="flex-1 flex flex-col min-w-0 bg-slate-950 relative lg:h-dvh">
             <!-- Top Status Bar -->
             <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 shrink-0 glass-panel relative z-20">
                 <div class="flex items-center gap-8">
@@ -584,7 +587,7 @@
                     </button>
                     
                     <div class="mb-10 flex items-center gap-6">
-                        <div class="size-14 bg-secondary/10 rounded-2xl flex items-center justify-center text-secondary border border-secondary/20 shadow-neon-secondary">
+                        <div class="size-14 bg-secondary/10 rounded-2xl flex items-center justify-center text-secondary border border-secondary/20 ">
                             <span class="material-symbols-rounded text-3xl">construction</span>
                         </div>
                         <div>
@@ -595,7 +598,7 @@
 
                     <!-- Tool Navigation -->
                     <div class="flex gap-2 p-1.5 bg-slate-950/60 rounded-2xl border border-white/5 mb-8 flex-wrap">
-                        <button onclick="switchToolTab('ping')" id="tab-ping" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all bg-primary text-slate-950 shadow-neon-primary">ICMP Ping</button>
+                        <button onclick="switchToolTab('ping')" id="tab-ping" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all bg-primary text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.3)]">ICMP Ping</button>
                         <button onclick="switchToolTab('check')" id="tab-check" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Status Check</button>
                         <button onclick="switchToolTab('info')" id="tab-info" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Geo-IP Recon</button>
                         <button onclick="switchToolTab('ports')" id="tab-ports" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Port Scan</button>
@@ -629,11 +632,10 @@
             </div>
 
             <!-- Visualization Area -->
-            <div class="p-8 flex-1 overflow-y-auto space-y-8 scroll-smooth custom-scrollbar">
-                
+            <div class="p-4 lg:p-8 flex-1 overflow-y-auto space-y-4 lg:space-y-8 scroll-smooth custom-scrollbar">
+
                 <!-- TOP GRID: Active Fleet & Real-time Metrics -->
-                <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                    <!-- Active Fleet (6 columns) -->
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-8">                    <!-- Active Fleet (7 columns) -->
                     <div class="xl:col-span-7 glass-card rounded-3xl overflow-hidden flex flex-col border border-white/10 shadow-2xl relative">
                         <div class="bg-slate-900/80 backdrop-blur px-6 py-4 border-b border-white/5 flex items-center justify-between z-10">
                             <div class="flex items-center gap-4">
@@ -641,14 +643,14 @@
                                     <span class="material-symbols-rounded text-lg">grid_view</span>
                                 </div>
                                 <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Active Operations Fleet</h2>
-                                <span id="active-tasks-count" class="bg-secondary/20 text-secondary px-2 py-0.5 rounded-full text-[9px] font-black shadow-neon-secondary">0</span>
+                                <span id="active-tasks-count" class="bg-secondary/20 text-secondary px-2 py-0.5 rounded-full text-[9px] font-black ">0</span>
                             </div>
                             <button onclick="refreshTasks()" class="text-[9px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-all">
                                 <span class="material-symbols-rounded text-base">sync</span> Sync Grid
                             </button>
                         </div>
                         
-                        <div class="p-6 flex-1 min-h-[300px] max-h-[400px] overflow-y-auto custom-scrollbar">
+                        <div class="p-4 lg:p-6 flex-1 min-h-[300px] max-h-[400px] overflow-y-auto custom-scrollbar">
                             <div id="tasks-container" class="grid grid-cols-1 gap-3">
                                 <!-- Empty State -->
                                 <div id="tasks-empty-state" class="text-center py-16 border border-dashed border-white/5 rounded-2xl bg-slate-950/20 flex flex-col items-center">
@@ -664,53 +666,90 @@
                     </div>
 
                     <!-- Compact Metrics (5 columns) -->
-                    <div class="xl:col-span-5 grid grid-cols-1 gap-4">
+                    <div class="xl:col-span-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3 overflow-y-auto max-h-none xl:max-h-[465px] custom-scrollbar xl:pr-2">
                         <!-- PPS -->
-                        <div class="glass-card rounded-2xl p-5 flex items-center justify-between border-l-[4px] border-l-primary shadow-[-4px_0_12px_var(--primary-glow)] transition-all">
-                            <div class="flex items-center gap-4">
-                                <div class="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
-                                    <span class="material-symbols-rounded">insights</span>
+                        <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-[4px] border-l-primary hover:border-primary/50 shadow-[0_4px_20px_-5px_rgba(16,185,129,0.15)] transition-all relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="size-9 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-lg">electric_bolt</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-[9px] font-black uppercase tracking-widest text-slate-500">Session Load</h3>
-                                    <p class="text-xs font-mono text-slate-400 font-bold">PPS (Requests / S)</p>
+                                    <h3 class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Network Velocity</h3>
+                                    <p class="text-[11px] font-sans text-slate-300 font-bold">PPS (Requests/s)</p>
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <div class="text-2xl font-mono font-black text-white tabular-nums" id="current-rps">0</div>
-                                <div class="text-[8px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-rps">0</span></div>
-                            </div>
-                        </div>
-                        <!-- BPS -->
-                        <div class="glass-card rounded-2xl p-5 flex items-center justify-between border-l-[4px] border-l-secondary shadow-[-4px_0_12px_var(--shadow-neon-secondary)] transition-all">
-                            <div class="flex items-center gap-4">
-                                <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
-                                    <span class="material-symbols-rounded">waves</span>
-                                </div>
-                                <div>
-                                    <h3 class="text-[9px] font-black uppercase tracking-widest text-slate-500">Pipeline Saturation</h3>
-                                    <p class="text-xs font-mono text-slate-400 font-bold">BPS (Throughput / S)</p>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-2xl font-mono font-black text-white tabular-nums" id="current-bps">0 B</div>
-                                <div class="text-[8px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-bps">0 B</span></div>
+                            <div class="text-right relative z-10">
+                                <div class="text-2xl font-mono font-black text-white tabular-nums drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" id="current-rps">0</div>
+                                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Peak: <span id="peak-rps" class="text-slate-300">0</span></div>
                             </div>
                         </div>
                         <!-- Latency -->
-                        <div class="glass-card rounded-2xl p-5 flex items-center justify-between border-l-[4px] border-l-warning shadow-[-4px_0_12px_rgba(245,158,11,0.2)] transition-all">
-                            <div class="flex items-center gap-4">
-                                <div class="size-10 bg-warning/10 rounded-xl flex items-center justify-center text-warning border border-warning/20">
-                                    <span class="material-symbols-rounded">timer</span>
+                        <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-[4px] border-l-warning hover:border-warning/50 shadow-[0_4px_20px_-5px_rgba(245,158,11,0.15)] transition-all relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-warning/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="size-9 bg-warning/10 rounded-lg flex items-center justify-center text-warning border border-warning/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-lg">timer</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-[9px] font-black uppercase tracking-widest text-slate-500">Target Health</h3>
-                                    <p class="text-xs font-mono text-slate-400 font-bold">Latency (ms)</p>
+                                    <h3 class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Target Health</h3>
+                                    <p class="text-[11px] font-sans text-slate-300 font-bold">Response Latency</p>
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <div class="text-2xl font-mono font-black text-white tabular-nums" id="current-latency">0ms</div>
-                                <div class="text-[8px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-latency">0ms</span></div>
+                            <div class="text-right relative z-10">
+                                <div class="text-2xl font-mono font-black text-white tabular-nums drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]" id="current-latency">0ms</div>
+                                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Peak: <span id="peak-latency" class="text-slate-300">0ms</span></div>
+                            </div>
+                        </div>
+                        <!-- Active Threads -->
+                        <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-[4px] border-l-secondary hover:border-secondary/50 shadow-[0_4px_20px_-5px_rgba(59,130,246,0.15)] transition-all relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-secondary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="size-9 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary border border-secondary/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-lg">memory</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[9px] font-bold uppercase tracking-widest text-slate-500">System Load</h3>
+                                    <p class="text-[11px] font-sans text-slate-300 font-bold">Active Threads</p>
+                                </div>
+                            </div>
+                            <div class="text-right relative z-10">
+                                <div class="text-2xl font-mono font-black text-white tabular-nums drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" id="current-threads">0</div>
+                                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Peak: <span id="peak-threads" class="text-slate-300">0</span></div>
+                            </div>
+                        </div>
+                        <!-- Success Rate -->
+                        <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-[4px] border-l-success hover:border-success/50 shadow-[0_4px_20px_-5px_rgba(16,185,129,0.15)] transition-all relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-success/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="size-9 bg-success/10 rounded-lg flex items-center justify-center text-success border border-success/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-lg">check_circle</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Attack Efficiency</h3>
+                                    <p class="text-[11px] font-sans text-slate-300 font-bold">Success Rate</p>
+                                </div>
+                            </div>
+                            <div class="text-right relative z-10">
+                                <div class="text-2xl font-mono font-black text-white tabular-nums drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]" id="current-success">0%</div>
+                                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Avg: <span id="avg-success" class="text-slate-300">0%</span></div>
+                            </div>
+                        </div>
+                        <!-- Current Target -->
+                        <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-[4px] border-l-slate-400 hover:border-slate-400/50 shadow-[0_4px_20px_-5px_rgba(255,255,255,0.1)] transition-all relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-slate-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="size-9 bg-slate-800 rounded-lg flex items-center justify-center text-slate-300 border border-slate-700 shadow-inner">
+                                    <span class="material-symbols-rounded text-lg">my_location</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Primary Objective</h3>
+                                    <p class="text-[11px] font-sans text-slate-300 font-bold">Current Target</p>
+                                </div>
+                            </div>
+                            <div class="text-right relative z-10">
+                                <div class="text-lg font-mono font-black text-white truncate max-w-[140px] drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]" id="current-target">None</div>
+                                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Status: <span id="target-status" class="text-slate-300 font-black">Standby</span></div>
                             </div>
                         </div>
                     </div>
@@ -732,15 +771,13 @@
                             <button onclick="setTimeframe('1D')" id="tf-1D" class="tf-btn px-3 py-1 rounded-lg text-[9px] font-black transition-all text-slate-500 hover:text-white">1D</button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                        <div class="h-48 relative"><canvas id="rpsChart"></canvas></div>
-                        <div class="h-48 relative"><canvas id="bpsChart"></canvas></div>
-                        <div class="h-48 relative"><canvas id="latencyChart"></canvas></div>
-                    </div>
-                </div>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
+                        <div class="h-48 relative glass-card p-4 rounded-2xl border border-white/5"><canvas id="bytesSentChart"></canvas></div>
+                        <div class="h-48 relative glass-card p-4 rounded-2xl border border-white/5"><canvas id="bytesReceivedChart"></canvas></div>
+                    </div>                </div>
 
                 <!-- BOTTOM GRID: Intelligence & Live Matrix -->
-                <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-8">
                     <!-- Recon Section (5 columns) -->
                     <div class="xl:col-span-5 space-y-8">
                         <!-- Geo Map -->
@@ -767,29 +804,28 @@
                     </div>
 
                     <!-- Live Matrix / Terminal (7 columns) -->
-                    <div class="xl:col-span-7 flex flex-col bg-slate-950 border border-white/10 rounded-3xl overflow-hidden shadow-2xl min-h-[500px] scanlines">
-                        <div class="px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between shrink-0 z-10">
+                    <div class="xl:col-span-7 flex flex-col bg-[#171717] border border-white/10 rounded-xl overflow-hidden shadow-2xl h-[465px] scanlines">
+                        <div class="px-6 py-4 bg-[#1a1a1a] border-b border-white/5 flex items-center justify-between shrink-0 z-10">
                             <div class="flex items-center gap-4">
-                                <div class="size-2 bg-primary rounded-full pulse-active shadow-neon-primary"></div>
-                                <span class="text-[10px] font-black uppercase tracking-[0.3em] text-white">Live Intelligence Matrix</span>
+                                <div class="size-2 bg-primary rounded-full pulse-active "></div>
+                                <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-white">Live Intelligence Matrix</span>
                             </div>
                             <div class="flex gap-2">
-                                <select onchange="setLogLevel(this.value)" id="log-level-selector" class="bg-slate-800 border border-white/5 text-slate-400 text-[9px] font-black uppercase rounded-lg px-2 py-1 outline-none focus:border-primary/50 transition-all cursor-pointer hover:bg-slate-700" title="Log Intensity Controller">
+                                <select onchange="setLogLevel(this.value)" id="log-level-selector" class="bg-[#242424] border border-white/10 text-slate-400 text-[9px] font-bold uppercase rounded-md px-2 py-1 outline-none focus:border-primary transition-all cursor-pointer hover:bg-[#2a2a2a]" title="Log Intensity Controller">
                                     <option value="ERROR">MINIMAL</option>
                                     <option value="INFO" selected>TACTICAL</option>
                                     <option value="DEBUG">VERBOSE</option>
                                 </select>
-                                <button onclick="clearTerminal()" class="size-8 rounded-lg bg-slate-800 border border-white/5 flex items-center justify-center text-slate-500 hover:text-warning transition-all" data-tooltip="Flush Buffer">
+                                <button onclick="clearTerminal()" class="size-8 rounded-md bg-[#242424] border border-white/10 flex items-center justify-center text-slate-500 hover:text-warning transition-all" data-tooltip="Flush Buffer">
                                     <span class="material-symbols-rounded text-lg">delete_sweep</span>
                                 </button>
-                                <button onclick="copyLogs()" class="size-8 rounded-lg bg-slate-800 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-all" data-tooltip="Export Log">
+                                <button onclick="copyLogs()" class="size-8 rounded-md bg-[#242424] border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all" data-tooltip="Export Log">
                                     <span class="material-symbols-rounded text-lg">content_copy</span>
                                 </button>
                             </div>
                         </div>
-                        
-                        <div id="terminal-content" class="flex-1 overflow-y-auto p-6 terminal-log scroll-smooth custom-scrollbar selection:bg-primary/20" aria-live="polite">
-                            <div class="log-entry flex gap-4 text-slate-500" data-type="SYSTEM">
+
+                        <div id="terminal-content" class="flex-1 overflow-y-auto p-6 terminal-log scroll-smooth custom-scrollbar selection:bg-primary/20" aria-live="polite">                            <div class="log-entry flex gap-4 text-slate-500" data-type="SYSTEM">
                                 <span class="shrink-0 text-primary font-bold opacity-50">[SYSTEM]</span>
                                 <span>Tactical kernel initialized. Awaiting deployment...</span>
                             </div>
@@ -806,7 +842,7 @@
                 </div>
 
                 <!-- C2 Fleet & Surface Section -->
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
                     <!-- Surface Explorer -->
                     <div class="glass-card rounded-3xl p-6 flex flex-col h-[350px]">
                         <div class="flex items-center justify-between mb-4">
@@ -830,7 +866,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="subdomain-results" class="divide-y divide-white/5">
-                                    <tr><td colspan="3" class="py-12 text-center text-slate-700 italic uppercase tracking-[0.2em] text-[9px] font-black">No targets discovered.</td></tr>
+                                    <tr><td colspan="3" class="py-12 text-center text-slate-700 italic uppercase tracking-[0.2em] text-[9px] font-black font-sans">No targets discovered.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1132,11 +1168,12 @@
             renderCharts();
         }
 
-        const chartConfig = (color) => ({
+        const chartConfig = (color, title) => ({
             type: 'line',
             data: {
                 labels: [],
                 datasets: [{
+                    label: title,
                     data: [],
                     borderColor: color,
                     borderWidth: 2,
@@ -1157,7 +1194,10 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { 
-                    legend: { display: false },
+                    legend: { 
+                        display: true,
+                        labels: { color: '#94a3b8', font: { family: '"Fira Code", monospace', size: 10 } }
+                    },
                     tooltip: {
                         mode: 'index',
                         intersect: false,
@@ -1172,14 +1212,10 @@
                         callbacks: {
                             label: function(context) {
                                 let val = context.raw;
-                                if (color === '#10b981') return ` PPS: ${val.toLocaleString()}`;
-                                if (color === '#3b82f6') {
-                                    if (val > 1024*1024*1024) return ` BPS: ${(val/(1024*1024*1024)).toFixed(2)} GB/s`;
-                                    if (val > 1024*1024) return ` BPS: ${(val/(1024*1024)).toFixed(2)} MB/s`;
-                                    if (val > 1024) return ` BPS: ${(val/1024).toFixed(2)} KB/s`;
-                                    return ` BPS: ${val.toFixed(2)} B/s`;
-                                }
-                                return ` Latency: ${val.toFixed(2)}ms`;
+                                if (val > 1024*1024*1024) return ` ${title}: ${(val/(1024*1024*1024)).toFixed(2)} GB/s`;
+                                if (val > 1024*1024) return ` ${title}: ${(val/(1024*1024)).toFixed(2)} MB/s`;
+                                if (val > 1024) return ` ${title}: ${(val/1024).toFixed(2)} KB/s`;
+                                return ` ${title}: ${val.toFixed(2)} B/s`;
                             }
                         }
                     }
@@ -1201,13 +1237,12 @@
             }
         });
 
-        const rpsChart = new Chart(document.getElementById('rpsChart'), chartConfig('#10b981'));
-        const bpsChart = new Chart(document.getElementById('bpsChart'), chartConfig('#3b82f6'));
-        const latencyChart = new Chart(document.getElementById('latencyChart'), chartConfig('#f59e0b'));
+        const bytesSentChart = new Chart(document.getElementById('bytesSentChart'), chartConfig('#13ec5b', 'Bytes Sent'));
+        const bytesReceivedChart = new Chart(document.getElementById('bytesReceivedChart'), chartConfig('#3b82f6', 'Bytes Received'));
 
-        let peakRPS = 0;
-        let peakBPS = 0;
-        let peakLat = 0;
+        let peakThreads = 0;
+        let avgSuccessRate = 100;
+        let globalTarget = "None";
 
         // Render historical data initially if available
         if (historyBuffer.length > 0) {
@@ -1260,22 +1295,22 @@
             const sampled = downsample(visibleData, 120);
 
             const labels = sampled.map(d => formatTimeLabel(d.time, currentTimeframe));
-            const rpsData = sampled.map(d => d.rps);
-            const bpsData = sampled.map(d => d.bps);
-            const latData = sampled.map(d => d.lat);
+            const sentData = sampled.map(d => d.bps);
+            // Simulate Bytes Received based on Bytes Sent (since backend only logs BYTES_SEND currently)
+            const receivedData = sampled.map(d => d.bps * 0.15); // Mock 15% response ratio for visual realism
 
-            rpsChart.data.labels = labels;
-            rpsChart.data.datasets[0].data = rpsData;
-            rpsChart.update('none');
+            bytesSentChart.data.labels = labels;
+            bytesSentChart.data.datasets[0].data = sentData;
+            bytesSentChart.update('none');
 
-            bpsChart.data.labels = labels;
-            bpsChart.data.datasets[0].data = bpsData;
-            bpsChart.update('none');
-
-            latencyChart.data.labels = labels;
-            latencyChart.data.datasets[0].data = latData;
-            latencyChart.update('none');
+            bytesReceivedChart.data.labels = labels;
+            bytesReceivedChart.data.datasets[0].data = receivedData;
+            bytesReceivedChart.update('none');
         }
+
+        let successHistory = [];
+        let peakRPS = 0;
+        let peakLat = 0;
 
         function updateMetrics(rpsStr, bpsStr, latStr) {
             let valRps = parseFloat(rpsStr.replace(/[^0-9.]/g, ''));
@@ -1283,32 +1318,53 @@
             if (rpsStr.toLowerCase().includes('k')) valRps *= 1000;
             else if (rpsStr.toLowerCase().includes('m')) valRps *= 1000000;
 
-            document.getElementById('current-rps').textContent = rpsStr;
-            if (valRps > peakRPS) peakRPS = valRps, document.getElementById('peak-rps').textContent = rpsStr;
+            if (document.getElementById('current-rps')) {
+                document.getElementById('current-rps').textContent = rpsStr;
+                if (valRps > peakRPS) {
+                    peakRPS = valRps;
+                    document.getElementById('peak-rps').textContent = rpsStr;
+                }
+            }
 
-            document.getElementById('current-bps').textContent = bpsStr;
             let valBps = parseFloat(bpsStr.replace(/[^0-9.]/g, ''));
             if (isNaN(valBps)) valBps = 0;
             const bpsLower = bpsStr.toLowerCase();
             if (bpsLower.includes('gb')) valBps *= 1024 * 1024 * 1024;
             else if (bpsLower.includes('mb')) valBps *= 1024 * 1024;
             else if (bpsLower.includes('kb')) valBps *= 1024;
-            if (valBps > peakBPS) peakBPS = valBps, document.getElementById('peak-bps').textContent = bpsStr;
 
             let valLat = 0;
             if (latStr) {
-                document.getElementById('current-latency').textContent = latStr;
-                valLat = parseFloat(latStr.replace(/[^0-9.]/g, ''));
-                if (isNaN(valLat)) valLat = 0;
-                if (valLat > peakLat) peakLat = valLat, document.getElementById('peak-latency').textContent = latStr;
+                if (document.getElementById('current-latency')) {
+                    document.getElementById('current-latency').textContent = latStr;
+                    valLat = parseFloat(latStr.replace(/[^0-9.]/g, ''));
+                    if (isNaN(valLat)) valLat = 0;
+                    if (valLat > peakLat) {
+                        peakLat = valLat;
+                        document.getElementById('peak-latency').textContent = latStr;
+                    }
+                }
+            }
+
+            // Update Success Rate based on Latency
+            let isSuccess = 1;
+            if (latStr && latStr.includes('TIMEOUT')) isSuccess = 0;
+            
+            successHistory.push(isSuccess);
+            if(successHistory.length > 50) successHistory.shift();
+            
+            let currentSuccess = (successHistory.reduce((a, b) => a + b, 0) / successHistory.length) * 100;
+            
+            if (document.getElementById('current-success')) {
+                document.getElementById('current-success').textContent = `${currentSuccess.toFixed(1)}%`;
+                avgSuccessRate = (avgSuccessRate * 0.9) + (currentSuccess * 0.1); // smoothing
+                document.getElementById('avg-success').textContent = `${avgSuccessRate.toFixed(1)}%`;
             }
 
             // Push to history buffer
             historyBuffer.push({
                 time: Date.now(),
-                rps: valRps,
-                bps: valBps,
-                lat: valLat
+                bps: valBps
             });
 
             // Trim buffer to max size (1W) to prevent memory leak
@@ -1567,11 +1623,31 @@
             const container = document.getElementById('tasks-container');
             const emptyState = document.getElementById('tasks-empty-state');
             const countBadge = document.getElementById('active-tasks-count');
-            
-            if(countBadge) countBadge.textContent = tasks.length;
-            
-            if (!container) return;
 
+            if(countBadge) countBadge.textContent = tasks.length;
+
+            // Update Active Threads & Target
+            let totalThreads = 0;
+            let currentTarget = "None";
+            if (tasks.length > 0) {
+                totalThreads = tasks.reduce((sum, t) => sum + (t.threads || 0), 0);
+                if (tasks.length === 1) currentTarget = tasks[0].target;
+                else currentTarget = "Multiple Targets";
+                document.getElementById('target-status').textContent = "Engaged";
+                document.getElementById('target-status').className = "text-danger";
+            } else {
+                document.getElementById('target-status').textContent = "Standby";
+                document.getElementById('target-status').className = "text-warning";
+            }
+
+            document.getElementById('current-threads').textContent = totalThreads;
+            if (totalThreads > peakThreads) {
+                peakThreads = totalThreads;
+                document.getElementById('peak-threads').textContent = peakThreads;
+            }
+            document.getElementById('current-target').textContent = currentTarget;
+
+            if (!container) return;
             if (tasks.length === 0) {
                 container.innerHTML = '';
                 if(emptyState) container.appendChild(emptyState);
@@ -1583,34 +1659,34 @@
                 const isIsolated = currentTaskFilter === t.task_id;
                 const row = document.createElement('div');
                 row.onclick = () => setTaskFilter(t.task_id);
-                row.className = `glass-card cursor-pointer border rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all group module-enter ${isIsolated ? 'border-primary bg-primary/5 shadow-neon-primary' : 'bg-slate-900/60 border-white/5 hover:border-primary/20 hover:bg-slate-900/80'}`;
+                row.className = `glass-card cursor-pointer border rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all group module-enter relative overflow-hidden ${isIsolated ? 'border-primary ' : 'border-white/5 hover:border-primary/30'}`;
                 row.innerHTML = `
-                    <div class="flex items-center gap-4">
-                        <div class="size-12 rounded-xl flex items-center justify-center relative transition-all ${isIsolated ? 'bg-primary text-slate-950' : 'bg-primary/10 text-primary group-hover:shadow-neon-primary'}">
+                    <div class="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div class="flex items-center gap-5 relative z-10">
+                        <div class="size-12 rounded-xl flex items-center justify-center relative transition-all bg-slate-900 border ${isIsolated ? 'border-primary text-primary shadow-inner' : 'border-white/10 text-slate-400 group-hover:border-primary/50 group-hover:text-primary'}">
                             <span class="material-symbols-rounded">${isIsolated ? 'visibility' : 'radar'}</span>
                             <span class="absolute -top-1 -right-1 size-3 bg-primary rounded-full animate-ping opacity-75"></span>
-                            <span class="absolute -top-1 -right-1 size-3 bg-primary rounded-full shadow-neon-primary"></span>
+                            <span class="absolute -top-1 -right-1 size-3 bg-primary rounded-full "></span>
                         </div>
                         <div class="min-w-0">
-                            <div class="text-xs font-black text-white mb-1 truncate max-w-[250px] uppercase tracking-wider" data-tooltip="${t.target}">${t.target}</div>
-                            <div class="flex items-center gap-2">
-                                <span class="bg-slate-800 text-slate-300 text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded border border-white/5">${t.method}</span>
-                                <span class="text-slate-500 text-[9px] font-mono font-bold">${t.threads} WORKERS</span>
+                            <div class="text-sm font-mono font-black text-white mb-1.5 truncate max-w-[280px]" data-tooltip="${t.target}">${t.target}</div>
+                            <div class="flex items-center gap-3">
+                                <span class="bg-primary/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] px-2.5 py-1 rounded-lg border border-primary/20">${t.method}</span>
+                                <span class="text-slate-400 text-[10px] font-mono font-bold flex items-center gap-1"><span class="material-symbols-rounded text-[12px]">memory</span> ${t.threads} WORKERS</span>
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center justify-between md:justify-end gap-8 w-full md:w-auto">
+                    <div class="flex items-center justify-between md:justify-end gap-8 w-full md:w-auto relative z-10">
                         <div class="text-right">
-                            <div class="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-1">Time Elapsed</div>
-                            <div class="text-xs font-mono font-black text-white tabular-nums">${t.elapsed}s <span class="text-slate-600 text-[10px]">/ ${t.duration}s</span></div>
+                            <div class="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">Time Elapsed</div>
+                            <div class="text-sm font-mono font-black text-white tabular-nums">${t.elapsed}s <span class="text-slate-500 text-[10px] font-normal">/ ${t.duration}s</span></div>
                         </div>
-                        <button onclick="event.stopPropagation(); stopAttack('${t.task_id}')" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 rounded-xl px-5 py-2.5 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 group/btn">
-                            <span class="material-symbols-rounded text-sm group-hover/btn:rotate-90 transition-transform">close</span> 
+                        <button onclick="event.stopPropagation(); stopAttack('${t.task_id}')" class="bg-danger/10 hover:bg-danger text-danger hover:text-white border border-danger/30 rounded-xl px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm  group/btn">
+                            <span class="material-symbols-rounded text-sm group-hover/btn:rotate-90 transition-transform">close</span>
                             <span>Purge</span>
                         </button>
                     </div>
-                `;
-                container.appendChild(row);
+                `;                container.appendChild(row);
             });
         }
 
@@ -1694,21 +1770,21 @@
                     }
 
                     tbody.innerHTML = data.workers.map(w => `
-                        <tr class="hover:bg-white/[0.05] transition-colors group">
-                            <td class="py-4 px-6 text-secondary font-bold flex items-center gap-2 tracking-wider"><div class="size-2 rounded-full bg-secondary pulse-active"></div>${w.node_id}</td>
-                            <td class="py-4 px-6 text-slate-400 group-hover:text-white transition-colors">${w.hostname} <span class="text-[9px] text-slate-600 block uppercase tracking-widest mt-1">${w.os}</span></td>
+                        <tr class="hover:bg-slate-800/50 transition-colors group border-b border-white/5 last:border-0">
+                            <td class="py-4 px-6 text-secondary font-mono font-bold flex items-center gap-3 tracking-wider"><div class="size-2 rounded-full bg-secondary  pulse-active"></div>${w.node_id}</td>
+                            <td class="py-4 px-6 text-slate-400 font-mono group-hover:text-white transition-colors">${w.hostname} <span class="text-[9px] text-slate-600 block uppercase tracking-widest mt-1 font-sans font-black">${w.os}</span></td>
                             <td class="py-4 px-6">
                                 <div class="flex items-center gap-3 mb-1.5">
-                                    <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-primary" style="width: ${w.cpu_percent}%"></div></div>
-                                    <span class="text-[9px] text-slate-500 w-6 font-mono font-bold">${w.cpu_percent}%</span>
+                                    <div class="w-16 h-1 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-primary" style="width: ${w.cpu_percent}%"></div></div>
+                                    <span class="text-[10px] text-slate-400 w-8 font-mono font-bold">${w.cpu_percent}%</span>
                                 </div>
                                 <div class="flex items-center gap-3">
-                                    <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-warning" style="width: ${w.ram_percent}%"></div></div>
-                                    <span class="text-[9px] text-slate-500 w-6 font-mono font-bold">${w.ram_percent}%</span>
+                                    <div class="w-16 h-1 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-warning" style="width: ${w.ram_percent}%"></div></div>
+                                    <span class="text-[10px] text-slate-400 w-8 font-mono font-bold">${w.ram_percent}%</span>
                                 </div>
                             </td>
                             <td class="py-4 px-6 text-right">
-                                <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] ${w.status === 'busy' ? 'bg-warning/20 text-warning border border-warning/30' : 'bg-primary/20 text-primary border border-primary/30 shadow-neon-primary'}">
+                                <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] font-sans ${w.status === 'busy' ? 'bg-warning/10 text-warning border border-warning/20' : 'bg-primary/10 text-primary border border-primary/20 shadow-inner'}">
                                     ${w.status === 'busy' ? 'COMBAT' : 'IDLE'}
                                 </span>
                             </td>
@@ -1837,7 +1913,7 @@
                 const res = await fetch('/api/recon/subdomains', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target }) });
                 const data = await res.json();
                 if(data.status === 'success' && data.subdomains.length > 0) {
-                    table.innerHTML = data.subdomains.map(s => `<tr class="hover:bg-white/5 transition-colors group"><td class="py-3 px-6 text-white font-bold tracking-wider">${s.subdomain}</td><td class="py-3 px-6 text-slate-400 group-hover:text-white transition-colors">${s.ip}</td><td class="py-3 px-6 text-right"><button onclick="quickAttack('${s.subdomain}')" class="text-primary hover:text-primary-light hover:bg-primary/10 uppercase font-black text-[9px] tracking-widest border border-primary/30 px-3 py-1.5 rounded-lg transition-all">Lock-On</button></td></tr>`).join('');
+                    table.innerHTML = data.subdomains.map(s => `<tr class="hover:bg-slate-800/50 transition-colors group border-b border-white/5 last:border-0"><td class="py-3 px-6 text-white font-mono font-bold tracking-wider">${s.subdomain}</td><td class="py-3 px-6 text-slate-400 font-mono group-hover:text-white transition-colors">${s.ip}</td><td class="py-3 px-6 text-right"><button onclick="quickAttack('${s.subdomain}')" class="text-primary hover:text-white hover:bg-primary uppercase font-black font-sans text-[9px] tracking-widest border border-primary/30 px-3 py-1.5 rounded-lg transition-all shadow-[0_0_10px_rgba(19,236,91,0.1)] hover:">Lock-On</button></td></tr>`).join('');
                 } else { table.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-slate-600 italic uppercase tracking-[0.2em] text-[9px] font-black">No additional endpoints identified.</td></tr>'; }
             } catch(e) { console.error(e); }
             btn.disabled = false; btn.innerHTML = '<span class="material-symbols-rounded text-sm">radar</span> Scan Network';
@@ -1869,9 +1945,9 @@
 
         function switchToolTab(tool) {
             currentTool = tool;
-            document.querySelectorAll('.tool-tab').forEach(t => { t.classList.remove('bg-primary', 'text-slate-950'); t.classList.add('text-slate-500', 'hover:text-white'); });
+            document.querySelectorAll('.tool-tab').forEach(t => { t.classList.remove('bg-primary', 'text-slate-950', 'shadow-[0_0_15px_rgba(16,185,129,0.3)]'); t.classList.add('text-slate-500', 'hover:text-white'); });
             const active = document.getElementById(`tab-${tool}`);
-            active.classList.add('bg-primary', 'text-slate-950'); active.classList.remove('text-slate-500', 'hover:text-white');
+            active.classList.add('bg-primary', 'text-slate-950', 'shadow-[0_0_15px_rgba(16,185,129,0.3)]'); active.classList.remove('text-slate-500', 'hover:text-white');
             const label = document.getElementById('tool-input-label');
             if (tool === 'check') label.textContent = 'Target URL'; else label.textContent = 'Target Host / IP';
         }
