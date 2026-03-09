@@ -16,7 +16,7 @@
     <img src="https://img.icons8.com/color/512/globe--v1.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">MHDDoS Professional v1.1.3</h3>
+<h3 align="center">MHDDoS Professional v1.1.5</h3>
 
   <p align="center">
     A Modern, High-Performance Web & Desktop GUI for the renowned MHDDoS Script.
@@ -76,8 +76,11 @@
 - **Command & Control (C2)**: Support for distributed multi-node orchestration.
 - **Dynamic Worker Scaling**: Automatically scales active threads based on host machine CPU/RAM resources.
 - **Advanced Proxy Ecosystem**: Real-time node failure tracking, shifting traffic dynamically toward high-uptime "Elite-Tier" proxies. Protocol-specific SSL/TLS handshake verification.
-- **Intelligence Recon Matrix**: Built-in Geo-IP maps, signature-based WAF detection, and active Surface Explorers.
-- **Premium Enterprise UI**: Engineered with "Glassmorphism 2.0" aesthetics, refined typography, CRT scanlines, and fluid CSS transitions.
+- **Intelligence Recon Matrix**: Built-in Geo-IP maps, signature-based WAF detection, active Surface Explorers, Port Scanning, Tech Stack Fingerprinting, and DNS Enumeration.
+- **Log Intensity Controller**: Professional-grade telemetry filtering with three levels of granularity (Minimal, Tactical, Verbose) for focused monitoring.
+- **Elite Tactical Dashboard**: Advanced grid-based layout with real-time "Active Fleet" monitoring, collapsible configuration modules, and unified telemetry visualization.
+- **Multi-Process Stability**: Engineered for high-concurrency multi-tasking using SQLite WAL mode and randomized sentinel jitter to eliminate database contention.
+- **Premium Cyberpunk UI**: Engineered with "Glassmorphism 2.0" aesthetics, refined typography, CRT scanlines, and high-performance fluid CSS transitions.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

@@ -65,7 +65,7 @@ except ImportError:
     PLAYWRIGHT_INSTALLED = False
 
 # --- Tactical Configuration (v1.1.3) ---
-__version__: str = "1.1.3"
+__version__: str = "1.1.5"
 __dir__: Path = Path(__file__).parent
 
 # Setup High-Signal Logging
@@ -169,6 +169,9 @@ class IntelligenceDB:
     def _init_db(self):
         with sqlite3.connect(self.db_path, timeout=30.0) as conn:
             cursor = conn.cursor()
+            # Enable WAL mode for multi-process concurrency
+            cursor.execute('PRAGMA journal_mode=WAL;')
+            cursor.execute('PRAGMA synchronous=NORMAL;')
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS proxy_intel (
                     ip_port TEXT PRIMARY KEY,
@@ -447,7 +450,6 @@ class TacticalProxyValidator:
         requires_ssl = False
 
         if target_url and is_layer7:
-            from urllib.parse import urlparse
             parsed = urlparse(target_url)
             target_host = parsed.netloc or parsed.path
             requires_ssl = parsed.scheme == "https"
@@ -662,7 +664,8 @@ class ReloadSentinel(Thread):
             return
 
         while True:
-            sleep(self.interval)
+            # Add jitter to prevent simultaneous database writes across multiple tasks
+            sleep(self.interval + random.uniform(0, 30))
             
             # Check if pool is critically low
             if self.pool.get_tactical_size() < 10:

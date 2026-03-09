@@ -36,7 +36,7 @@ def wait_for_api(timeout: float = 10.0) -> bool:
     return False
 
 def main() -> None:
-    print("[*] Initializing MHDDoS Professional Web Launcher v1.1.3...")
+    print("[*] Initializing MHDDoS Professional Web Launcher v1.1.5...")
     
     # 1. Check if server is already active
     if is_api_running():

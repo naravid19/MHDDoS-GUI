@@ -6,27 +6,34 @@
     <title>MHDDoS Professional | Tactical Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Fira+Code:wght@300;400;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Fira+Sans:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Fira+Code:wght@300;400;700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         tailwind.config = {
+            darkMode: "class",
             theme: {
                 extend: {
                     colors: {
                         primary: {
-                            DEFAULT: '#10b981',
-                            dark: '#059669',
-                            light: '#34d399'
+                            DEFAULT: '#13ec5b',
+                            dark: '#0eab42',
+                            light: '#42f07c'
                         },
                         secondary: '#3b82f6',
                         danger: '#ef4444',
-                        warning: '#f59e0b'
+                        warning: '#f59e0b',
+                        accent: '#f43f5e'
                     },
                     fontFamily: {
-                        sans: ['"Fira Sans"', 'sans-serif'],
-                        mono: ['"Fira Code"', 'monospace']
+                        sans: ['"Inter"', '"Fira Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace']
+                    },
+                    boxShadow: {
+                        'neon-primary': '0 0 15px rgba(19, 236, 91, 0.3)',
+                        'neon-secondary': '0 0 15px rgba(59, 130, 246, 0.3)',
+                        'neon-danger': '0 0 15px rgba(239, 68, 68, 0.3)'
                     }
                 }
             }
@@ -34,13 +41,31 @@
     </script>
     <style>
         :root {
-            --primary: #10b981;
-            --primary-glow: rgba(16, 185, 129, 0.2);
-            --bg-dark: #020617;
-            --panel-bg: rgba(15, 23, 42, 0.8);
-            --border-alpha: rgba(255, 255, 255, 0.08);
-            --font-main: "Fira Sans", sans-serif;
-            --font-mono: "Fira Code", monospace;
+            --primary: #13ec5b;
+            --primary-glow: rgba(19, 236, 91, 0.2);
+            --secondary: #3b82f6;
+            --danger: #ef4444;
+            --bg-dark: #102216; /* Darker Slate/Emerald tint */
+            --panel-bg: rgba(25, 45, 32, 0.6);
+            --border-alpha: rgba(19, 236, 91, 0.1);
+            --font-main: "Inter", "Fira Sans", sans-serif;
+            --font-mono: "JetBrains Mono", "Fira Code", monospace;
+        }
+
+        /* Theme Variants */
+        body[data-theme="azure"] {
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.2);
+            --bg-dark: #0f172a;
+            --panel-bg: rgba(15, 23, 42, 0.7);
+            --border-alpha: rgba(59, 130, 246, 0.1);
+        }
+        body[data-theme="crimson"] {
+            --primary: #f43f5e;
+            --primary-glow: rgba(244, 63, 94, 0.2);
+            --bg-dark: #1f0f13;
+            --panel-bg: rgba(45, 20, 25, 0.7);
+            --border-alpha: rgba(244, 63, 94, 0.1);
         }
 
         body {
@@ -50,122 +75,209 @@
             height: 100vh;
             overflow: hidden;
             background-image: 
-                radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
+                radial-gradient(at 0% 0%, var(--primary-glow) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.03) 0px, transparent 50%);
+            transition: background-image 0.5s ease;
         }
 
-        *:focus-visible {
-            outline: 2px solid var(--primary);
-            outline-offset: 4px;
-        }
-
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
-
+        /* --- UI Components --- */
         .glass-panel {
             background: var(--panel-bg);
-            backdrop-filter: blur(24px) saturate(180%);
+            backdrop-filter: blur(32px) saturate(200%);
             border: 1px solid var(--border-alpha);
         }
 
         .glass-card {
-            background: rgba(30, 41, 59, 0.4);
+            background: rgba(30, 41, 59, 0.3);
             border: 1px solid var(--border-alpha);
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .glass-card:hover {
-            border-color: rgba(16, 185, 129, 0.4);
-            background: rgba(30, 41, 59, 0.6);
+            border-color: var(--primary-glow);
+            background: rgba(30, 41, 59, 0.5);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
         }
 
         .input-pro {
-            background: #0f172a !important;
-            border: 1px solid #334155 !important;
+            background: rgba(15, 23, 42, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
             color: #f8fafc !important;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
             font-family: var(--font-mono);
-            min-height: 44px;
         }
 
         .input-pro:focus {
             border-color: var(--primary) !important;
-            box-shadow: 0 0 0 3px var(--primary-glow);
+            box-shadow: 0 0 0 2px var(--primary-glow);
+            background: rgba(16, 34, 22, 0.8) !important; /* Slightly green tinted background */
+            outline: none;
         }
 
-        .btn-action {
-            min-height: 48px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            transition: all 0.2s;
+        /* --- Toast System --- */
+        #toast-container {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            pointer-events: none;
         }
 
-        .btn-action:active { transform: scale(0.95); }
+        .toast {
+            pointer-events: auto;
+            animation: toastEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            min-width: 300px;
+        }
+
+        @keyframes toastEnter {
+            from { opacity: 0; transform: translateX(40px) scale(0.9); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+
+        .toast-exit {
+            animation: toastExit 0.3s ease forwards;
+        }
+
+        @keyframes toastExit {
+            to { opacity: 0; transform: translateX(20px); }
+        }
+
+        /* --- Animations & Effects --- */
+        .scanlines {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scanlines::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.8;
+        }
 
         @keyframes pulse-ring {
             0% { box-shadow: 0 0 0 0 var(--primary-glow); }
-            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            70% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
         .pulse-active { animation: pulse-ring 2s infinite; }
 
+        .btn-glow-primary {
+            box-shadow: 0 0 10px var(--primary-glow);
+            transition: all 0.3s ease;
+        }
+        .btn-glow-primary:hover {
+            box-shadow: 0 0 20px var(--primary-glow);
+            transform: translateY(-1px);
+        }
+
+        /* --- Transitions --- */
+        .page-transition {
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .module-enter {
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Sidebar Modules --- */
+        .sidebar-module-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        .sidebar-module-content {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease;
+            overflow: hidden;
+        }
+        .sidebar-module-content.collapsed {
+            max-height: 0 !important;
+            opacity: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        /* --- Terminal Matrix --- */
         .terminal-log {
             font-family: var(--font-mono);
-            font-size: 13px;
-            line-height: 1.6;
+            font-size: 12px;
+            line-height: 1.5;
+            text-shadow: 0 0 2px var(--primary-glow);
         }
 
-        .log-entry {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
-            padding: 4px 8px;
-        }
-
-        .log-entry:hover { background: rgba(255, 255, 255, 0.03); }
-
-        #tactical-map {
-            height: 280px;
-            border-radius: 1.5rem;
-            border: 1px solid var(--border-alpha);
-        }
-
-        .recon-badge {
-            font-size: 9px;
-            font-weight: 900;
-            padding: 4px 10px;
-            border-radius: 20px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .badge-cloudflare { background: rgba(243, 128, 32, 0.2); color: #f38020; border: 1px solid rgba(243, 128, 32, 0.3); }
-        .badge-ddosguard { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
-        .badge-sucuri { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
-        .badge-akamai { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-        .badge-none { background: rgba(71, 85, 105, 0.2); color: #94a3b8; border: 1px solid rgba(71, 85, 105, 0.3); }
-        .leaflet-container { background: #020617 !important; }
-
-        /* State visibility */
+        /* --- State visibility --- */
         [data-state] { display: none; }
         body[data-app-state="idle"] [data-state="idle"] { display: flex; }
         body[data-app-state="starting"] [data-state="starting"] { display: flex; }
         body[data-app-state="running"] [data-state="running"] { display: flex; }
         body[data-app-state="stopping"] [data-state="stopping"] { display: flex; }
+    
+        /* --- Tooltip System --- */
+        #custom-tooltip {
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            background: rgba(15, 23, 42, 0.90);
+            backdrop-filter: blur(16px) saturate(200%);
+            border: 1px solid var(--border-alpha);
+            border-left: 3px solid var(--primary);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px var(--primary-glow);
+            padding: 8px 14px;
+            border-radius: 8px;
+            color: #f8fafc;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        #custom-tooltip.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+        #custom-tooltip .tt-header {
+            font-size: 9px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-weight: 800;
+        }
+
     </style>
 </head>
-<body data-app-state="idle" class="selection:bg-primary/30">
+<body data-app-state="idle" class="selection:bg-primary/30" data-theme="emerald">
+    <div id="toast-container"></div>
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-primary focus:text-slate-950 focus:px-4 focus:py-2 focus:rounded-lg">Skip to content</a>
 
     <div class="h-screen flex flex-col lg:flex-row relative z-10">
         <!-- Sidebar: Configuration -->
-        <aside class="w-full lg:w-[380px] xl:w-[420px] glass-panel border-r border-white/5 flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+        <aside class="w-full lg:w-[380px] xl:w-[420px] glass-panel border-r border-white/5 flex flex-col shrink-0 overflow-y-auto custom-scrollbar relative z-30">
             <!-- Branding -->
-            <div class="p-8 border-b border-white/5">
+            <div class="p-8 border-b border-white/5 bg-slate-900/20">
                 <div class="flex items-center gap-4">
-                    <div class="size-12 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-center text-primary">
+                    <div class="size-12 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-neon-primary">
                         <span class="material-symbols-rounded text-3xl">terminal</span>
                     </div>
                     <div>
@@ -173,31 +285,49 @@
                             MHDDoS <span class="text-primary">PRO</span>
                         </h1>
                         <div class="flex items-center gap-2 mt-1">
-                            <span class="text-[10px] font-mono text-slate-500 font-bold">TACTICAL_V1.1.3</span>
-                            <div id="connection-status" class="size-2 rounded-full bg-slate-700"></div>
+                            <span class="text-[9px] font-mono text-slate-500 font-bold uppercase tracking-widest">Tactical_OS v1.1.5</span>
+                            <div id="connection-status" class="size-1.5 rounded-full bg-slate-700"></div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="flex-1 p-8 space-y-8">
-                <section class="space-y-4">
-                    <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Targeting Strategy</h2>
-                    
-                    <div class="space-y-5">
+            <div class="flex-1 p-6 space-y-4">
+                <!-- Module 1: Target Acquisition -->
+                <div class="glass-card rounded-2xl overflow-hidden shadow-lg border border-white/5">
+                    <div onclick="toggleModule('mod-target')" class="sidebar-module-header px-5 py-4 bg-slate-900/40 flex items-center justify-between hover:bg-slate-900/60 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-rounded text-primary text-xl">radar</span>
+                            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Target Acquisition</h3>
+                        </div>
+                        <span id="mod-target-icon" class="material-symbols-rounded text-slate-500 text-sm transition-transform duration-300">expand_less</span>
+                    </div>
+                    <div id="mod-target" class="sidebar-module-content p-5 space-y-4">
                         <div class="space-y-2">
-                            <label for="target" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Destination (URI/IP)</label>
+                            <label for="target" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Destination (URI/IP)</label>
                             <div class="flex gap-2">
-                                <input id="target" type="text" placeholder="https://example.com" class="flex-1 w-full input-pro rounded-xl px-4 py-3" aria-required="true" />
-                                <button onclick="analyzeTarget()" class="px-4 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-warning hover:border-warning transition-all active:scale-95" title="Auto-Detect WAF/Stack">
-                                    <span class="material-symbols-rounded">radar</span>
+                                <input id="target" type="text" placeholder="https://example.com" class="flex-1 w-full input-pro rounded-xl px-4 py-3 text-sm" aria-required="true" />
+                                <button onclick="analyzeTarget()" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-warning hover:border-warning transition-all active:scale-90" data-tooltip="Auto-Detect WAF/Stack">
+                                    <span class="material-symbols-rounded">analytics</span>
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
 
+                <!-- Module 2: Payload Parameters -->
+                <div class="glass-card rounded-2xl overflow-hidden shadow-lg border border-white/5">
+                    <div onclick="toggleModule('mod-payload')" class="sidebar-module-header px-5 py-4 bg-slate-900/40 flex items-center justify-between hover:bg-slate-900/60 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-rounded text-secondary text-xl">settings_input_antenna</span>
+                            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Payload Parameters</h3>
+                        </div>
+                        <span id="mod-payload-icon" class="material-symbols-rounded text-slate-500 text-sm transition-transform duration-300">expand_less</span>
+                    </div>
+                    <div id="mod-payload" class="sidebar-module-content p-5 space-y-5">
                         <div class="space-y-2">
-                            <label for="method" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Method Sequence</label>
-                            <select id="method" onchange="updateVisibility()" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer">
+                            <label for="method" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Method Sequence</label>
+                            <select id="method" onchange="updateVisibility()" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer text-xs font-bold">
                                 <optgroup label="LAYER 7 - APPLICATION">
                                     <option value="GET">GET | Standard Flood</option>
                                     <option value="POST">POST | HTTP POST Flood</option>
@@ -256,44 +386,52 @@
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
-                                <label for="threads" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Workers</label>
-                                <input id="threads" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+                                <label for="threads" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Workers</label>
+                                <input id="threads" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3 text-xs" />
                             </div>
                             <div class="space-y-2">
-                                <label for="duration" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Duration (s)</label>
-                                <input id="duration" type="number" value="3600" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+                                <label for="duration" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Duration (s)</label>
+                                <input id="duration" type="number" value="3600" min="1" class="w-full input-pro rounded-xl px-4 py-3 text-xs" />
                             </div>
                         </div>
                         
-                        <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                            <label for="auto_scale" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dynamic Worker Scaling</label>
-                            <input type="checkbox" id="auto_scale" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Automatically adjust threads based on system load" value="on" checked>
+                        <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 transition-all hover:border-primary/20">
+                            <label for="auto_scale" class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dynamic Scaling</label>
+                            <input type="checkbox" id="auto_scale" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" data-tooltip="Automatically adjust threads based on system load" checked>
                         </div>
 
                         <div id="rpc-container" class="space-y-4">
                             <div class="space-y-2">
-                                <label for="rpc" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Requests Per Cycle</label>
-                                <input id="rpc" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
+                                <label for="rpc" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Requests Per Cycle</label>
+                                <input id="rpc" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3 text-xs" />
                             </div>
-                            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                                <label for="smart_rpc" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Smart RPC Tuning</label>
-                                <input type="checkbox" id="smart_rpc" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Dynamically adjust RPC and payloads based on target latency" />
-                            </div>
-                            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                                <label for="advanced_evasion" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Advanced Evasion</label>
-                                <input type="checkbox" id="advanced_evasion" class="rounded bg-slate-800 border-slate-700 text-warning focus:ring-warning focus:ring-offset-slate-900" title="Use realistic dynamic browser fingerprints (Higher CPU)" />
+                            <div class="grid grid-cols-1 gap-2">
+                                <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 hover:border-primary/20 transition-all">
+                                    <label for="smart_rpc" class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Smart Tuning</label>
+                                    <input type="checkbox" id="smart_rpc" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" />
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 hover:border-warning/20 transition-all">
+                                    <label for="advanced_evasion" class="text-[9px] font-black text-slate-400 uppercase tracking-widest text-warning">Advanced Evasion</label>
+                                    <input type="checkbox" id="advanced_evasion" class="rounded bg-slate-800 border-slate-700 text-warning focus:ring-warning focus:ring-offset-slate-900" />
+                                </div>
                             </div>
                         </div>
                     </div>
-                </section>
+                </div>
 
-                <section class="space-y-4">
-                    <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Resource Routing</h2>
-                    
-                    <div id="proxy-container" class="space-y-5">
+                <!-- Module 3: Resource Routing -->
+                <div class="glass-card rounded-2xl overflow-hidden shadow-lg border border-white/5">
+                    <div onclick="toggleModule('mod-proxy')" class="sidebar-module-header px-5 py-4 bg-slate-900/40 flex items-center justify-between hover:bg-slate-900/60 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-rounded text-warning text-xl">hub</span>
+                            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Proxy Nexus</h3>
+                        </div>
+                        <span id="mod-proxy-icon" class="material-symbols-rounded text-slate-500 text-sm transition-transform duration-300 rotate-180">expand_less</span>
+                    </div>
+                    <div id="mod-proxy" class="sidebar-module-content p-5 space-y-5 collapsed">
                         <div class="space-y-2">
-                            <label for="proxy_type" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Proxy Protocol</label>
-                            <select id="proxy_type" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer font-bold">
+                            <label for="proxy_type" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Protocol Matrix</label>
+                            <select id="proxy_type" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer text-xs font-bold">
                                 <option value="SOCKS5">SOCKS5 (STABLE)</option>
                                 <option value="SOCKS4">SOCKS4 (LEGACY)</option>
                                 <option value="HTTP">HTTP (FAST)</option>
@@ -303,66 +441,79 @@
                         </div>
 
                         <div class="space-y-2">
-                            <label for="proxy_list" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Resource Path (txt/url)</label>
+                            <label for="proxy_list" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Resource Path</label>
                             <div class="flex gap-2">
-                                <input id="proxy_list" type="text" value="proxies.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[11px]" />
+                                <input id="proxy_list" type="text" value="proxies.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[10px] font-mono" />
                                 <button onclick="browseFile('proxy_list')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90">
-                                    <span class="material-symbols-rounded">folder_open</span>
+                                    <span class="material-symbols-rounded text-lg">folder_open</span>
                                 </button>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                                <div class="flex items-center gap-2">
-                                    <label for="auto_harvest" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Auto-Harvest</label>
-                                    <button onclick="openConfigModal()" class="text-slate-500 hover:text-primary transition-colors focus:outline-none" title="Edit Proxy Sources">
-                                        <span class="material-symbols-rounded text-[14px]">edit</span>
-                                    </button>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-2 p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest">Auto-Harvest</span>
+                                    <input type="checkbox" id="auto_harvest" onchange="toggleHarvest()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" />
                                 </div>
-                                <input type="checkbox" id="auto_harvest" onchange="toggleHarvest()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" title="Scrape and verify proxies automatically" />
+                                <button onclick="openConfigModal()" class="text-[9px] font-bold text-primary hover:text-primary-light flex items-center gap-1 transition-colors">
+                                    <span class="material-symbols-rounded text-[14px]">edit_note</span> Config Sources
+                                </button>
                             </div>
-                            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                                <label for="auto_refresh" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Auto-Refresh</label>
-                                <input type="checkbox" id="auto_refresh" onchange="toggleRefreshDropdown()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" />
+                            <div class="flex flex-col gap-2 p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest">Auto-Refresh</span>
+                                    <input type="checkbox" id="auto_refresh" onchange="toggleRefreshDropdown()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" />
+                                </div>
+                                <div id="refresh-interval-container" class="opacity-30 pointer-events-none transition-opacity">
+                                    <input id="proxy_refresh" type="number" value="15" class="w-full bg-transparent border-none p-0 text-[10px] font-mono text-white focus:ring-0" />
+                                </div>
                             </div>
-                        </div>
-
-                        <div id="refresh-interval-container" class="space-y-2 opacity-30 pointer-events-none transition-opacity">
-                            <label for="proxy_refresh" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Refresh Interval (min)</label>
-                            <input id="proxy_refresh" type="number" value="15" min="1" class="w-full input-pro rounded-xl px-4 py-3" />
                         </div>
                     </div>
+                </div>
 
-                    <div id="reflector-container" class="space-y-2 hidden">
-                        <label for="reflector" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Reflector File</label>
-                        <div class="flex gap-2">
-                            <input id="reflector" type="text" placeholder="reflectors.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[11px]" />
-                            <button onclick="browseFile('reflector')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90">
-                                <span class="material-symbols-rounded">database</span>
-                            </button>
-                        </div>
+                <div id="reflector-container" class="glass-card rounded-2xl p-5 border border-white/5 hidden">
+                    <label for="reflector" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Reflector Matrix</label>
+                    <div class="flex gap-2">
+                        <input id="reflector" type="text" placeholder="reflectors.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[10px] font-mono" />
+                        <button onclick="browseFile('reflector')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90">
+                            <span class="material-symbols-rounded">database</span>
+                        </button>
                     </div>
-                </section>
+                </div>
             </div>
 
             <!-- System Controls -->
-            <div class="p-8 border-t border-white/5 bg-slate-950/40">
-                <div class="flex items-center justify-between p-3 bg-secondary/10 rounded-xl border border-secondary/20 mb-4 transition-all hover:bg-secondary/20 cursor-pointer" onclick="document.getElementById('distribute_to_workers').click()">
-                    <label for="distribute_to_workers" class="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-2 cursor-pointer"><span class="material-symbols-rounded text-sm pointer-events-none">hub</span> Distribute to C2 Fleet</label>
-                    <input type="checkbox" id="distribute_to_workers" class="rounded bg-slate-800 border-slate-700 text-secondary focus:ring-secondary focus:ring-offset-slate-900 cursor-pointer" title="Deploy this attack to all connected worker nodes" onclick="event.stopPropagation()" />
+            <div class="p-8 border-t border-white/5 bg-slate-950/60 backdrop-blur-lg">
+                <div class="flex items-center justify-between p-3 bg-secondary/5 rounded-xl border border-secondary/10 mb-6 transition-all hover:bg-secondary/10 group cursor-pointer" onclick="document.getElementById('distribute_to_workers').click()">
+                    <div class="flex items-center gap-3">
+                        <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary group-hover:shadow-neon-secondary transition-all">
+                            <span class="material-symbols-rounded text-lg">hub</span>
+                        </div>
+                        <label for="distribute_to_workers" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-white transition-colors cursor-pointer">Distribute to Fleet</label>
+                    </div>
+                    <input type="checkbox" id="distribute_to_workers" class="rounded bg-slate-800 border-slate-700 text-secondary focus:ring-secondary focus:ring-offset-slate-900 cursor-pointer" onclick="event.stopPropagation()" />
                 </div>
-                <button id="start-btn" onclick="startAttack()" class="btn-action w-full bg-primary hover:bg-primary-dark text-slate-950 rounded-2xl shadow-lg shadow-primary/20">
+                
+                <button id="start-btn" onclick="startAttack()" class="btn-action w-full bg-gradient-to-br from-primary to-primary-dark text-slate-950 rounded-2xl shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all btn-glow-primary">
                     <span class="material-symbols-rounded font-bold">bolt</span>
-                    Deploy Sequence
+                    <span class="font-black">DEPLOY SEQUENCE</span>
                 </button>
-                <button id="stop-btn" onclick="stopAttack()" class="btn-action w-full mt-4 bg-slate-900 border border-danger/30 text-danger hover:bg-danger/10 rounded-2xl hidden">
+                
+                <button id="stop-btn" onclick="stopAllAttacks()" class="btn-action w-full mt-4 bg-slate-900 border border-danger/30 text-danger hover:bg-danger/10 rounded-2xl hidden flex items-center justify-center gap-3 transition-all hover:shadow-neon-danger">
                     <span class="material-symbols-rounded">stop_circle</span>
-                    Abort Attack
+                    <span class="font-black">ABORT OPERATIONS</span>
                 </button>
-                <div id="action-loader" class="mt-4 flex items-center justify-center gap-3 text-slate-500 font-mono text-[10px] uppercase tracking-widest hidden">
-                    <span class="material-symbols-rounded animate-spin">sync</span>
-                    Initializing Neural Uplink...
+                
+                <div id="action-loader" class="mt-6 flex flex-col items-center gap-3 text-slate-500 font-mono text-[9px] uppercase tracking-widest hidden">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-rounded animate-spin text-primary">sync</span>
+                        <span>Synchronizing Neural Uplink...</span>
+                    </div>
+                    <div class="w-full h-1 bg-slate-900 rounded-full overflow-hidden">
+                        <div class="h-full bg-primary animate-[loading_2s_ease-in-out_infinite]" style="width: 30%"></div>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -400,57 +551,77 @@
                         <span class="text-xs font-mono text-slate-400">RSA-4096-AES-GCM</span>
                     </div>
                     <div class="h-8 w-px bg-white/5 hidden sm:block"></div>
-                    <button onclick="openToolsModal()" title="Tactical Tools" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-primary transition-colors">
+                    <button onclick="openToolsModal()" data-tooltip="Tactical Tools" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-primary transition-colors">
                         <span class="material-symbols-rounded text-2xl">construction</span>
                     </button>
-                    <button title="System Settings" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-colors">
+                    <div class="relative group">
+                        <button data-tooltip="Theme Nexus" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-colors">
+                            <span class="material-symbols-rounded text-2xl">palette</span>
+                        </button>
+                        <div class="absolute right-0 top-full mt-2 w-48 glass-card border border-white/10 rounded-2xl p-2 hidden group-hover:block z-[100] shadow-2xl">
+                            <button onclick="setTheme('emerald')" class="w-full text-left px-4 py-2 hover:bg-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-3">
+                                <div class="size-2 rounded-full bg-primary"></div> Emerald Tactical
+                            </button>
+                            <button onclick="setTheme('azure')" class="w-full text-left px-4 py-2 hover:bg-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-secondary flex items-center gap-3">
+                                <div class="size-2 rounded-full bg-secondary"></div> Azure Command
+                            </button>
+                            <button onclick="setTheme('crimson')" class="w-full text-left px-4 py-2 hover:bg-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-accent flex items-center gap-3">
+                                <div class="size-2 rounded-full bg-accent"></div> Crimson Stealth
+                            </button>
+                        </div>
+                    </div>
+                    <button data-tooltip="System Settings" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-colors">
                         <span class="material-symbols-rounded text-2xl">settings_input_component</span>
                     </button>
                 </div>
             </header>
 
             <!-- Tools Modal -->
-            <div id="tools-modal" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
-                <div class="glass-card bg-slate-900 w-full max-w-3xl rounded-3xl p-8 border border-white/10 shadow-2xl relative translate-y-4 transition-transform duration-300" id="tools-modal-content">
-                    <button onclick="closeToolsModal()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors">
+            <div id="tools-modal" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/90 backdrop-blur-md hidden opacity-0 transition-all duration-500">
+                <div class="glass-card bg-slate-900/90 w-full max-w-3xl rounded-[2.5rem] p-10 border border-white/10 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] relative translate-y-8 transition-all duration-500" id="tools-modal-content">
+                    <button onclick="closeToolsModal()" class="absolute top-8 right-8 size-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800 transition-all">
                         <span class="material-symbols-rounded">close</span>
                     </button>
                     
-                    <div class="mb-6 flex items-center gap-4">
-                        <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
-                            <span class="material-symbols-rounded">construction</span>
+                    <div class="mb-10 flex items-center gap-6">
+                        <div class="size-14 bg-secondary/10 rounded-2xl flex items-center justify-center text-secondary border border-secondary/20 shadow-neon-secondary">
+                            <span class="material-symbols-rounded text-3xl">construction</span>
                         </div>
                         <div>
-                            <h2 class="text-xl font-black uppercase tracking-wider text-white">Tactical Recon Tools</h2>
-                            <p class="text-xs font-mono text-slate-400 mt-1">Execute diagnostic protocols on target infrastructure.</p>
+                            <h2 class="text-2xl font-black uppercase tracking-widest text-white italic">Tactical Recon <span class="text-secondary">Matrix</span></h2>
+                            <p class="text-[10px] font-mono text-slate-500 mt-1 uppercase tracking-widest">Execute deep-packet diagnostic protocols on target infrastructure.</p>
                         </div>
                     </div>
 
                     <!-- Tool Navigation -->
-                    <div class="flex gap-2 p-1 bg-slate-950 rounded-xl border border-white/5 mb-6">
-                        <button onclick="switchToolTab('ping')" id="tab-ping" class="tool-tab flex-1 py-2 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-primary text-slate-950">ICMP Ping</button>
-                        <button onclick="switchToolTab('check')" id="tab-check" class="tool-tab flex-1 py-2 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-slate-500 hover:text-white">Status Check</button>
-                        <button onclick="switchToolTab('info')" id="tab-info" class="tool-tab flex-1 py-2 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all text-slate-500 hover:text-white">Geo-IP Recon</button>
+                    <div class="flex gap-2 p-1.5 bg-slate-950/60 rounded-2xl border border-white/5 mb-8 flex-wrap">
+                        <button onclick="switchToolTab('ping')" id="tab-ping" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all bg-primary text-slate-950 shadow-neon-primary">ICMP Ping</button>
+                        <button onclick="switchToolTab('check')" id="tab-check" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Status Check</button>
+                        <button onclick="switchToolTab('info')" id="tab-info" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Geo-IP Recon</button>
+                        <button onclick="switchToolTab('ports')" id="tab-ports" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Port Scan</button>
+                        <button onclick="switchToolTab('tech')" id="tab-tech" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Tech Stack</button>
+                        <button onclick="switchToolTab('dns')" id="tab-dns" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">DNS Enum</button>
                     </div>
 
                     <!-- Tool Content -->
-                    <div class="space-y-6">
+                    <div class="space-y-8">
                         <!-- Universal Input -->
-                        <div class="space-y-2">
-                            <label id="tool-input-label" for="tool-target" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Target Host / IP</label>
-                            <div class="flex gap-3">
-                                <input id="tool-target" type="text" placeholder="example.com" class="flex-1 input-pro rounded-xl px-4 py-3" />
-                                <button onclick="executeTool()" id="tool-exec-btn" class="px-8 bg-primary text-slate-950 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
-                                    <span class="material-symbols-rounded text-lg">play_arrow</span>
-                                    Run
+                        <div class="space-y-3">
+                            <label id="tool-input-label" for="tool-target" class="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em] ml-1">Target Infrastructure Identifier</label>
+                            <div class="flex gap-4">
+                                <input id="tool-target" type="text" placeholder="example.com" class="flex-1 input-pro rounded-2xl px-6 py-4 text-sm" />
+                                <button onclick="executeTool()" id="tool-exec-btn" class="px-10 bg-primary text-slate-950 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center gap-3">
+                                    <span class="material-symbols-rounded text-xl">play_arrow</span>
+                                    <span>Execute</span>
                                 </button>
                             </div>
                         </div>
 
                         <!-- Result Area -->
-                        <div id="tool-result" class="bg-slate-950 border border-white/5 rounded-2xl p-6 min-h-[200px] max-h-[350px] overflow-y-auto font-mono text-xs text-slate-400 custom-scrollbar">
-                            <div class="h-full flex items-center justify-center text-slate-600 italic">
-                                Waiting for diagnostic request...
+                        <div id="tool-result" class="bg-slate-950/80 border border-white/5 rounded-[2rem] p-8 min-h-[250px] max-h-[400px] overflow-y-auto font-mono text-xs text-slate-400 custom-scrollbar shadow-inner relative">
+                            <div class="h-full flex flex-col items-center justify-center text-slate-700 space-y-4">
+                                <span class="material-symbols-rounded text-5xl opacity-20">database_search</span>
+                                <p class="uppercase tracking-[0.4em] text-[9px]">Awaiting diagnostic sequence...</p>
                             </div>
                         </div>
                     </div>
@@ -458,260 +629,259 @@
             </div>
 
             <!-- Visualization Area -->
-            <div class="p-8 flex-1 overflow-y-auto space-y-8 scroll-smooth">
-                <!-- Time-Series Analytics Header & Selector -->
-                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-card rounded-2xl p-4 border border-white/5 shadow-xl">
-                    <div class="flex items-center gap-3">
-                        <div class="size-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20">
-                            <span class="material-symbols-rounded">history</span>
-                        </div>
-                        <div>
-                           <h2 class="text-xs font-black uppercase tracking-[0.2em] text-white">Time-Series Analytics Matrix</h2>
-                           <p class="text-[10px] font-mono text-slate-500">Historical combat telemetry & pattern vectors</p>
-                        </div>
-                    </div>
-                    
-                    <div class="flex p-1 bg-slate-950/80 rounded-xl border border-white/10 shadow-inner backdrop-blur-md">
-                        <button onclick="setTimeframe('1M')" id="tf-1M" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">1M</button>
-                        <button onclick="setTimeframe('5M')" id="tf-5M" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">5M</button>
-                        <button onclick="setTimeframe('15M')" id="tf-15M" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">15M</button>
-                        <button onclick="setTimeframe('1H')" id="tf-1H" class="tf-btn active px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]">1H</button>
-                        <button onclick="setTimeframe('4H')" id="tf-4H" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">4H</button>
-                        <button onclick="setTimeframe('1D')" id="tf-1D" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">1D</button>
-                        <button onclick="setTimeframe('1W')" id="tf-1W" class="tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white">1W</button>
-                    </div>
-                </div>
-
-                <!-- Metric Cards -->
-                <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                    <!-- PPS -->
-                    <div class="glass-card rounded-3xl p-8 flex flex-col">
-                        <div class="flex items-center justify-between mb-8">
+            <div class="p-8 flex-1 overflow-y-auto space-y-8 scroll-smooth custom-scrollbar">
+                
+                <!-- TOP GRID: Active Fleet & Real-time Metrics -->
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                    <!-- Active Fleet (6 columns) -->
+                    <div class="xl:col-span-7 glass-card rounded-3xl overflow-hidden flex flex-col border border-white/10 shadow-2xl relative">
+                        <div class="bg-slate-900/80 backdrop-blur px-6 py-4 border-b border-white/5 flex items-center justify-between z-10">
                             <div class="flex items-center gap-4">
-                                <div class="size-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
-                                    <span class="material-symbols-rounded text-2xl">insights</span>
+                                <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary border border-secondary/20">
+                                    <span class="material-symbols-rounded text-lg">grid_view</span>
+                                </div>
+                                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Active Operations Fleet</h2>
+                                <span id="active-tasks-count" class="bg-secondary/20 text-secondary px-2 py-0.5 rounded-full text-[9px] font-black shadow-neon-secondary">0</span>
+                            </div>
+                            <button onclick="refreshTasks()" class="text-[9px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-all">
+                                <span class="material-symbols-rounded text-base">sync</span> Sync Grid
+                            </button>
+                        </div>
+                        
+                        <div class="p-6 flex-1 min-h-[300px] max-h-[400px] overflow-y-auto custom-scrollbar">
+                            <div id="tasks-container" class="grid grid-cols-1 gap-3">
+                                <!-- Empty State -->
+                                <div id="tasks-empty-state" class="text-center py-16 border border-dashed border-white/5 rounded-2xl bg-slate-950/20 flex flex-col items-center">
+                                    <div class="size-16 bg-slate-900 rounded-full flex items-center justify-center mb-4 text-slate-700">
+                                        <span class="material-symbols-rounded text-4xl">airplanemode_inactive</span>
+                                    </div>
+                                    <p class="text-xs font-mono text-slate-600 uppercase tracking-[0.3em]">No active operations detected</p>
+                                    <p class="text-[9px] text-slate-700 mt-2">Fleet standing by for deployment sequence...</p>
+                                </div>
+                                <!-- Task rows injected here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Compact Metrics (5 columns) -->
+                    <div class="xl:col-span-5 grid grid-cols-1 gap-4">
+                        <!-- PPS -->
+                        <div class="glass-card rounded-2xl p-5 flex items-center justify-between border-l-[4px] border-l-primary shadow-[-4px_0_12px_var(--primary-glow)] transition-all">
+                            <div class="flex items-center gap-4">
+                                <div class="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
+                                    <span class="material-symbols-rounded">insights</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Session Load</h3>
+                                    <h3 class="text-[9px] font-black uppercase tracking-widest text-slate-500">Session Load</h3>
                                     <p class="text-xs font-mono text-slate-400 font-bold">PPS (Requests / S)</p>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <div class="text-4xl font-mono font-black text-white tracking-tighter tabular-nums" id="current-rps">0</div>
-                                <span class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-rps">0</span></span>
+                                <div class="text-2xl font-mono font-black text-white tabular-nums" id="current-rps">0</div>
+                                <div class="text-[8px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-rps">0</span></div>
                             </div>
                         </div>
-                        <div class="h-40 w-full relative">
-                            <canvas id="rpsChart"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- BPS -->
-                    <div class="glass-card rounded-3xl p-8 flex flex-col">
-                        <div class="flex items-center justify-between mb-8">
+                        <!-- BPS -->
+                        <div class="glass-card rounded-2xl p-5 flex items-center justify-between border-l-[4px] border-l-secondary shadow-[-4px_0_12px_var(--shadow-neon-secondary)] transition-all">
                             <div class="flex items-center gap-4">
-                                <div class="size-12 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
-                                    <span class="material-symbols-rounded text-2xl">waves</span>
+                                <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
+                                    <span class="material-symbols-rounded">waves</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Pipeline Saturation</h3>
+                                    <h3 class="text-[9px] font-black uppercase tracking-widest text-slate-500">Pipeline Saturation</h3>
                                     <p class="text-xs font-mono text-slate-400 font-bold">BPS (Throughput / S)</p>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <div class="text-4xl font-mono font-black text-white tracking-tighter tabular-nums" id="current-bps">0 B</div>
-                                <span class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-bps">0 B</span></span>
+                                <div class="text-2xl font-mono font-black text-white tabular-nums" id="current-bps">0 B</div>
+                                <div class="text-[8px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-bps">0 B</span></div>
                             </div>
                         </div>
-                        <div class="h-40 w-full relative">
-                            <canvas id="bpsChart"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Latency -->
-                    <div class="glass-card rounded-3xl p-8 flex flex-col">
-                        <div class="flex items-center justify-between mb-8">
+                        <!-- Latency -->
+                        <div class="glass-card rounded-2xl p-5 flex items-center justify-between border-l-[4px] border-l-warning shadow-[-4px_0_12px_rgba(245,158,11,0.2)] transition-all">
                             <div class="flex items-center gap-4">
-                                <div class="size-12 bg-warning/10 rounded-xl flex items-center justify-center text-warning border border-warning/20">
-                                    <span class="material-symbols-rounded text-2xl">timer</span>
+                                <div class="size-10 bg-warning/10 rounded-xl flex items-center justify-center text-warning border border-warning/20">
+                                    <span class="material-symbols-rounded">timer</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Target Health</h3>
+                                    <h3 class="text-[9px] font-black uppercase tracking-widest text-slate-500">Target Health</h3>
                                     <p class="text-xs font-mono text-slate-400 font-bold">Latency (ms)</p>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <div class="text-4xl font-mono font-black text-white tracking-tighter tabular-nums" id="current-latency">0ms</div>
-                                <span class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-latency">0ms</span></span>
+                                <div class="text-2xl font-mono font-black text-white tabular-nums" id="current-latency">0ms</div>
+                                <div class="text-[8px] font-bold text-slate-600 uppercase tracking-widest">Peak: <span id="peak-latency">0ms</span></div>
                             </div>
-                        </div>
-                        <div class="h-40 w-full relative">
-                            <canvas id="latencyChart"></canvas>
                         </div>
                     </div>
                 </div>
 
-                <!-- Recon & Subdomains -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" id="intelligence-section">
-                    <!-- Map & Geo IP -->
-                    <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[480px]">
-                        <div class="flex items-center justify-between mb-6">
-                            <div class="flex items-center gap-4">
-                                <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
-                                    <span class="material-symbols-rounded">public</span>
-                                </div>
-                                <div>
-                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Geographical Recon</h3>
-                                    <p class="text-xs font-mono text-slate-400 font-bold">Visual Asset Mapping</p>
-                                </div>
+                <!-- MIDDLE GRID: Telemetry Charts -->
+                <div class="glass-card rounded-3xl p-6 border border-white/5 shadow-2xl relative">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="size-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20">
+                                <span class="material-symbols-rounded">analytics</span>
                             </div>
-                            <div id="recon-waf-badge"></div>
+                            <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Advanced Telemetry Matrix</h2>
                         </div>
-                        <div id="tactical-map" class="mb-6 bg-slate-900/50"></div>
-                        <div class="grid grid-cols-2 gap-4 text-[10px] font-mono">
-                            <div class="p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                                <span class="text-slate-600 block mb-1 uppercase">Tactical Provider</span>
-                                <span id="geo-isp" class="text-slate-300 font-bold truncate block">WAITING_...</span>
+                        <div class="flex p-1 bg-slate-950/80 rounded-xl border border-white/10 shadow-inner">
+                            <button onclick="setTimeframe('1M')" id="tf-1M" class="tf-btn px-3 py-1 rounded-lg text-[9px] font-black transition-all text-slate-500 hover:text-white">1M</button>
+                            <button onclick="setTimeframe('5M')" id="tf-5M" class="tf-btn px-3 py-1 rounded-lg text-[9px] font-black transition-all text-slate-500 hover:text-white">5M</button>
+                            <button onclick="setTimeframe('1H')" id="tf-1H" class="tf-btn active px-3 py-1 rounded-lg text-[9px] font-black transition-all bg-primary/20 text-primary border border-primary/30">1H</button>
+                            <button onclick="setTimeframe('1D')" id="tf-1D" class="tf-btn px-3 py-1 rounded-lg text-[9px] font-black transition-all text-slate-500 hover:text-white">1D</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        <div class="h-48 relative"><canvas id="rpsChart"></canvas></div>
+                        <div class="h-48 relative"><canvas id="bpsChart"></canvas></div>
+                        <div class="h-48 relative"><canvas id="latencyChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- BOTTOM GRID: Intelligence & Live Matrix -->
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                    <!-- Recon Section (5 columns) -->
+                    <div class="xl:col-span-5 space-y-8">
+                        <!-- Geo Map -->
+                        <div class="glass-card rounded-3xl p-6 flex flex-col min-h-[400px]">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <span class="material-symbols-rounded text-secondary text-xl">public</span>
+                                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400">Asset Geography</h3>
+                                </div>
+                                <div id="recon-waf-badge"></div>
                             </div>
-                            <div class="p-3 bg-slate-900/50 rounded-xl border border-white/5">
-                                <span class="text-slate-600 block mb-1 uppercase">Neural Location</span>
-                                <span id="geo-loc" class="text-slate-300 font-bold truncate block">WAITING_...</span>
+                            <div id="tactical-map" class="flex-1 rounded-2xl bg-slate-900/50 mb-4 border border-white/5"></div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="p-3 bg-slate-950/50 rounded-xl border border-white/5">
+                                    <span class="text-[8px] text-slate-600 block uppercase mb-1">ISP_PROVIDER</span>
+                                    <span id="geo-isp" class="text-[10px] font-mono font-bold text-slate-300 truncate block">WAITING_...</span>
+                                </div>
+                                <div class="p-3 bg-slate-950/50 rounded-xl border border-white/5">
+                                    <span class="text-[8px] text-slate-600 block uppercase mb-1">COORDINATES</span>
+                                    <span id="geo-loc" class="text-[10px] font-mono font-bold text-slate-300 truncate block">WAITING_...</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Subdomains -->
-                    <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[480px]">
-                        <div class="flex items-center justify-between mb-6">
+                    <!-- Live Matrix / Terminal (7 columns) -->
+                    <div class="xl:col-span-7 flex flex-col bg-slate-950 border border-white/10 rounded-3xl overflow-hidden shadow-2xl min-h-[500px] scanlines">
+                        <div class="px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between shrink-0 z-10">
                             <div class="flex items-center gap-4">
-                                <div class="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20">
-                                    <span class="material-symbols-rounded">target</span>
-                                </div>
-                                <div>
-                                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Surface Explorer</h3>
-                                    <p class="text-xs font-mono text-slate-400 font-bold">Subdomain Vulnerabilities</p>
-                                </div>
+                                <div class="size-2 bg-primary rounded-full pulse-active shadow-neon-primary"></div>
+                                <span class="text-[10px] font-black uppercase tracking-[0.3em] text-white">Live Intelligence Matrix</span>
                             </div>
-                            <button id="subdomain-scan-btn" onclick="scanSubdomains()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2">
+                            <div class="flex gap-2">
+                                <select onchange="setLogLevel(this.value)" id="log-level-selector" class="bg-slate-800 border border-white/5 text-slate-400 text-[9px] font-black uppercase rounded-lg px-2 py-1 outline-none focus:border-primary/50 transition-all cursor-pointer hover:bg-slate-700" title="Log Intensity Controller">
+                                    <option value="ERROR">MINIMAL</option>
+                                    <option value="INFO" selected>TACTICAL</option>
+                                    <option value="DEBUG">VERBOSE</option>
+                                </select>
+                                <button onclick="clearTerminal()" class="size-8 rounded-lg bg-slate-800 border border-white/5 flex items-center justify-center text-slate-500 hover:text-warning transition-all" data-tooltip="Flush Buffer">
+                                    <span class="material-symbols-rounded text-lg">delete_sweep</span>
+                                </button>
+                                <button onclick="copyLogs()" class="size-8 rounded-lg bg-slate-800 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-all" data-tooltip="Export Log">
+                                    <span class="material-symbols-rounded text-lg">content_copy</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="terminal-content" class="flex-1 overflow-y-auto p-6 terminal-log scroll-smooth custom-scrollbar selection:bg-primary/20" aria-live="polite">
+                            <div class="log-entry flex gap-4 text-slate-500" data-type="SYSTEM">
+                                <span class="shrink-0 text-primary font-bold opacity-50">[SYSTEM]</span>
+                                <span>Tactical kernel initialized. Awaiting deployment...</span>
+                            </div>
+                        </div>
+
+                        <div class="px-6 py-2 bg-black/60 border-t border-white/5 flex items-center justify-between text-[8px] font-mono text-slate-600 uppercase tracking-widest z-10">
+                            <div class="flex gap-4">
+                                <span>Buffer: <span class="text-slate-400">OK</span></span>
+                                <span>Encryption: <span class="text-primary">E2EE_ACTIVE</span></span>
+                            </div>
+                            <span id="session-uuid" class="text-secondary">AWAITING_SEQUENCE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- C2 Fleet & Surface Section -->
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    <!-- Surface Explorer -->
+                    <div class="glass-card rounded-3xl p-6 flex flex-col h-[350px]">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="size-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20">
+                                    <span class="material-symbols-rounded text-lg">target</span>
+                                </div>
+                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400">Surface Explorer</h3>
+                            </div>
+                            <button id="subdomain-scan-btn" onclick="scanSubdomains()" class="px-3 py-1.5 bg-slate-800 hover:bg-primary/20 hover:text-primary border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm">
                                 <span class="material-symbols-rounded text-sm">radar</span> Scan Network
                             </button>
                         </div>
-                        <div class="flex-1 overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50">
-                            <table class="w-full text-left text-[11px] font-mono">
-                                <thead class="text-slate-600 border-b border-white/5 sticky top-0 bg-slate-900 z-10">
+                        <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50 shadow-inner">
+                            <table class="w-full text-left text-[10px] font-mono min-w-[400px]">
+                                <thead class="text-slate-500 border-b border-white/5 sticky top-0 bg-slate-900/90 backdrop-blur z-10">
                                     <tr>
-                                        <th class="py-3 px-4">ENDPOINT</th>
-                                        <th class="py-3 px-4">IP_NODE</th>
-                                        <th class="py-3 px-4 text-right">TACTICAL</th>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Endpoint</th>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">IP_Node</th>
+                                        <th class="py-4 px-6 text-right uppercase tracking-[0.2em] font-black">Tactical</th>
                                     </tr>
                                 </thead>
                                 <tbody id="subdomain-results" class="divide-y divide-white/5">
+                                    <tr><td colspan="3" class="py-12 text-center text-slate-700 italic uppercase tracking-[0.2em] text-[9px] font-black">No targets discovered.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- C2 Fleet -->
+                    <div class="glass-card rounded-3xl p-6 flex flex-col h-[350px]">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary border border-secondary/20">
+                                    <span class="material-symbols-rounded text-lg">dns</span>
+                                </div>
+                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400">C2 Worker Fleet</h3>
+                            </div>
+                            <button onclick="refreshC2Nodes()" class="px-3 py-1.5 bg-slate-800 hover:bg-secondary/20 hover:text-secondary border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm">
+                                <span class="material-symbols-rounded text-sm">refresh</span> Sync Grid
+                            </button>
+                        </div>
+                        <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50 shadow-inner">
+                            <table class="w-full text-left text-[10px] font-mono min-w-[500px]">
+                                <thead class="text-slate-500 border-b border-white/5 sticky top-0 bg-slate-900/90 backdrop-blur z-10">
                                     <tr>
-                                        <td colspan="3" class="py-12 text-center text-slate-600 italic">No targets discovered.</td>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Node_ID</th>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Hostname</th>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Resources</th>
+                                        <th class="py-4 px-6 text-right uppercase tracking-[0.2em] font-black">Status</th>
                                     </tr>
+                                </thead>
+                                <tbody id="c2-worker-list" class="divide-y divide-white/5">
+                                    <tr><td colspan="4" class="py-12 text-center text-slate-700 italic uppercase tracking-[0.2em] text-[9px] font-black">No worker nodes connected.</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
-
-                <!-- C2 Worker Fleet -->
-                <div class="glass-card rounded-3xl p-8 flex flex-col min-h-[250px]">
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="flex items-center gap-4">
-                            <div class="size-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20">
-                                <span class="material-symbols-rounded">dns</span>
-                            </div>
-                            <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">C2 Worker Fleet</h3>
-                                <p class="text-xs font-mono text-slate-400 font-bold">Connected Nodes: <span id="c2-worker-count" class="text-secondary">0</span></p>
-                            </div>
-                        </div>
-                        <button onclick="refreshC2Nodes()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2">
-                            <span class="material-symbols-rounded text-sm">refresh</span> Sync Grid
-                        </button>
-                    </div>
-                    <div class="flex-1 overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50">
-                        <table class="w-full text-left text-[11px] font-mono">
-                            <thead class="text-slate-600 border-b border-white/5 sticky top-0 bg-slate-900 z-10">
-                                <tr>
-                                    <th class="py-3 px-4">NODE_ID</th>
-                                    <th class="py-3 px-4">HOSTNAME / OS</th>
-                                    <th class="py-3 px-4">CPU / RAM</th>
-                                    <th class="py-3 px-4 text-right">STATUS</th>
-                                </tr>
-                            </thead>
-                            <tbody id="c2-worker-list" class="divide-y divide-white/5">
-                                <tr>
-                                    <td colspan="4" class="py-8 text-center text-slate-600 italic">No worker nodes connected.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Live Matrix (Log) -->
-                <div class="flex-1 flex flex-col bg-slate-950 border border-white/5 rounded-3xl overflow-hidden shadow-2xl min-h-[500px]">
-                    <div class="px-8 py-4 bg-slate-900/50 border-b border-white/5 flex items-center justify-between shrink-0">
-                        <div class="flex items-center gap-6">
-                            <div class="flex items-center gap-2">
-                                <div class="size-2 bg-primary rounded-full pulse-active"></div>
-                                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Live Matrix</span>
-                            </div>
-                            <div class="h-6 w-px bg-white/10"></div>
-                            <nav class="flex gap-2" aria-label="Log Filter">
-                                <button onclick="setLogFilter('ALL')" id="filter-ALL" class="filter-chip active px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">All</button>
-                                <button onclick="setLogFilter('ATTACK')" id="filter-ATTACK" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all text-slate-500">Attack</button>
-                                <button onclick="setLogFilter('SYSTEM')" id="filter-SYSTEM" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all text-slate-500">System</button>
-                                <button onclick="setLogFilter('ERROR')" id="filter-ERROR" class="filter-chip px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all text-slate-500">Errors</button>
-                            </nav>
-                            <div class="h-6 w-px bg-white/10 mx-2"></div>
-                            <div class="flex items-center gap-3">
-                                <span class="text-[9px] font-black uppercase text-slate-600 tracking-widest italic">Intensity</span>
-                                <select onchange="setLogLevel(this.value)" id="log-level-selector" class="bg-slate-950 border border-white/5 text-slate-400 text-[10px] font-bold rounded-lg px-3 py-1 outline-none focus:border-primary/50 transition-all cursor-pointer hover:bg-slate-900">
-                                    <option value="DEBUG">VERBOSE</option>
-                                    <option value="INFO" selected>TACTICAL</option>
-                                    <option value="ERROR">MINIMAL</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="flex gap-4">
-                            <button onclick="copyLogs()" class="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-colors">
-                                <span class="material-symbols-rounded text-lg">content_copy</span>
-                                Export
-                            </button>
-                            <button onclick="clearTerminal()" class="text-[10px] font-black text-slate-500 hover:text-warning uppercase tracking-widest flex items-center gap-2 transition-colors">
-                                <span class="material-symbols-rounded text-lg">delete_sweep</span>
-                                Flush
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div id="terminal-content" class="flex-1 overflow-y-auto p-6 terminal-log scroll-smooth" aria-live="polite">
-                        <div class="log-entry flex gap-4 text-slate-500" data-type="SYSTEM">
-                            <span class="shrink-0 text-primary font-bold opacity-50">[SYSTEM]</span>
-                            <span>Tactical initialization complete. Waiting for deployment...</span>
-                        </div>
-                    </div>
-
-                    <div class="px-8 py-2 bg-black/40 border-t border-white/5 flex items-center justify-between text-[9px] font-mono text-slate-700 font-black uppercase tracking-widest">
-                        <span>BUFFER_CAP: 500_UNITS</span>
-                        <span id="session-uuid">AWAITING_SEQUENCE</span>
-                    </div>
-                </div>
             </div>
 
             <!-- Footer -->
-            <footer class="h-16 border-t border-white/5 px-8 flex items-center justify-between shrink-0 bg-slate-950/80 backdrop-blur-md">
-                <div class="flex items-center gap-6 text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em]">
+            <footer class="h-14 border-t border-white/5 px-8 flex items-center justify-between shrink-0 bg-slate-950/90 backdrop-blur-xl relative z-20">
+                <div class="flex items-center gap-8 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-rounded text-sm">security</span> E2EE_ACTIVE
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="material-symbols-rounded text-sm">hub</span> CLUSTER_NODES: 1
+                        <span class="material-symbols-rounded text-sm">hub</span> CLUSTER_NODES: <span id="c2-worker-count-footer">1</span>
                     </div>
                 </div>
-                <p class="text-[10px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.1.3_BUILD_2026</p>
+                <div class="flex items-center gap-4">
+                    <p class="text-[9px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.1.5_BUILD_2026</p>
+                    <div class="size-1.5 rounded-full bg-primary animate-pulse"></div>
+                </div>
             </footer>
         </main>
     </div>
@@ -756,8 +926,105 @@
         let currentAppState = STATE.IDLE;
         let ws = null;
         let currentLogFilter = 'ALL';
+        let currentTaskFilter = null;
         const LOG_LEVELS = { 'DEBUG': 0, 'INFO': 1, 'ERROR': 2 };
         let currentLogLevel = localStorage.getItem('mhddos_log_level') || 'INFO';
+
+        // --- Log Isolation ---
+        function setTaskFilter(taskId) {
+            if (currentTaskFilter === taskId) {
+                currentTaskFilter = null;
+                showToast("Terminal isolation disabled. Showing all traffic.", 'info');
+            } else {
+                currentTaskFilter = taskId;
+                showToast(`Terminal isolated to Task ${taskId.toUpperCase()}.`, 'success');
+            }
+            refreshLogVisibility();
+            refreshTasks(); // Update UI to show which one is isolated
+        }
+
+        // --- Toast System ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const icons = {
+                'info': 'info',
+                'success': 'check_circle',
+                'warning': 'warning',
+                'error': 'error'
+            };
+            const colors = {
+                'info': 'bg-slate-900 border-secondary/30 text-secondary',
+                'success': 'bg-slate-900 border-primary/30 text-primary',
+                'warning': 'bg-slate-900 border-warning/30 text-warning',
+                'error': 'bg-slate-900 border-danger/30 text-danger'
+            };
+            
+            toast.className = `toast glass-card border ${colors[type]} p-4 rounded-2xl flex items-center gap-4 shadow-2xl`;
+            toast.innerHTML = `
+                <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center">
+                    <span class="material-symbols-rounded">${icons[type]}</span>
+                </div>
+                <div class="flex-1">
+                    <div class="text-[10px] font-black uppercase tracking-widest opacity-50">${type}_signal</div>
+                    <div class="text-xs font-bold text-white">${message}</div>
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // --- Theme Management ---
+        function setTheme(theme) {
+            document.body.dataset.theme = theme;
+            localStorage.setItem('mhddos_theme', theme);
+            showToast(`Tactical interface updated to ${theme.toUpperCase()} mode.`, 'info');
+        }
+
+        // --- Keyboard Shortcuts ---
+        window.addEventListener('keydown', (e) => {
+            if (e.altKey && e.key === 'd') {
+                e.preventDefault();
+                startAttack();
+            }
+            if (e.altKey && e.key === 's') {
+                e.preventDefault();
+                stopAllAttacks();
+            }
+            if (e.key === 'Escape') {
+                closeToolsModal();
+                closeConfigModal();
+            }
+        });
+
+        // --- Sidebar Module Toggles ---
+        function toggleModule(id) {
+            const content = document.getElementById(id);
+            const icon = document.getElementById(id + '-icon');
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                if(icon) icon.style.transform = 'rotate(0deg)';
+            } else {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                setTimeout(() => {
+                    content.classList.add('collapsed');
+                    if(icon) icon.style.transform = 'rotate(180deg)';
+                }, 10);
+            }
+        }
+
+        // Initialize modules
+        document.addEventListener('DOMContentLoaded', () => {
+            ['mod-target', 'mod-payload'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.style.maxHeight = el.scrollHeight + 'px';
+            });
+        });
 
         // --- UI State Management ---
         function setAppState(state) {
@@ -766,14 +1033,15 @@
             const startBtn = document.getElementById('start-btn');
             const stopBtn = document.getElementById('stop-btn');
             const loader = document.getElementById('action-loader');
-            // Only disable inputs & buttons inside the tactical sidebar configuration area
-            const inputs = document.querySelectorAll('aside input, aside select, aside button:not(#stop-btn)');
+            // Select all inputs except specific buttons we manage manually
+            const inputs = document.querySelectorAll('aside input, aside select, aside button:not(#stop-btn):not(#start-btn)');
 
             switch(state) {
                 case STATE.IDLE:
                     startBtn.classList.remove('hidden');
                     stopBtn.classList.add('hidden');
                     loader.classList.add('hidden');
+                    startBtn.disabled = false;
                     inputs.forEach(i => { i.disabled = false; i.style.opacity = "1"; });
                     document.getElementById('header-status-text').textContent = "SYSTEM_READY";
                     document.getElementById('header-status-text').className = "text-xs font-mono font-bold text-primary";
@@ -785,11 +1053,12 @@
                     inputs.forEach(i => { i.disabled = true; i.style.opacity = "0.5"; });
                     break;
                 case STATE.RUNNING:
-                    startBtn.classList.add('hidden');
-                    stopBtn.classList.remove('hidden');
+                    startBtn.classList.remove('hidden'); // Ensure we can start MORE tasks
+                    startBtn.disabled = false;
+                    stopBtn.classList.remove('hidden'); // Show abort button to stop all tasks
                     loader.classList.add('hidden');
                     stopBtn.disabled = false;
-                    inputs.forEach(i => { if(i.id !== 'log-level-selector') { i.disabled = true; i.style.opacity = "0.5"; } });
+                    inputs.forEach(i => { i.disabled = false; i.style.opacity = "1"; }); // Ensure inputs are usable again
                     document.getElementById('header-status-text').textContent = "SEQUENCE_ACTIVE";
                     document.getElementById('header-status-text').className = "text-xs font-mono font-bold text-warning animate-pulse";
                     break;
@@ -1078,24 +1347,27 @@
         function refreshLogVisibility() {
             const filter = currentLogFilter;
             const levelThreshold = LOG_LEVELS[currentLogLevel];
+            const taskFilter = currentTaskFilter;
             
             document.querySelectorAll('.log-entry').forEach(entry => {
                 const entryType = entry.dataset.type;
                 const entryLevel = entry.dataset.level;
+                const entryTaskId = entry.dataset.taskId;
                 const entryLevelVal = LOG_LEVELS[entryLevel] || 0;
                 
                 const matchesFilter = (filter === 'ALL' || entryType === filter);
                 const matchesLevel = (entryLevelVal >= levelThreshold);
+                const matchesTask = (!taskFilter || entryTaskId === taskFilter);
                 
-                entry.style.display = (matchesFilter && matchesLevel) ? 'flex' : 'none';
+                entry.style.display = (matchesFilter && matchesLevel && matchesTask) ? 'flex' : 'none';
             });
         }
 
-        function appendLog(msg, type = 'SYSTEM') {
+        function appendLog(msg, type = 'SYSTEM', taskId = null) {
             if (!msg) return;
             const lines = msg.split('\n');
             if (lines.length > 1) {
-                lines.forEach(line => appendLog(line, type));
+                lines.forEach(line => appendLog(line, type, taskId));
                 return;
             }
 
@@ -1120,15 +1392,18 @@
             const entryLevel = getMsgLevel(cleanMsg);
             entry.dataset.level = entryLevel;
             entry.dataset.type = logType;
+            if(taskId) entry.dataset.taskId = taskId;
 
             const matchesLevel = (LOG_LEVELS[entryLevel] >= LOG_LEVELS[currentLogLevel]);
             const matchesFilter = (currentLogFilter === 'ALL' || logType === currentLogFilter);
-            if (!(matchesLevel && matchesFilter)) entry.style.display = 'none';
+            const matchesTask = (!currentTaskFilter || taskId === currentTaskFilter);
+
+            if (!(matchesLevel && matchesFilter && matchesTask)) entry.style.display = 'none';
 
             entry.className = `log-entry flex gap-4 ${logType === 'ERROR' ? 'text-danger' : entryLevel === 'DEBUG' ? 'text-slate-500 opacity-60' : 'text-slate-400'}`;
             const label = document.createElement('span');
             label.className = `shrink-0 font-bold w-20 ${logType === 'ERROR' ? 'text-danger' : logType === 'ATTACK' ? 'text-primary' : 'text-slate-600'}`;
-            label.textContent = `[${logType}]`;
+            label.textContent = taskId ? `[${taskId.toUpperCase()}]` : `[${logType}]`;
             const content = document.createElement('span');
             content.className = "flex-1 break-all";
             content.textContent = cleanMsg;
@@ -1137,7 +1412,7 @@
             term.appendChild(entry);
             
             if (term.scrollHeight - term.clientHeight <= term.scrollTop + 100) term.scrollTop = term.scrollHeight;
-            if (term.childNodes.length > 1000) { for(let i=0; i<10; i++) term.removeChild(term.firstChild); }
+            while (term.childNodes.length > 1000) { term.removeChild(term.firstChild); }
         }
 
         function setLogFilter(filter) {
@@ -1213,28 +1488,130 @@
                 });
                 const data = await res.json();
                 if (data.status === 'error') {
+                    showToast(`Deployment Failed: ${data.message}`, 'error');
                     appendLog(`[!] DEPLOYMENT_ERR: ${data.message}`, "ERROR");
                     setAppState(STATE.IDLE);
-                } else { saveToMemory(); }
+                } else { 
+                    saveToMemory(); 
+                    refreshTasks(); 
+                    setAppState(STATE.RUNNING);
+                    showToast(`Deployment Successful. Sequence ${data.recommendation} active.`, 'success');
+                }
             } catch (e) {
+                showToast(`Critical API Failure: ${e.message}`, 'error');
                 appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
                 setAppState(STATE.IDLE);
             }
         }
 
-        async function stopAttack() {
-            setAppState(STATE.STOPPING);
+        async function stopAttack(taskId = null) {
+            if (!taskId) {
+                showToast("Task ID missing for termination.", 'warning');
+                return;
+            }
             try {
-                const res = await fetch('/api/attack/stop', { method: 'POST' });
+                const res = await fetch('/api/attack/stop', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: taskId })
+                });
                 const data = await res.json();
                 if (data.status === 'error') {
-                    appendLog(`[!] ABORT_ERR: ${data.message}`, "ERROR");
-                    setAppState(STATE.RUNNING);
+                    showToast(`Purge Error: ${data.message}`, 'error');
+                } else {
+                    showToast(`Task ${taskId} successfully purged.`, 'success');
                 }
+                setTimeout(refreshTasks, 500);
             } catch (e) {
-                appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
-                setAppState(STATE.RUNNING);
+                showToast(`Purge API Failure: ${e.message}`, 'error');
             }
+        }
+
+        async function stopAllAttacks() {
+            setAppState(STATE.STOPPING);
+            showToast("Initiating global termination sequence...", 'warning');
+            try {
+                const res = await fetch('/api/attack/status');
+                const data = await res.json();
+                if(data.status === 'success' && data.active_tasks) {
+                    for(let t of data.active_tasks) {
+                        await fetch('/api/attack/stop', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ task_id: t.task_id })
+                        });
+                    }
+                }
+                setTimeout(refreshTasks, 1000);
+            } catch(e) {
+                 appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
+            }
+        }
+
+        async function refreshTasks() {
+            try {
+                const res = await fetch('/api/attack/status');
+                const data = await res.json();
+                if (data.status === 'success') {
+                    renderTasksList(data.active_tasks);
+                    if (data.active_tasks.length === 0) {
+                        setAppState(STATE.IDLE);
+                    } else {
+                        setAppState(STATE.RUNNING);
+                    }
+                }
+            } catch (e) { console.error("Error refreshing tasks:", e); }
+        }
+
+        function renderTasksList(tasks) {
+            const container = document.getElementById('tasks-container');
+            const emptyState = document.getElementById('tasks-empty-state');
+            const countBadge = document.getElementById('active-tasks-count');
+            
+            if(countBadge) countBadge.textContent = tasks.length;
+            
+            if (!container) return;
+
+            if (tasks.length === 0) {
+                container.innerHTML = '';
+                if(emptyState) container.appendChild(emptyState);
+                return;
+            }
+            
+            container.innerHTML = '';
+            tasks.forEach(t => {
+                const isIsolated = currentTaskFilter === t.task_id;
+                const row = document.createElement('div');
+                row.onclick = () => setTaskFilter(t.task_id);
+                row.className = `glass-card cursor-pointer border rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all group module-enter ${isIsolated ? 'border-primary bg-primary/5 shadow-neon-primary' : 'bg-slate-900/60 border-white/5 hover:border-primary/20 hover:bg-slate-900/80'}`;
+                row.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="size-12 rounded-xl flex items-center justify-center relative transition-all ${isIsolated ? 'bg-primary text-slate-950' : 'bg-primary/10 text-primary group-hover:shadow-neon-primary'}">
+                            <span class="material-symbols-rounded">${isIsolated ? 'visibility' : 'radar'}</span>
+                            <span class="absolute -top-1 -right-1 size-3 bg-primary rounded-full animate-ping opacity-75"></span>
+                            <span class="absolute -top-1 -right-1 size-3 bg-primary rounded-full shadow-neon-primary"></span>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-xs font-black text-white mb-1 truncate max-w-[250px] uppercase tracking-wider" data-tooltip="${t.target}">${t.target}</div>
+                            <div class="flex items-center gap-2">
+                                <span class="bg-slate-800 text-slate-300 text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded border border-white/5">${t.method}</span>
+                                <span class="text-slate-500 text-[9px] font-mono font-bold">${t.threads} WORKERS</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between md:justify-end gap-8 w-full md:w-auto">
+                        <div class="text-right">
+                            <div class="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-1">Time Elapsed</div>
+                            <div class="text-xs font-mono font-black text-white tabular-nums">${t.elapsed}s <span class="text-slate-600 text-[10px]">/ ${t.duration}s</span></div>
+                        </div>
+                        <button onclick="event.stopPropagation(); stopAttack('${t.task_id}')" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 rounded-xl px-5 py-2.5 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 group/btn">
+                            <span class="material-symbols-rounded text-sm group-hover/btn:rotate-90 transition-transform">close</span> 
+                            <span>Purge</span>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
         }
 
         function updateVisibility() {
@@ -1305,29 +1682,33 @@
                 const data = await res.json();
                 if (data.status === 'success') {
                     const tbody = document.getElementById('c2-worker-list');
-                    document.getElementById('c2-worker-count').textContent = data.workers.length;
-                    
+                    const countBadge = document.getElementById('c2-worker-count');
+                    const countFooter = document.getElementById('c2-worker-count-footer');
+
+                    if(countBadge) countBadge.textContent = data.workers.length;
+                    if(countFooter) countFooter.textContent = data.workers.length;
+
                     if (data.workers.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-600 italic">No worker nodes connected.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="4" class="py-12 text-center text-slate-600 italic uppercase tracking-[0.2em] text-[9px] font-black">No worker nodes connected.</td></tr>';
                         return;
                     }
-                    
+
                     tbody.innerHTML = data.workers.map(w => `
-                        <tr class="hover:bg-white/[0.02] transition-colors">
-                            <td class="py-3 px-4 text-secondary font-bold flex items-center gap-2"><div class="size-2 rounded-full bg-secondary pulse-active"></div>${w.node_id}</td>
-                            <td class="py-3 px-4 text-slate-400">${w.hostname} <span class="text-[9px] text-slate-600 block">${w.os}</span></td>
-                            <td class="py-3 px-4">
-                                <div class="flex items-center gap-2 mb-1">
+                        <tr class="hover:bg-white/[0.05] transition-colors group">
+                            <td class="py-4 px-6 text-secondary font-bold flex items-center gap-2 tracking-wider"><div class="size-2 rounded-full bg-secondary pulse-active"></div>${w.node_id}</td>
+                            <td class="py-4 px-6 text-slate-400 group-hover:text-white transition-colors">${w.hostname} <span class="text-[9px] text-slate-600 block uppercase tracking-widest mt-1">${w.os}</span></td>
+                            <td class="py-4 px-6">
+                                <div class="flex items-center gap-3 mb-1.5">
                                     <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-primary" style="width: ${w.cpu_percent}%"></div></div>
-                                    <span class="text-[9px] text-slate-500 w-6">${w.cpu_percent}%</span>
+                                    <span class="text-[9px] text-slate-500 w-6 font-mono font-bold">${w.cpu_percent}%</span>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-3">
                                     <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-warning" style="width: ${w.ram_percent}%"></div></div>
-                                    <span class="text-[9px] text-slate-500 w-6">${w.ram_percent}%</span>
+                                    <span class="text-[9px] text-slate-500 w-6 font-mono font-bold">${w.ram_percent}%</span>
                                 </div>
                             </td>
-                            <td class="py-3 px-4 text-right">
-                                <span class="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${w.status === 'busy' ? 'bg-warning/20 text-warning border border-warning/30' : 'bg-primary/20 text-primary border border-primary/30'}">
+                            <td class="py-4 px-6 text-right">
+                                <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] ${w.status === 'busy' ? 'bg-warning/20 text-warning border border-warning/30' : 'bg-primary/20 text-primary border border-primary/30 shadow-neon-primary'}">
                                     ${w.status === 'busy' ? 'COMBAT' : 'IDLE'}
                                 </span>
                             </td>
@@ -1336,7 +1717,6 @@
                 }
             } catch(e) { console.error("Error fetching C2 nodes:", e); }
         }
-
         async function setupWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
@@ -1344,11 +1724,26 @@
                 document.getElementById('connection-status').className = 'size-2 rounded-full bg-primary pulse-active';
                 document.getElementById('header-status-text').textContent = "GRID_CONNECTED";
             };
-            ws.onmessage = (event) => { 
-                const msg = event.data;
-                appendLog(msg);
-                if (msg.includes("COMMAND DEPLOYED")) setAppState(STATE.RUNNING);
-                if (msg.includes("COMMAND TERMINATED")) setAppState(STATE.IDLE);
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if(data.task_id) {
+                        appendLog(data.msg, 'SYSTEM', data.task_id);
+                        if (data.msg.includes("COMMAND DEPLOYED")) {
+                            setAppState(STATE.RUNNING);
+                            refreshTasks();
+                        }
+                        if (data.msg.includes("COMMAND TERMINATED")) {
+                            setTimeout(refreshTasks, 1000);
+                        }
+                    }
+                } catch(e) {
+                    // Fallback for non-JSON logs
+                    const msg = event.data;
+                    appendLog(msg);
+                    if (msg.includes("COMMAND DEPLOYED")) setAppState(STATE.RUNNING);
+                    if (msg.includes("COMMAND TERMINATED")) setTimeout(refreshTasks, 1000);
+                }
             };
             ws.onclose = () => {
                 document.getElementById('connection-status').className = 'size-2 rounded-full bg-danger pulse-active';
@@ -1430,17 +1825,20 @@
 
         async function scanSubdomains() {
             const target = document.getElementById('target').value;
-            if(!target) return;
+            if(!target) {
+                showToast("Target required for surface scan.", "warning");
+                return;
+            }
             const btn = document.getElementById('subdomain-scan-btn');
             const table = document.getElementById('subdomain-results');
             btn.disabled = true; btn.innerHTML = '<span class="material-symbols-rounded text-sm animate-spin">refresh</span> Scanning...';
-            table.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-primary animate-pulse font-bold uppercase tracking-widest">Discovering attack surfaces...</td></tr>';
+            table.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-primary animate-pulse font-bold uppercase tracking-widest text-[9px]">Discovering attack surfaces...</td></tr>';
             try {
                 const res = await fetch('/api/recon/subdomains', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target }) });
                 const data = await res.json();
                 if(data.status === 'success' && data.subdomains.length > 0) {
-                    table.innerHTML = data.subdomains.map(s => `<tr><td class="py-3 px-4 text-white font-bold">${s.subdomain}</td><td class="py-3 px-4 text-slate-400">${s.ip}</td><td class="py-3 px-4 text-right"><button onclick="quickAttack('${s.subdomain}')" class="text-primary hover:text-primary-light uppercase font-black text-[9px] tracking-widest border border-primary/30 px-2 py-1 rounded-md">Lock-On</button></td></tr>`).join('');
-                } else { table.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-slate-600 italic">No additional endpoints identified.</td></tr>'; }
+                    table.innerHTML = data.subdomains.map(s => `<tr class="hover:bg-white/5 transition-colors group"><td class="py-3 px-6 text-white font-bold tracking-wider">${s.subdomain}</td><td class="py-3 px-6 text-slate-400 group-hover:text-white transition-colors">${s.ip}</td><td class="py-3 px-6 text-right"><button onclick="quickAttack('${s.subdomain}')" class="text-primary hover:text-primary-light hover:bg-primary/10 uppercase font-black text-[9px] tracking-widest border border-primary/30 px-3 py-1.5 rounded-lg transition-all">Lock-On</button></td></tr>`).join('');
+                } else { table.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-slate-600 italic uppercase tracking-[0.2em] text-[9px] font-black">No additional endpoints identified.</td></tr>'; }
             } catch(e) { console.error(e); }
             btn.disabled = false; btn.innerHTML = '<span class="material-symbols-rounded text-sm">radar</span> Scan Network';
         }
@@ -1501,6 +1899,26 @@
                 html += `<div class="flex items-center gap-4"><div class="text-3xl font-black ${data.online ? 'text-primary' : 'text-danger'}">${data.status_code}</div><div><div class="font-bold">${data.online ? 'WEB_SERVER_ACTIVE' : 'WEB_SERVER_OFFLINE'}</div><div class="text-[10px] text-slate-600">Target responded to HTTP/S handshake.</div></div></div>`;
             } else if (currentTool === 'info') {
                 html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">${Object.entries(data).map(([k, v]) => `<div class="flex justify-between border-b border-white/5 py-1"><span class="text-slate-600 capitalize">${k.replace(/_/g, ' ')}:</span><span class="text-slate-300 font-bold">${v}</span></div>`).join('')}</div>`;
+            } else if (currentTool === 'ports') {
+                if(data.ports && data.ports.length > 0) {
+                    html += `<div class="grid grid-cols-2 md:grid-cols-3 gap-2">${data.ports.map(p => `<div class="bg-slate-900 border border-primary/20 p-2 rounded-lg text-center"><div class="text-primary font-bold text-lg">${p.port}</div><div class="text-[9px] uppercase tracking-widest text-slate-500">${p.status}</div></div>`).join('')}</div>`;
+                } else {
+                    html += `<div class="text-slate-500 italic">No common ports detected as open.</div>`;
+                }
+            } else if (currentTool === 'tech') {
+                if(data.tech_stack && data.tech_stack.length > 0) {
+                    html += `<div class="flex flex-wrap gap-2">${data.tech_stack.map(t => `<span class="px-3 py-1 bg-secondary/10 border border-secondary/30 text-secondary rounded-full text-xs font-bold">${t}</span>`).join('')}</div>`;
+                } else {
+                    html += `<div class="text-slate-500 italic">Could not accurately identify the technology stack.</div>`;
+                }
+            } else if (currentTool === 'dns') {
+                html += `<div class="space-y-4">`;
+                for(const [type, records] of Object.entries(data.records || {})) {
+                    if(records.length > 0) {
+                        html += `<div><div class="text-primary font-bold mb-1">${type} Records</div><div class="bg-slate-900 p-2 rounded-lg space-y-1">${records.map(r => `<div class="text-slate-300 break-all">${r}</div>`).join('')}</div></div>`;
+                    }
+                }
+                html += `</div>`;
             }
             resultArea.innerHTML = html;
         }
@@ -1521,6 +1939,56 @@
             refreshLogVisibility();
             fetch('/api/health').then(r => r.json()).then(d => { if (d.engine_active) setAppState(STATE.RUNNING); });
         };
+    </script>
+
+    <script>
+        // --- Tooltip System Logic ---
+        const tooltipEl = document.createElement('div');
+        tooltipEl.id = 'custom-tooltip';
+        document.body.appendChild(tooltipEl);
+
+        let rafId = null;
+
+        document.addEventListener('mouseover', (e) => {
+            const target = e.target.closest('[data-tooltip]');
+            if (target) {
+                const text = target.getAttribute('data-tooltip');
+                if(!text) return;
+                
+                tooltipEl.innerHTML = `<span class="tt-header">SYS_INFO</span><span>${text}</span>`;
+                tooltipEl.classList.add('active');
+                
+                // Position initial
+                let x = e.pageX + 15;
+                let y = e.pageY + 15;
+                tooltipEl.style.left = x + 'px';
+                tooltipEl.style.top = y + 'px';
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (tooltipEl.classList.contains('active')) {
+                if (rafId) cancelAnimationFrame(rafId);
+                rafId = requestAnimationFrame(() => {
+                    const tRect = tooltipEl.getBoundingClientRect();
+                    let x = e.pageX + 15;
+                    let y = e.pageY + 15;
+                    
+                    if (x + tRect.width > window.innerWidth) x = e.pageX - tRect.width - 10;
+                    if (y + tRect.height > window.innerHeight + window.scrollY) y = e.pageY - tRect.height - 10;
+                    
+                    tooltipEl.style.left = x + 'px';
+                    tooltipEl.style.top = y + 'px';
+                });
+            }
+        });
+
+        document.addEventListener('mouseout', (e) => {
+            const target = e.target.closest('[data-tooltip]');
+            if (target) {
+                tooltipEl.classList.remove('active');
+            }
+        });
     </script>
 </body>
 </html>

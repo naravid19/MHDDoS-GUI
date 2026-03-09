@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2026-03-09
+
+### Added
+- **Multi-tasking & Concurrent Executions**: The engine now supports running multiple attacks (up to 5 concurrent tasks) simultaneously. The global state has been upgraded to a `MultiTaskManager` model using unique UUID task identifiers.
+- **Active Operations Fleet**: Added a high-end, responsive Grid dashboard to monitor all active tasks in real-time, including time elapsed and specific target methods.
+- **Log Isolation Focus**: Users can now click on a specific task within the Active Fleet dashboard to isolate the Terminal Matrix, displaying only the telemetry logs for that specific target.
+- **Log Intensity Controller**: Restored the professional log level selector (`MINIMAL`, `TACTICAL`, `VERBOSE`) in the terminal matrix header for granular telemetry monitoring.
+- **Tactical Notification System**: Integrated a "Toast" UI for asynchronous feedback (Deployment, Purging, Theme switching) instead of polluting the terminal logs.
+- **Theme Nexus (Dynamic Skins)**: Users can dynamically swap UI themes on the fly. Added "Emerald Tactical", "Azure Command", and "Crimson Stealth" color schemes.
+- **Keyboard Shortcuts**: Implemented `Alt+D` for Deploy Sequence, `Alt+S` for Abort Operations, and `Escape` for closing tactical modals.
+
+### Changed
+- **Pro-Grade UX Overhaul**: Radically refined the layout utilizing a strict 4-point spacing scale, multi-layered Glassmorphism (depths), and separated sidebar components into collapsible "Tactical Modules" (Target Acquisition, Payload Parameters, Proxy Nexus) using Stitch UI philosophy.
+- **Data Table Optimization**: Enhanced Surface Explorer and C2 Fleet tables with proper padding, responsive horizontal scrolling, and subtle row hover interactions to match SOC professional standards.
+
+### Fixed
+- **Database Concurrency (WAL Mode)**: Enabled SQLite Write-Ahead Logging (WAL) and set synchronous mode to NORMAL. This definitively resolves the `database is locked` error when multiple concurrent attack tasks or background sentinels attempt to write intelligence data simultaneously.
+- **Sentinel Thundering Herd**: Added a random jitter (up to 30s) to the proxy refresh sentinel to prevent simultaneous database write spikes across multiple active tasks.
+- **UI Interaction Logic**: Fixed a regression where starting an attack incorrectly locked the tactical sidebar, preventing the deployment of subsequent concurrent tasks.
+
+## [1.1.4] - 2026-03-09
+
+### Added
+- **Advanced Target Reconnaissance**: Expanded the Intelligence Recon Matrix with three new powerful diagnostic tools:
+  - **Port Scanner**: Rapid asynchronous detection of 14 common infrastructure ports.
+  - **Tech Stack Fingerprinting**: HTTP Header and HTML body parsing to automatically identify underlying technologies (e.g., Nginx, WordPress, React.js).
+  - **DNS Enumeration**: Automated resolution of fundamental domain records (A, AAAA, MX, TXT, NS).
+- **Tool UI Integration**: Integrated the new recon tools seamlessly into the Tactical Tools Modal using a compact tabbed interface.
+
 ## [1.1.3] - 2026-03-08
 
 ### Added
