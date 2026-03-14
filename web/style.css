@@ -1,0 +1,242 @@
+:root {
+            --primary: #10b981;
+            --primary-rgb: 16, 185, 129;
+            --primary-glow: rgba(16, 185, 129, 0.2);
+            --secondary: #3b82f6;
+            --secondary-rgb: 59, 130, 246;
+            --danger: #ef4444;
+            --danger-rgb: 239, 68, 68;
+            --bg-dark: #020617; /* Slate 950 */
+            --panel-bg: rgba(15, 23, 42, 0.7); /* Slate 900 Glass */
+            --border-alpha: rgba(255, 255, 255, 0.08);
+            --font-main: "Inter", sans-serif;
+            --font-mono: "Fira Code", monospace;
+        }
+
+        /* Theme Variants */
+        body[data-theme="azure"] {
+            --primary: #3b82f6;
+            --primary-rgb: 59, 130, 246;
+            --primary-glow: rgba(59, 130, 246, 0.2);
+            --bg-dark: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --border-alpha: rgba(255, 255, 255, 0.1);
+        }
+        body[data-theme="crimson"] {
+            --primary: #ef4444;
+            --primary-rgb: 239, 68, 68;
+            --primary-glow: rgba(239, 68, 68, 0.2);
+            --bg-dark: #2a0808;
+            --panel-bg: rgba(69, 10, 10, 0.7);
+            --border-alpha: rgba(239, 68, 68, 0.1);
+        }
+
+        /* --- Typography & Scaffolding --- */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-alpha); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+        
+        body {
+            background-color: var(--bg-dark);
+            color: #f8fafc;
+            font-family: var(--font-main);
+            height: 100vh;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, var(--primary-glow) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
+            transition: background-image 0.5s ease;
+        }
+
+        /* --- UI Components --- */
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(24px) saturate(150%);
+            border-bottom: 1px solid var(--border-alpha);
+        }
+
+        .glass-card {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-alpha);
+            border-radius: 1.5rem; /* 24px - 2xl */
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(var(--primary-rgb), 0.1);
+        }
+
+        .input-pro {
+            background: #0f0f0f !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #f8fafc !important;
+            transition: all 0.2s ease;
+            font-family: var(--font-mono);
+            border-radius: 6px !important;
+        }
+
+        .input-pro:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 1px var(--primary);
+            background: #000000 !important;
+            outline: none;
+        }
+
+        /* --- Toast System --- */
+        #toast-container {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            animation: toastEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            min-width: 300px;
+        }
+
+        @keyframes toastEnter {
+            from { opacity: 0; transform: translateX(40px) scale(0.9); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+
+        .toast-exit {
+            animation: toastExit 0.3s ease forwards;
+        }
+
+        @keyframes toastExit {
+            to { opacity: 0; transform: translateX(20px); }
+        }
+
+        /* --- Animations & Effects --- */
+        .scanlines {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scanlines::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.8;
+        }
+
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 var(--primary-glow); }
+            70% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .pulse-active { animation: pulse-ring 2s infinite; }
+
+        .btn-glow-primary {
+            box-shadow: 0 0 10px var(--primary-glow);
+            transition: all 0.3s ease;
+        }
+        .btn-glow-primary:hover {
+            box-shadow: 0 0 20px var(--primary-glow);
+            transform: translateY(-1px);
+        }
+
+        /* --- Transitions --- */
+        .page-transition {
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .module-enter {
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Sidebar Modules --- */
+        .sidebar-module-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        .sidebar-module-content {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease;
+            overflow: hidden;
+        }
+        .sidebar-module-content.collapsed {
+            max-height: 0 !important;
+            opacity: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        /* --- Terminal Matrix --- */
+        .terminal-log {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1.5;
+            text-shadow: 0 0 2px var(--primary-glow);
+        }
+
+        /* --- State visibility --- */
+        [data-state] { display: none; }
+        body[data-app-state="idle"] [data-state="idle"] { display: flex; }
+        body[data-app-state="starting"] [data-state="starting"] { display: flex; }
+        body[data-app-state="running"] [data-state="running"] { display: flex; }
+        body[data-app-state="stopping"] [data-state="stopping"] { display: flex; }
+    
+        /* --- Tooltip System --- */
+        #custom-tooltip {
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            background: rgba(15, 23, 42, 0.90);
+            backdrop-filter: blur(16px) saturate(200%);
+            border: 1px solid var(--border-alpha);
+            border-left: 3px solid var(--primary);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px var(--primary-glow);
+            padding: 8px 14px;
+            border-radius: 8px;
+            color: #f8fafc;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        #custom-tooltip.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+        #custom-tooltip .tt-header {
+            font-size: 9px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-weight: 800;
+        }

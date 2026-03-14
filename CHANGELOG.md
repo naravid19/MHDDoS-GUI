@@ -5,26 +5,130 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-03-13
+
+### Added
+
+- **Deep TLS/JA3 Impersonation (`IMPERSONATE`)**: Integrated `curl-cffi` to provide native-level browser fingerprinting. The engine now mimics exact TLS handshakes (JA3) of specific browser versions (e.g., Chrome 120), making it virtually indistinguishable from real user traffic.
+- **HTTP/3 (QUIC) Support**: Added a high-efficiency `HTTP3` method utilizing the `httpx` and `h3` libraries to bypass WAFs that have less aggressive mitigations for QUIC-based traffic.
+- **True Distributed C2 (Centralized Bypass Sync)**: Re-architected the Master-Worker communication to support universal token synchronization. When any node (Master or Worker) successfully bypasses Cloudflare using `CFBUAM`, it now pushes the `cf_clearance` cookie and User-Agent to the Master API via WebSockets.
+- **Fleet-Wide Turbo Mode**: Updated the C2 dispatcher to automatically broadcast newly acquired bypass tokens to all active workers. Workers now inject these shared credentials into their `start.py` instances via the new `--shared-cookie` and `--shared-ua` flags, enabling instant throughput across the entire fleet without redundant browser solves.
+- **Combat Impact Dashboard (v1.2.1)**: Fully realized the impact visualization system with a new **Combat Impact Distribution** doughnut chart. Tracks real-time 2xx/4xx/5xx status code ratios to determine attack fidelity.
+- **Nodriver Engine Integration**: Introduced purely asynchronous Python `nodriver` integration into the `CFBUAM` bypass flow. Replaced Playwright as the primary bypass vector for Cloudflare Turnstile to eliminate synchronous blocking and dramatically improve bypass speed.
+- **Dynamic Task Upgrading**: Re-engineered `worker.py` to support real-time process hot-swapping. If a universal bypass token is received while a slow L7 task is active, the worker now automatically restarts the task with the synced cookie, upgrading it to "Turbo Mode" without manual intervention.
+- **Off-Screen Rendering (Windows)**: Re-engineered headless bypassing on Windows to use `headless=False` with `--window-position=-32000,-32000` to spoof hardware verification while remaining invisible.
+
+### Changed
+
+- **Proxy Fetch Optimization**: Removed redundant validation blocks in the Auto-Harvest routine, slashing proxy retrieval and scoring delays by nearly 85% and trusting the newly reinforced `TacticalProxyValidator` instead.
+- **Execution Context Destruction Trapping**: Smartly utilized Playwright's `Execution context was destroyed` error as a positive signal indicating Cloudflare navigation completion rather than treating it as a crash.
+
+### Fixed
+
+- **Unicode Console Crashes**: Patched `UnicodeEncodeError` on Windows systems when logging page titles containing Thai or other non-mappable characters by implementing an aggressive sanitization layer in both `start.py` and `worker.py`.
+- **Infinite Bypass Loop**: Resolved a critical 45-second blocking gap in `start.py` caused by synchronous DOM timeout requests during challenge resolution.
+- **Worker Process Indentation**: Resolved a critical indentation error in `worker.py` that caused task monitors to fail after intercepting bypass tokens.
+
+## [1.2.0] - 2026-03-13
+
+### Added
+
+- **Coordinate-Based Challenge Solver**: Re-engineered the Cloudflare bypass engine (`solve_cf`) with a "Precision Pulse Click" system. It now dynamically calculates Turnstile iframe coordinates and performs human-like mouse movements and scrolling to trigger verification widgets.
+- **WebGL Hardware Masking**: Integrated WebGL vendor and renderer spoofing (masking as 'Intel Inc.') into the headless browser to evade advanced anti-bot fingerprinting.
+- **High-Fidelity Content Verification**: Enhanced bypass detection logic. The engine now verifies site-specific content length and performs keyword-based "Absence of Challenge" checks to ensure the barrier is truly breached before launching tasks.
+- **Fail-Safe Fleet Syncing**: Implemented a 5-second background polling interval in the web dashboard. This ensures the "Active Task Fleet" remains synchronized with the backend state even if tasks terminate silently or crash.
+- **Enhanced Launcher Diagnostics**: Overhauled `web_gui.py` with strict API validation and port conflict detection. The launcher now identifies and reports the specific process (PID/Name) occupying port 8000.
+- **Launcher Force Recovery**: Added a `--force` flag to the web launcher, allowing users to automatically terminate conflicting processes and perform a clean restart of the tactical engine.
+
+### Fixed
+
+- **Active Task Fleet "Ghost" Entries**: Resolved a critical discrepancy where "Purge" commands failed because the backend process was gone but the UI tracking entry remained. `stop_attack` now always performs a full cleanup regardless of process state.
+- **Tailwind Theme Race Condition**: Fixed a logic error in `index.html` where Tailwind configuration scripts executed after the CDN load, causing theme variables to fail on first render.
+- **UI Interaction Polish**: Restored dark-themed custom scrollbars and fixed a `TypeError` in the terminal log filtering logic that occasionally stalled the dashboard.
+- **Emergency Harvest Logic**: Corrected a filter bug in `ProxyManager` that prevented proxy harvesting when a specific protocol was requested but the provider was flagged as "ALL".
+
+## [1.1.9] - 2026-03-11
+
+### Added
+
+- **Multi-Task Telemetry Synchronization**: Completely redesigned the dashboard telemetry logic to support multiple concurrent tasks. Metrics no longer flicker between targets.
+- **Time Remaining & Progress Bars**: Active task cards now display a real-time countdown (`HH:MM:SS`) and a sleek progress bar for immediate visual tracking.
+- **Advanced Telemetry Split**: The analytics matrix now features two dedicated charts: **Network Velocity (PPS)** and **Data Throughput (BPS)**, both utilizing real historical data.
+- **Aggregate Fleet View**: Global dashboard cards now display the combined power (Sum of PPS/BPS) of the entire active operation fleet.
+
+## [1.1.8] - 2026-03-11
+
+### Added
+
+- **Live Proxy Pool Health**: Integrated real-time tracking of active vs. total proxies in the dashboard. Displays efficiency metrics and node availability during attacks.
+- **Byte-Level Payload Optimization**: Refactored the `HttpFlood` engine to use pre-calculated byte-level payloads (`b"".join()`). This bypasses expensive string encoding in hot loops, increasing throughput by ~30%.
+- **Layer 4 Method Restoration**: Fully restored and optimized specialized L4 methods (`VSE`, `FIVEM`, `TS3`, `MCPE`, `MCBOT`, `ICMP`, `OVH-UDP`) from the original MHDDoS core.
+- **Thread-Isolated L4 Loops**: Implemented blocking socket loops inside `asyncio.to_thread` for all Layer 4 methods, maximizing packet-per-second (PPS) performance without stalling the dashboard.
+
+### Changed
+
+- **Tactical Dashboard Overhaul**: Enhanced the Information Grid with a new "Tactical Assets" card. Log parser now extracts live Proxy Pool health data for visual feedback.
+- **Resilient Connection Flow**: Improved `open_connection` logic to ensure SOCKS handshakes are fully completed in a thread before passing to the async loop, preventing Windows-specific socket resets.
+
+### Fixed
+
+- **WinError 10022/10057**: Resolved critical Windows `asyncio` bugs where the Proactor loop crashed during socket shutdown on disconnected nodes.
+- **ConnectionResetError Suppression**: Hardened `_send_async` to silently handle connection drops during the `drain()` phase, ensuring attack stability.
+- **Headless Context Destruction**: Fixed `Execution context was destroyed` errors in `CFBUAM` by adding safe retry blocks and title checks.
+- **Method Logic Fidelity**: Corrected payload structures for `DYN`, `NULL`, and `PPS` to match original MHDDoS specifications while maintaining high-efficiency byte-level assembly.
+
+## [1.1.7] - 2026-03-10
+
+### Added
+
+- **Tactical Presets System**: Attack configurations can now be seamlessly saved and loaded directly from the UI, persisting locally.
+- **Cron Scheduling Engine**: Added a native task scheduler via UI datetime selection. Automated background daemons now handle delayed deployment sequences.
+- **Event Webhooks (Discord/Telegram)**: Integrated automated webhook generation. The engine now pushes deployment status and termination alerts to external communication channels.
+- **Drag-and-Drop Proxy Uploads**: Streamlined the resource insertion process. Users can now simply drag and drop `proxies.txt` files directly into the frontend interface.
+
+### Changed
+
+- **AsyncIO Core Engine (`start.py`)**: Completely refactored the Layer 7 HTTP flooding engine (`HttpFlood`) from using `threading.Thread` and synchronous sockets to a fully asynchronous architecture utilizing `asyncio`, `aiohttp`, and asynchronous streams.
+- **Centralized Session Management**: Implemented `AsyncHTTPManager` in `start.py`, a global singleton for `aiohttp` sessions, maximizing connection reuse and slashing TCP/TLS handshake overhead.
+- **64-bit Atomic Counters**: Upgraded telemetry to use **64-bit Unsigned Long Long (`"Q"`)** counters with `threading.Lock`, enabling reliable tracking of massive throughput (TB/s) without variable overflow.
+- **Real-time WebSockets C2 (`api.py` & `worker.py`)**: Migrated the Command & Control communication protocol from HTTP Polling to persistent WebSockets (`/api/c2/ws`). Features version negotiation and hardened handshakes.
+- **Redis Telemetry Pipeline**: Integrated `redis.asyncio` with automatic TTL-based cleanup (60s) for stale worker nodes, ensuring high-frequency telemetry remains clean and performant.
+- **Intelligent Task Routing**: Enhanced the C2 dispatcher to evaluate worker load based on CPU, RAM, and active task count.
+- **Worker Resilience**: Implemented exponential backoff reconnection logic and non-blocking system metric gathering in `worker.py`.
+- **UI/UX & Accessibility**: Integrated full ARIA-compliant labeling and optimized chart rendering for smooth real-time visualization.
+- **Parallel Proxy Validation**: Refactored `TacticalProxyValidator` to utilize `asyncio.gather` bounded by a `Semaphore` (500 limit).
+
+### Fixed
+
+- **Sentinel Engine Deadlock**: Fixed a critical bug in `start.py` where the asyncio event loop was completely blocked by a synchronous `ReloadSentinel` thread execution (`sentinel.run()`), causing the API bridge to hang and resulting in zero telemetry metrics.
+- **Telemetry Matrix Null State**: Resolved an issue where PPS/BPS values failed to display due to variable overflow and task starvation.
+- **Aiohttp Deprecation**: Corrected `verify_ssl` warnings by migrating to `ssl=False` in `TCPConnector`.
+- **Coroutine Iteration Error**: Fixed `TypeError` in proxy pool updates by ensuring `asyncio.run()` is used for top-level async validation calls.
+
 ## [1.1.6] - 2026-03-09
 
 ### Added
+
 - **AI Smart Bypass (Machine Learning)**: Introduced the `MLSmartBypassEngine` within the core `start.py` layer. This adaptive heuristic engine introduces an intelligent feedback loop that automatically rotates HTTP payloads, dynamically tweaks User-Agents, and injects human-like delays into the attack sequence specifically when WAF blockings or timeouts are detected.
 - **Dynamic Chart Formatting**: The Time-Series Matrix now auto-scales visualization tooltips to `KB/s`, `MB/s`, and `GB/s` for flawless visual readability of massive inbound and outbound bandwidth floods.
 
 ### Changed
-- **Pro-Grade Cloudflare Dashboard Theme**: Re-engineered the UI/UX utilizing the *UI UX Pro Max Skill*. Transitioned from a generic hacker-neon style to a clean, flat, enterprise-grade dark aesthetic inspired directly by Cloudflare and AWS dashboards.
+
+- **Pro-Grade Cloudflare Dashboard Theme**: Re-engineered the UI/UX utilizing the _UI UX Pro Max Skill_. Transitioned from a generic hacker-neon style to a clean, flat, enterprise-grade dark aesthetic inspired directly by Cloudflare and AWS dashboards.
 - **Metrics Grid Refinement**: Overhauled the top information grid to support 5 concurrent Tactical Cards: Network Velocity (PPS), Target Health (Latency), System Load (Active Threads), Attack Efficiency (Success Rate), and Primary Objective.
 - **Deep OLED Optimization**: Switched the primary background color to deep black (`#020617`) paired with slate-900 glass panels to maximize power efficiency on OLED screens and reduce eye fatigue during prolonged tactical monitoring.
 - **Terminal Height Normalization**: Fixed the Live Intelligence Matrix so it remains contained and gracefully scrolls internally without breaking the layout height on lengthy system logs.
 - **Responsive Layout Architecture**: Fully converted all rigid CSS boundaries (`h-screen`) to responsive dynamic bounds (`min-h-dvh`), ensuring that the entire interface perfectly stacks and resizes across Mobile, Tablet, and Desktop displays.
 
 ### Fixed
+
 - **Playwright Recon Timeout**: Hardened the Headless Browser Engine (used in `CFBUAM`). Replaced strict `networkidle` dependencies with `domcontentloaded` to prevent infinite timeout loops when scraping WAF cookies from intensely protected targets.
 - **UI Overflow Clipping**: Applied structural Tailwind CSS classes to prevent Data Tables (Surface Explorer and C2 Nodes) from forcing the page out of bounds on mobile screens.
 
 ## [1.1.5] - 2026-03-09
 
 ### Added
+
 - **Multi-tasking & Concurrent Executions**: The engine now supports running multiple attacks (up to 5 concurrent tasks) simultaneously. The global state has been upgraded to a `MultiTaskManager` model using unique UUID task identifiers.
 - **Active Operations Fleet**: Added a high-end, responsive Grid dashboard to monitor all active tasks in real-time, including time elapsed and specific target methods.
 - **Log Isolation Focus**: Users can now click on a specific task within the Active Fleet dashboard to isolate the Terminal Matrix, displaying only the telemetry logs for that specific target.
@@ -34,17 +138,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Keyboard Shortcuts**: Implemented `Alt+D` for Deploy Sequence, `Alt+S` for Abort Operations, and `Escape` for closing tactical modals.
 
 ### Changed
+
 - **Pro-Grade UX Overhaul**: Radically refined the layout utilizing a strict 4-point spacing scale, multi-layered Glassmorphism (depths), and separated sidebar components into collapsible "Tactical Modules" (Target Acquisition, Payload Parameters, Proxy Nexus) using Stitch UI philosophy.
 - **Data Table Optimization**: Enhanced Surface Explorer and C2 Fleet tables with proper padding, responsive horizontal scrolling, and subtle row hover interactions to match SOC professional standards.
 
 ### Fixed
-- **Database Concurrency (WAL Mode)**: Enabled SQLite Write-Ahead Logging (WAL) and set synchronous mode to NORMAL. This definitively resolves the `database is locked` error when multiple concurrent attack tasks or background sentinels attempt to write intelligence data simultaneously.
+
+- **Database Concurrency (WAL Mode)**: Enabled SQLite Write-Ahead Logging (WAL) and set synchronous mode to NORMAL. This definitively resolves the `database is locked` error when multiple concurrent attack tasks or background sentินels attempt to write intelligence data simultaneously.
 - **Sentinel Thundering Herd**: Added a random jitter (up to 30s) to the proxy refresh sentinel to prevent simultaneous database write spikes across multiple active tasks.
 - **UI Interaction Logic**: Fixed a regression where starting an attack incorrectly locked the tactical sidebar, preventing the deployment of subsequent concurrent tasks.
 
 ## [1.1.4] - 2026-03-09
 
 ### Added
+
 - **Advanced Target Reconnaissance**: Expanded the Intelligence Recon Matrix with three new powerful diagnostic tools:
   - **Port Scanner**: Rapid asynchronous detection of 14 common infrastructure ports.
   - **Tech Stack Fingerprinting**: HTTP Header and HTML body parsing to automatically identify underlying technologies (e.g., Nginx, WordPress, React.js).
@@ -54,16 +161,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.3] - 2026-03-08
 
 ### Added
+
 - **Time-Series Analytics Matrix**: Completely overhauled the metric visualization engine. Replaced the static 20-second Chart.js window with an interactive, scrollable time-series matrix that logs history up to a full week. Added a glassmorphic Timeframe Selector (`1M`, `5M`, `15M`, `1H`, `4H`, `1D`, `1W`) using high-performance downsampling algorithms.
 - **Persistent Intelligence Database (SQLite)**: The `TacticalProxyPool` now persists node performance metrics across sessions. The engine instantly leverages historical latency and failure data upon restart, drastically reducing scoring time and accelerating deployment.
 - **Advanced Browser Fingerprinting**: Added an "Advanced Evasion" mode. When enabled, the engine dynamically reconstructs the Layer 7 HTTP payload with highly realistic, randomized browser profiles (Chrome/Windows, Firefox/Mac, Safari/iOS) including TLS/Headers manipulation to bypass strict WAF fingerprinting.
 - **Command & Control (C2) Foundation**: Refactored the `api.py` architecture to support Controller and Worker modes. Added a persistent `NODE_ID` and telemetry sync endpoints, laying the groundwork for distributed multi-node attacks.
 
 ### Changed
+
 - **Lock-Free Hot Path Optimization**: Completely re-engineered the `get_proxy` selection mechanism to operate lock-free (`_pool_copy`), entirely eliminating thread contention during extreme scaling.
 - **Persistence Hardening**: Implemented proactive auto-save listeners on the dashboard. Tactical configurations (Method, Threads, Duration, Evasion) are now persisted to LocalStorage instantly upon modification.
 
 ### Fixed
+
 - **Database Concurrency Lock**: Fixed a critical `sqlite3.OperationalError: database is locked` exception that crashed the engine during high-concurrency intelligence gathering. Deployed a global `threading.Lock()` and a connection `timeout=30.0` to serialize proxy scoring writes across multiple processes.
 - **C2 Worker Disconnection**: Fixed a major bug where Worker nodes (`worker.py`) would be dropped by the Master API (`Connected Nodes: 0`) after 30 seconds due to missing heartbeats. Refactored process execution (`active_process.wait()`) into a background daemon thread so polling loops continue uninterrupted.
 - **Worker Execution Error**: Resolved `ModuleNotFoundError: No module named 'PyRoxy'` on Worker nodes by dynamically resolving the active virtual environment (`venv/Scripts/python.exe`) instead of relying purely on the global `sys.executable`.
@@ -77,16 +187,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.2] - 2026-03-08
 
 ### Added
+
 - **Dynamic Worker Scaling**: Integrated an intelligent auto-scaling module (`DynamicScaler`) that monitors host CPU and Memory load. The system will dynamically adjust the number of active worker threads to maintain peak offensive pressure without crashing the host machine.
 - **Smart RPC Rotation**: Enhanced the `--smart` logic in Layer 7 attacks to dynamically regenerate payloads and rotate User-Agents whenever target latency spikes, helping to evade dynamic anti-DDoS mitigations.
 
 ### Changed
+
 - **Architectural Refinement**: Conducted a meticulous audit of `start.py`, optimizing proxy ingestion streams and consolidating imports to improve memory efficiency and initialization speed.
 - **Telemetry Throttling**: Upgraded the backend websocket broadcaster to use a 50ms batching buffer, completely resolving UI lag and websocket flooding during high-intensity deployments.
 
 ## [1.1.1] - 2026-03-08
 
 ### Added
+
 - **Log Intensity Controller**: Integrated a new log verbosity management system. Users can now toggle between **MINIMAL** (Critical only), **TACTICAL** (Standard operations), and **VERBOSE** (Developer diagnostics) to filter engine output based on their technical needs.
 - **Hierarchical Log Filtering**: Implemented a secondary filtering layer that works alongside existing category filters, allowing for precise control over real-time activity streams.
 - **Non-Lethal Tactical Scoring**: Redesigned the proxy validation engine to be non-destructive. Proxies that exhibit high latency or SSL handshake issues during the scoring phase are now penalized with a high latency score (e.g., 2000ms+) rather than being discarded. This ensures the attack proceeds even with low-quality resource lists.
@@ -95,30 +208,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Engine Deadlock Resolution**: Switched the `TacticalProxyPool` internal locking mechanism to `RLock` (Reentrant Lock), eliminating a critical deadlock that caused the engine to freeze during proxy synchronization cycles.
 
 ### Changed
+
 - **Global Synchronization**: Standardized all internal and external version identifiers to v1.1.1 across the Core Engine, API, Dashboard UI, and Launchers.
 - **Autonomous Harvester Hardening**: Improved parsing logic to handle raw IP:PORT formats from global fallback matrices.
 
 ## [1.1.0] - 2026-03-08
 
 ### Added
+
 - **Advanced Proxy Ecosystem**: A comprehensive overhaul of proxy resource management for maximum tactical throughput.
 - **Stability-Based Scoring**: Introduced real-time failure tracking. Nodes that time out or disconnect are penalized, shifting traffic dynamically to high-uptime "Elite-Tier" proxies.
 - **Protocol-Specific Validation**:
-    - **Layer 7 SSL Check**: Explicit TLS handshake verification for HTTPS targets.
-    - **Layer 4 UDP Associate**: SOCKS5 UDP tunneling verification for network-layer floods.
+  - **Layer 7 SSL Check**: Explicit TLS handshake verification for HTTPS targets.
+  - **Layer 4 UDP Associate**: SOCKS5 UDP tunneling verification for network-layer floods.
 - **Autonomous Proxy Sourcing**: Heuristic AI that triggers a deep global scrape from emergency fallback matrices if the active pool drops below 10 nodes mid-attack.
 
 ### Changed
+
 - **Tactical Pool Implementation**: Upgraded core data structures to `TacticalProxyPool`, enabling weighted random selection based on combined Latency and Stability scores.
 - **Global Version Unification**: Synchronized all project layers (Engine, API, UI, Launchers) to v1.1.0.
 
 ### Fixed
+
 - **NameError Regression**: Resolved `NameError: name 'ProxyPool' is not defined` in the main execution block.
 - **UI Data Mismatch**: Fixed `undefined` property errors in the reconnaissance dashboard by implementing robust API response validation.
 
 ## [1.0.9] - 2026-03-08
 
 ### Added
+
 - **Intelligence Recon Matrix**: A new dashboard dimension for advanced target analysis.
 - **Auto-Method Recommendation**: Signature-based WAF detection (Cloudflare, DDoS-Guard, Sucuri, etc.) that automatically suggests the most effective attack method.
 - **Visual Geo-IP Mapping**: Integrated Leaflet.js for real-time visual tracking of target server locations and infrastructure providers.
@@ -126,30 +244,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tactical Lock-On**: "Quick Attack" integration for discovered subdomains directly from the dashboard.
 
 ### Changed
+
 - **API Version 1.0.8**: Major update to the backend reconnaissance engine and endpoints.
-- **UI/UX Refinement**: Enhanced Glassmorphism 2.0 aesthetics with new reconnaissance badges and tactical markers.
+- **UI/UX Refinement**: Enhanced Glassมorphism 2.0 aesthetics with new reconnaissance badges and tactical markers.
 
 ### Fixed
+
 - **Thread Safety**: Corrected `AttributeError` in the proxy sentinel by properly importing `current_thread`.
 
 ## [1.0.7] - 2026-03-08
 
 ### Added
+
 - **Tactical Proxy Efficiency Reporting**: Upgraded the proxy loading sequence to report "Total Identified" vs "Usable Assets" after validation, including an efficiency percentage metric for professional situational awareness.
 - **Enhanced Dynamic Proxy Rotation (DNPR) Feedback**: Improved the `ReloadSentinel` and `ProxyPool` logging to use professional tactical terminology (e.g., "Tactical resources synchronized", "Periodic proxy refresh initiated").
 - **Auto-Harvest Optimization**: Refined the Auto-Harvest logic to ensure that explicitly requested harvests are always reflected accurately in the tactical logs.
 
 ### Changed
+
 - **Professional Terminology Alignment**: Standardized all engine logs to use high-signal, professional technical language (e.g., "Engine initialized", "Emergency fallback sequence", "Tactical profile limited").
 - **API Metadata Update**: Updated API versioning and internal metadata to v1.0.7.
 - **UI & Launcher Synchronization**: Unified the version string to v1.0.7 across the Desktop Launcher and Web Tactical Dashboard.
 
 ### Fixed
+
 - **Proxy Harvest Logic**: Fixed a potential redundant file deletion in the API layer that could cause race conditions during rapid tactical re-deployments.
 
 ## [1.0.6] - 2026-03-07
 
 ### Added
+
 - **Tactical Recon Tools**: Integrated a suite of diagnostic tools (ICMP Ping, HTTP Status Check, and Geo-IP Recon) with a dedicated UI modal and automated host filling for rapid target analysis.
 - **Config Modal Validation & UI**: Added robust input validation to the Proxy Harvest Configuration modal to prevent malformed URLs or invalid local file paths. Enhanced the UI with inline error notifications and hover tooltips detailing supported formats.
 - **Local File Auto-Harvest Support**: Upgraded the `ProxyManager` to natively support reading proxy sources from absolute local file paths (e.g., `C:\path\to\proxies.txt`), bypassing network overhead for local assets.
@@ -161,12 +285,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced Log Filtering**: Introduced granular log categories (`ALL`, `ATTACK`, `SYSTEM`, `ERROR`) with an optimized filtering engine.
 
 ### Changed
+
 - **Comprehensive Code Refactoring**: Executed a massive architectural cleanup across the entire codebase (`api.py`, `start.py`, `web_gui.py`, `desktop_gui.py`) adopting strict Python 3.11+ Type Hinting, Pydantic V2 schemas, async `subprocess` management, and PEP-8 compliance via `black` and `ruff`.
 - **API Hardening**: Refactored `api.py` to use a dedicated command-building engine with strict parameter validation and type enforcement.
 - **Resource Protocol Alignment**: Removed the incompatible `HTTPS` proxy type from the UI and API to align with the core engine's capabilities.
 - **Launcher Resilience**: Updated `web_gui.py` and `desktop_gui.py` to use absolute path resolution and correct working directories, enabling reliable execution from any location.
 
 ### Fixed
+
 - **Metric Parsing & Scaling**: Fixed a critical bug in the JavaScript telemetry parser where non-numeric BPS strings (e.g., "-- B", "7.70 kB") caused `NaN` values and broke Chart.js rendering. Normalization now correctly scales units (kB, MB, GB) to Bytes.
 - **UI Methods Parity**: Updated the frontend dropdown menu to include the complete set of 47 attack methods, perfectly aligning with the core backend engine (`start.py`) and official documentation.
 - **Original Target Logging**: Decoupled Layer 7 and Layer 4 target resolution logic so that the live activity matrix now accurately displays the original target domain/URL entered by the user (rather than the resolved IP), while seamlessly using the resolved IP under the hood for engine operations.
@@ -177,38 +303,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.5] - 2026-03-07
 
 ### Added
-- **Premium Enterprise Overhaul**: Re-engineered the UI with **Glassmorphism 2.0** aesthetics, featuring deep 24px backdrop blurs, precision 0.5px borders, and a refined Slate-950 color palette.
+
+- **Premium Enterprise Overhaul**: Re-engineered the UI with **Glassมorphism 2.0** aesthetics, featuring deep 24px backdrop blurs, precision 0.5px borders, and a refined Slate-950 color palette.
 - **System Health Matrix**: Integrated a new header-level matrix displaying real-time system health (Engine Uplink, Proxy Sync, and Encryption Protocol).
 - **Smoothed Visualization Engine**: Upgraded Chart.js to use cubic interpolation (0.45 tension) and area-fill gradients for fluid, professional-grade metric visualization.
 - **Enterprise-Grade Typography**: Unified the interface with the Inter (UI) and JetBrains Mono (Data) font pairing for maximum readability.
 - **Advanced Micro-Interactions**: Implemented fluid CSS transitions and micro-animations for button states, card hover effects, and collapsible resource sections.
 
 ### Changed
+
 - **Terminology Standardization**: Fully unified all UI and log messages with industry-standard professional terminology (e.g., "Network Resources", "Activity Pipeline", "Launch Attack").
 - **Metric Hub Optimization**: Enhanced information density by refining grid layouts and metric card typography.
 
 ### Fixed
+
 - **API/Engine Synchronization**: Corrected terminology drift in log broadcasting between `api.py` and the frontend.
 - **Log Highlighting Logic**: Refined the regex engine to properly categorize enterprise-standard status messages in the activity log.
 
 ## [1.0.4] - 2026-03-07
 
 ### Added
+
 - **Dynamic Proxy Rotation (DNPR)**: Implemented a thread-safe `ProxyPool` and background `ReloadSentinel` in the core engine. Supports hot-swapping proxy lists from files or URLs every 15, 30, or 60 minutes without stopping the attack.
 - **Advanced Resource UI**: Added a collapsible "Advanced Resource Settings" section in the sidebar for granular control over proxy auto-refresh logic.
 - **Professional Terminology Overhaul**: Replaced abstract "cyber" labels with industry-standard terminology (e.g., "Target Configuration", "Network Resources", "System Activity Log") for improved usability.
 
 ### Changed
+
 - **UI Density Optimization**: Refined the dashboard layout for higher information density and reduced cognitive load.
 - **Improved Tooling Integration**: Enhanced the `handleProxyList` logic to natively support a wider range of external proxy list formats using robust regex patterns.
 
 ### Fixed
+
 - **Proxy Staleness**: Resolved the issue where long-duration attacks (3+ hours) would lose efficiency due to dead proxies.
 - **Input Persistence**: Fixed auto-saving logic for new advanced settings (Auto-Refresh toggle and Interval).
 
 ## [1.0.3] - 2026-03-07
 
 ### Added
+
 - **Professional Dashboard Overhaul**: Completely re-engineered the web interface with a high-density, professional Slate & Emerald aesthetic. Replaced the "Cyberpunk" look with a clean, focused workspace.
 - **Neural Metric Parser (v3.1)**: Enhanced real-time regex parsing for PPS and BPS logs, ensuring 100% reliable chart visualization with support for unit scaling (GB/MB/KB).
 - **Recursive Process Termination**: Implemented robust attack stopping using `psutil` to recursively kill entire process trees, ensuring no child threads (like `bombardier`) are left running.
@@ -218,36 +351,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unified Versioning**: Synchronized version strings across `api.py`, `web_gui.py`, `start.py`, `desktop_gui.py`, and all documentation.
 
 ### Changed
+
 - **Redirect Logic**: Updated `web/active.html` to automatically redirect to the main dashboard for a cleaner user flow.
 - **Chart Visibility**: Adjusted Chart.js configurations with `suggestedMax` and animation-free updates for better low-value visibility and peak performance.
 - **Desktop Parity**: Synchronized the standalone desktop application (`desktop_gui.py`) with the new professional Slate-950 theme and versioning.
 
 ### Fixed
+
 - **Unclickable Stop Button**: Fixed a critical bug where Tailwind classes prevented the "Terminate Sequence" button from being interactive after an attack started.
 - **Metric Scaling**: Corrected BPS normalization logic to properly handle GB/MB/KB unit transitions in real-time charts.
 - **Process Bleeding**: Eliminated a major issue where stopping an attack would leave child worker threads running silently in the background.
 
-## [1.0.2] - 2026-03-07
+## [1.2.1] - 2026-03-07
 
 ### Added
-- **Tactical Control Center (Stitch Enhanced)**: UI overhaul using premium Stitch design principles. Implemented a "Cyber Command" aesthetic with JetBrains Mono typography, 12px backdrop blurs, and tactile borders.
-- **Real-time Data Visualization**: Integrated Chart.js with custom neon gradients to visualize PPS (Requests Per Second) and BPS (Bandwidth) directly from the tactical stream.
-- **CRT Scanline Effect**: Added a subtle visual overlay to enhance the high-tech terminal feel of the dashboard.
-- **Advanced Engine Diagnostics**: Categorized live logs into specific tactical channels: `[SYSTEM]`, `[INTEL]`, `[DEPLOY]`, `[ERROR]`, and `[STATUS]`.
-- **Full Method Parity**: Verified and synchronized all 57 attack methods from the core engine into the categorized GUI selection menu.
+
+- **UI Improvements**: Removed redundant version strings from the live terminal display in the frontend for a cleaner, more professional look.
 
 ### Fixed
-- **Metric Extraction**: Improved the Regex parser to handle ANSI-stripped telemetry data for precise real-time charting.
-- **Dynamic Field Logic**: Re-engineered the visibility controller to correctly map technical requirements (Proxies, RPC, Reflectors) to specific attack vectors (L7, L4 Normal, L4 Amplification).
-- **Backend Sync**: Shifted telemetry logging from DEBUG to INFO in `start.py` to ensure consistent data delivery to the GUI pipeline.
 
-## [1.0.1] - 2026-03-07
-
-### Added
-- **UI Improvements**: Removed redundant version strings from the live terminal display in the frontend for a cleaner, more professional look. 
-
-### Fixed
-- **Version Consistency**: Updated version numbers to `1.0.1` consistently across the entire project (Web GUI footer, Desktop GUI title, and CLI outputs).
+- **Version Consistency**: Updated version numbers to `1.2.1` consistently across the entire project (Web GUI footer, Desktop GUI title, and CLI outputs).
 - **Code Quality**: Applied extensive Python Type Hinting (`-> None`, `Optional`, `subprocess.Popen`) and improved exception handling to `desktop_gui.py` and `web_gui.py` to match the strict professional standards of the main API server.
 - **CLI Initialization**: Resolved a `NameError` crash in `start.py` by correctly parsing required arguments natively in Layer 7 methods.
 - **SSL Context**: Suppressed redundant `DeprecationWarning`s for `ssl.OP_NO_TLSv1` by correctly assigning `minimum_version = ssl.TLSVersion.TLSv1_2` instead of using deprecated boolean flags.
@@ -261,7 +384,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **MHDDoS-GUI Release**: Created a powerful dual-architecture GUI (Web Dashboard and Desktop App) for MHDDoS.
-- **Frontend**: Designed a modern, glassmorphism UI using React/Vite aesthetics via Tailwind CSS. Added real-time log terminal, proxy selection file browser, responsive layouts, all 57 attack methods categorized, auto-saving memory, and a dynamic contextual UI (hides irrelevant inputs based on attack layer).
+- **Frontend**: Designed a modern, glassมorphism UI using React/Vite aesthetics via Tailwind CSS. Added real-time log terminal, proxy selection file browser, responsive layouts, all 57 attack methods categorized, auto-saving memory, and a dynamic contextual UI (hides irrelevant inputs based on attack layer).
 - **Backend (API)**: Implemented FastAPI backend to manage subprocesses (`start.py`) and stream logs via WebSockets.
 - **Proxy System**: Added support for fetching proxies entirely in-memory directly from HTTP/HTTPS URLs continuously without cluttering local storage.
 

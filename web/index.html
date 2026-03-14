@@ -5,11 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MHDDoS Professional | Tactical Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Fira+Sans:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Fira+Code:wght@300;400;700&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -17,14 +12,18 @@
                 extend: {
                     colors: {
                         primary: {
-                            DEFAULT: '#10b981', // Emerald
+                            DEFAULT: 'rgba(var(--primary-rgb), <alpha-value>)',
                             dark: '#059669',
                             light: '#34d399'
                         },
-                        secondary: '#3b82f6', // Cyber Blue
-                        danger: '#ef4444',
+                        secondary: {
+                            DEFAULT: 'rgba(var(--secondary-rgb), <alpha-value>)',
+                        },
+                        danger: {
+                            DEFAULT: 'rgba(var(--danger-rgb), <alpha-value>)',
+                        },
                         warning: '#f59e0b',
-                        success: '#10B981',
+                        success: '#10b981',
                         accent: '#8b5cf6'
                     },
                     fontFamily: {
@@ -32,7 +31,7 @@
                         mono: ['"Fira Code"', 'monospace']
                     },
                     boxShadow: {
-                        'neon-primary': '0 0 15px rgba(16, 185, 129, 0.3)',
+                        'neon-primary': '0 0 15px var(--primary-glow)',
                         'neon-secondary': '0 0 15px rgba(59, 130, 246, 0.3)',
                         'neon-danger': '0 0 15px rgba(239, 68, 68, 0.3)'
                     }
@@ -40,235 +39,13 @@
             }
         }
     </script>
-    <style>
-        :root {
-            --primary: #10b981;
-            --primary-glow: rgba(16, 185, 129, 0.2);
-            --secondary: #3b82f6;
-            --danger: #ef4444;
-            --bg-dark: #020617; /* Slate 950 */
-            --panel-bg: rgba(15, 23, 42, 0.7); /* Slate 900 Glass */
-            --border-alpha: rgba(255, 255, 255, 0.08);
-            --font-main: "Inter", sans-serif;
-            --font-mono: "Fira Code", monospace;
-        }
-
-        /* Theme Variants */
-        body[data-theme="azure"] {
-            --primary: #3b82f6;
-            --primary-glow: rgba(59, 130, 246, 0.2);
-            --bg-dark: #0f172a;
-            --panel-bg: rgba(30, 41, 59, 0.7);
-            --border-alpha: rgba(255, 255, 255, 0.1);
-        }
-        body[data-theme="crimson"] {
-            --primary: #ef4444;
-            --primary-glow: rgba(239, 68, 68, 0.2);
-            --bg-dark: #2a0808;
-            --panel-bg: rgba(69, 10, 10, 0.7);
-            --border-alpha: rgba(239, 68, 68, 0.1);
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            color: #f8fafc;
-            font-family: var(--font-main);
-            height: 100vh;
-            overflow: hidden;
-            background-image: 
-                radial-gradient(at 0% 0%, var(--primary-glow) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
-            transition: background-image 0.5s ease;
-        }
-
-        /* --- UI Components --- */
-        .glass-panel {
-            background: var(--panel-bg);
-            backdrop-filter: blur(24px) saturate(150%);
-            border-bottom: 1px solid var(--border-alpha);
-        }
-
-        .glass-card {
-            background: var(--panel-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border-alpha);
-            border-radius: 12px;
-            transition: all 0.3s ease;
-        }
-
-        .glass-card:hover {
-            border-color: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-        }
-
-        .input-pro {
-            background: #0f0f0f !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            color: #f8fafc !important;
-            transition: all 0.2s ease;
-            font-family: var(--font-mono);
-            border-radius: 6px !important;
-        }
-
-        .input-pro:focus {
-            border-color: var(--primary) !important;
-            box-shadow: 0 0 0 1px var(--primary);
-            background: #000000 !important;
-            outline: none;
-        }
-
-        /* --- Toast System --- */
-        #toast-container {
-            position: fixed;
-            top: 2rem;
-            right: 2rem;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            pointer-events: none;
-        }
-
-        .toast {
-            pointer-events: auto;
-            animation: toastEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            min-width: 300px;
-        }
-
-        @keyframes toastEnter {
-            from { opacity: 0; transform: translateX(40px) scale(0.9); }
-            to { opacity: 1; transform: translateX(0) scale(1); }
-        }
-
-        .toast-exit {
-            animation: toastExit 0.3s ease forwards;
-        }
-
-        @keyframes toastExit {
-            to { opacity: 0; transform: translateX(20px); }
-        }
-
-        /* --- Animations & Effects --- */
-        .scanlines {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .scanlines::before {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
-            background-size: 100% 3px, 3px 100%;
-            pointer-events: none;
-            z-index: 5;
-            opacity: 0.8;
-        }
-
-        @keyframes pulse-ring {
-            0% { box-shadow: 0 0 0 0 var(--primary-glow); }
-            70% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
-
-        .pulse-active { animation: pulse-ring 2s infinite; }
-
-        .btn-glow-primary {
-            box-shadow: 0 0 10px var(--primary-glow);
-            transition: all 0.3s ease;
-        }
-        .btn-glow-primary:hover {
-            box-shadow: 0 0 20px var(--primary-glow);
-            transform: translateY(-1px);
-        }
-
-        /* --- Transitions --- */
-        .page-transition {
-            transition: opacity 0.5s ease, transform 0.5s ease;
-        }
-
-        .module-enter {
-            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* --- Sidebar Modules --- */
-        .sidebar-module-header {
-            cursor: pointer;
-            user-select: none;
-        }
-        .sidebar-module-content {
-            transition: max-height 0.3s ease-out, opacity 0.3s ease;
-            overflow: hidden;
-        }
-        .sidebar-module-content.collapsed {
-            max-height: 0 !important;
-            opacity: 0;
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-            margin-top: 0 !important;
-            margin-bottom: 0 !important;
-        }
-
-        /* --- Terminal Matrix --- */
-        .terminal-log {
-            font-family: var(--font-mono);
-            font-size: 12px;
-            line-height: 1.5;
-            text-shadow: 0 0 2px var(--primary-glow);
-        }
-
-        /* --- State visibility --- */
-        [data-state] { display: none; }
-        body[data-app-state="idle"] [data-state="idle"] { display: flex; }
-        body[data-app-state="starting"] [data-state="starting"] { display: flex; }
-        body[data-app-state="running"] [data-state="running"] { display: flex; }
-        body[data-app-state="stopping"] [data-state="stopping"] { display: flex; }
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Fira+Sans:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Fira+Code:wght@300;400;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-        /* --- Tooltip System --- */
-        #custom-tooltip {
-            position: absolute;
-            top: 0; left: 0;
-            z-index: 10000;
-            pointer-events: none;
-            opacity: 0;
-            transform: scale(0.95);
-            transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            background: rgba(15, 23, 42, 0.90);
-            backdrop-filter: blur(16px) saturate(200%);
-            border: 1px solid var(--border-alpha);
-            border-left: 3px solid var(--primary);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px var(--primary-glow);
-            padding: 8px 14px;
-            border-radius: 8px;
-            color: #f8fafc;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            font-weight: 600;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            white-space: nowrap;
-        }
-        #custom-tooltip.active {
-            opacity: 1;
-            transform: scale(1);
-        }
-        #custom-tooltip .tt-header {
-            font-size: 9px;
-            color: var(--primary);
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            font-weight: 800;
-        }
-
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body data-app-state="idle" class="selection:bg-primary/30" data-theme="emerald">
     <div id="toast-container"></div>
@@ -288,7 +65,7 @@
                             MHDDoS <span class="text-primary">PRO</span>
                         </h1>
                         <div class="flex items-center gap-2 mt-1">
-                            <span class="text-[9px] font-mono text-slate-500 font-bold uppercase tracking-widest">Tactical_OS v1.1.6</span>
+                            <span class="text-[9px] font-mono text-slate-500 font-bold uppercase tracking-widest">Tactical_OS v1.2.0</span>
                             <div id="connection-status" class="size-1.5 rounded-full bg-slate-700"></div>
                         </div>
                     </div>
@@ -297,11 +74,14 @@
 
             <div class="flex-1 p-6 space-y-4">
                 <!-- Module 1: Target Acquisition -->
-                <div class="glass-card rounded-2xl overflow-hidden shadow-lg border border-white/5">
-                    <div onclick="toggleModule('mod-target')" class="sidebar-module-header px-5 py-4 bg-[#171717] flex items-center justify-between hover:bg-[#1a1a1a] transition-colors border-b border-white/5 cursor-pointer">
-                        <div class="flex items-center gap-3">
-                            <span class="material-symbols-rounded text-primary text-xl">radar</span>
-                            <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-white">Target Acquisition</h3>
+                <div class="glass-card rounded-[1.5rem] overflow-hidden shadow-2xl border border-white/10 group/mod">
+                    <div onclick="toggleModule('mod-target')" role="button" tabindex="0" aria-expanded="true" aria-controls="mod-target" onkeydown="if(event.key==='Enter'||event.key===' '){toggleModule('mod-target');event.preventDefault();}" class="sidebar-module-header px-6 py-5 bg-slate-900/50 flex items-center justify-between hover:bg-slate-800 transition-all border-b border-white/5 cursor-pointer relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/mod:opacity-100 transition-opacity"></div>
+                        <div class="flex items-center gap-4 relative z-10">
+                            <div class="size-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+                                <span class="material-symbols-rounded text-lg">radar</span>
+                            </div>
+                            <h3 class="text-[11px] font-black uppercase tracking-[0.2em] text-white">Target Acquisition</h3>
                         </div>
                         <span id="mod-target-icon" class="material-symbols-rounded text-slate-500 text-sm transition-transform duration-300">expand_less</span>
                     </div>
@@ -309,8 +89,8 @@
                         <div class="space-y-2">
                             <label for="target" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Destination (URI/IP)</label>
                             <div class="flex gap-2">
-                                <input id="target" type="text" placeholder="https://example.com" class="flex-1 w-full input-pro rounded-xl px-4 py-3 text-sm" aria-required="true" />
-                                <button onclick="analyzeTarget()" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-warning hover:border-warning transition-all active:scale-90" data-tooltip="Auto-Detect WAF/Stack">
+                                <input id="target" type="text" placeholder="https://example.com" class="flex-1 w-full input-pro rounded-xl px-4 py-3 text-sm" aria-required="true" aria-label="Target URL or IP Address" />
+                                <button onclick="analyzeTarget()" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-warning hover:border-warning transition-all active:scale-90" aria-label="Analyze Target Infrastructure">
                                     <span class="material-symbols-rounded">analytics</span>
                                 </button>
                             </div>
@@ -319,21 +99,26 @@
                 </div>
 
                 <!-- Module 2: Payload Parameters -->
-                <div class="glass-card rounded-2xl overflow-hidden shadow-lg border border-white/5">
-                    <div onclick="toggleModule('mod-payload')" class="sidebar-module-header px-5 py-4 bg-[#171717] flex items-center justify-between hover:bg-[#1a1a1a] transition-colors border-b border-white/5 cursor-pointer">
-                        <div class="flex items-center gap-3">
-                            <span class="material-symbols-rounded text-secondary text-xl">settings_input_antenna</span>
-                            <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-white">Payload Parameters</h3>
+                <div class="glass-card rounded-[1.5rem] overflow-hidden shadow-2xl border border-white/10 group/mod">
+                    <div onclick="toggleModule('mod-payload')" role="button" tabindex="0" aria-expanded="true" aria-controls="mod-payload" onkeydown="if(event.key==='Enter'||event.key===' '){toggleModule('mod-payload');event.preventDefault();}" class="sidebar-module-header px-6 py-5 bg-slate-900/50 flex items-center justify-between hover:bg-slate-800 transition-all border-b border-white/5 cursor-pointer relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-r from-secondary/5 to-transparent opacity-0 group-hover/mod:opacity-100 transition-opacity"></div>
+                        <div class="flex items-center gap-4 relative z-10">
+                            <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary border border-secondary/20 shadow-inner">
+                                <span class="material-symbols-rounded text-lg">settings_input_antenna</span>
+                            </div>
+                            <h3 class="text-[11px] font-black uppercase tracking-[0.2em] text-white">Payload Parameters</h3>
                         </div>
                         <span id="mod-payload-icon" class="material-symbols-rounded text-slate-500 text-sm transition-transform duration-300">expand_less</span>
                     </div>
                     <div id="mod-payload" class="sidebar-module-content p-5 space-y-5">
                         <div class="space-y-2">
                             <label for="method" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Method Sequence</label>
-                            <select id="method" onchange="updateVisibility()" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer text-xs font-bold">
+                            <select id="method" onchange="updateVisibility()" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer text-xs font-bold" aria-label="Attack Method Selection">
                                 <optgroup label="LAYER 7 - APPLICATION">
                                     <option value="GET">GET | Standard Flood</option>
                                     <option value="POST">POST | HTTP POST Flood</option>
+                                    <option value="IMPERSONATE">IMPERSONATE | Deep TLS Spoof</option>
+                                    <option value="HTTP3">HTTP3 | QUIC (HTTP/3) Flood</option>
                                     <option value="BYPASS">BYPASS | Anti-DDoS Bypass</option>
                                     <option value="CFB">CFB | Cloudflare Bypass</option>
                                     <option value="CFBUAM">CFBUAM | Cloudflare UAM Bypass</option>
@@ -390,32 +175,32 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
                                 <label for="threads" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Workers</label>
-                                <input id="threads" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3 text-xs" />
+                                <input id="threads" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3 text-xs" aria-label="Number of worker threads" />
                             </div>
                             <div class="space-y-2">
                                 <label for="duration" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Duration (s)</label>
-                                <input id="duration" type="number" value="3600" min="1" class="w-full input-pro rounded-xl px-4 py-3 text-xs" />
+                                <input id="duration" type="number" value="3600" min="1" class="w-full input-pro rounded-xl px-4 py-3 text-xs" aria-label="Attack duration in seconds" />
                             </div>
                         </div>
                         
                         <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 transition-all hover:border-primary/20">
                             <label for="auto_scale" class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dynamic Scaling</label>
-                            <input type="checkbox" id="auto_scale" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" data-tooltip="Automatically adjust threads based on system load" checked>
+                            <input type="checkbox" id="auto_scale" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" aria-label="Enable Dynamic Scaling" checked>
                         </div>
 
                         <div id="rpc-container" class="space-y-4">
                             <div class="space-y-2">
                                 <label for="rpc" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Requests Per Cycle</label>
-                                <input id="rpc" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3 text-xs" />
+                                <input id="rpc" type="number" value="100" min="1" class="w-full input-pro rounded-xl px-4 py-3 text-xs" aria-label="Requests per cycle" />
                             </div>
                             <div class="grid grid-cols-1 gap-2">
                                 <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 hover:border-primary/20 transition-all">
                                     <label for="smart_rpc" class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Smart Tuning</label>
-                                    <input type="checkbox" id="smart_rpc" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" />
+                                    <input type="checkbox" id="smart_rpc" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" aria-label="Enable Smart RPC Tuning" />
                                 </div>
                                 <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 hover:border-warning/20 transition-all">
                                     <label for="advanced_evasion" class="text-[9px] font-black text-slate-400 uppercase tracking-widest text-warning">AI Smart Bypass</label>
-                                    <input type="checkbox" id="advanced_evasion" class="rounded bg-slate-800 border-slate-700 text-warning focus:ring-warning focus:ring-offset-slate-900" data-tooltip="Enable ML-powered adaptive User-Agent & Headers mutation" />
+                                    <input type="checkbox" id="advanced_evasion" class="rounded bg-slate-800 border-slate-700 text-warning focus:ring-warning focus:ring-offset-slate-900" data-tooltip="Enable ML-powered adaptive User-Agent & Headers mutation" aria-label="Enable AI Smart Bypass" />
                                 </div>
                             </div>
                         </div>
@@ -424,7 +209,7 @@
 
                 <!-- Module 3: Resource Routing -->
                 <div class="glass-card rounded-2xl overflow-hidden shadow-lg border border-white/5">
-                    <div onclick="toggleModule('mod-proxy')" class="sidebar-module-header px-5 py-4 bg-[#171717] flex items-center justify-between hover:bg-[#1a1a1a] transition-colors border-b border-white/5 cursor-pointer">
+                    <div onclick="toggleModule('mod-proxy')" role="button" tabindex="0" aria-expanded="true" aria-controls="mod-proxy" onkeydown="if(event.key==='Enter'||event.key===' '){toggleModule('mod-proxy');event.preventDefault();}" class="sidebar-module-header px-5 py-4 bg-[#171717] flex items-center justify-between hover:bg-[#1a1a1a] transition-colors border-b border-white/5 cursor-pointer">
                         <div class="flex items-center gap-3">
                             <span class="material-symbols-rounded text-warning text-xl">hub</span>
                             <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-white">Proxy Nexus</h3>
@@ -434,7 +219,7 @@
                     <div id="mod-proxy" class="sidebar-module-content p-5 space-y-5 collapsed">
                         <div class="space-y-2">
                             <label for="proxy_type" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Protocol Matrix</label>
-                            <select id="proxy_type" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer text-xs font-bold">
+                            <select id="proxy_type" class="w-full input-pro rounded-xl px-4 py-3 appearance-none cursor-pointer text-xs font-bold" aria-label="Proxy Protocol Selection">
                                 <option value="SOCKS5">SOCKS5 (STABLE)</option>
                                 <option value="SOCKS4">SOCKS4 (LEGACY)</option>
                                 <option value="HTTP">HTTP (FAST)</option>
@@ -446,8 +231,8 @@
                         <div class="space-y-2">
                             <label for="proxy_list" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Resource Path</label>
                             <div class="flex gap-2">
-                                <input id="proxy_list" type="text" value="proxies.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[10px] font-mono" />
-                                <button onclick="browseFile('proxy_list')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90">
+                                <input id="proxy_list" type="text" value="proxies.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[10px] font-mono transition-all" placeholder="Drop proxy file here..." aria-label="Proxy List File Path" />
+                                <button onclick="browseFile('proxy_list')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90" aria-label="Browse for Proxy File">
                                     <span class="material-symbols-rounded text-lg">folder_open</span>
                                 </button>
                             </div>
@@ -457,19 +242,19 @@
                             <div class="flex flex-col gap-2 p-3 bg-slate-900/50 rounded-xl border border-white/5">
                                 <div class="flex items-center justify-between">
                                     <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest">Auto-Harvest</span>
-                                    <input type="checkbox" id="auto_harvest" onchange="toggleHarvest()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" />
+                                    <input type="checkbox" id="auto_harvest" onchange="toggleHarvest()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" aria-label="Enable Auto-Harvest" />
                                 </div>
-                                <button onclick="openConfigModal()" class="text-[9px] font-bold text-primary hover:text-primary-light flex items-center gap-1 transition-colors">
+                                <button onclick="openConfigModal()" class="text-[9px] font-bold text-primary hover:text-primary-light flex items-center gap-1 transition-colors" aria-label="Configure Proxy Sources">
                                     <span class="material-symbols-rounded text-[14px]">edit_note</span> Config Sources
                                 </button>
                             </div>
                             <div class="flex flex-col gap-2 p-3 bg-slate-900/50 rounded-xl border border-white/5">
                                 <div class="flex items-center justify-between">
                                     <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest">Auto-Refresh</span>
-                                    <input type="checkbox" id="auto_refresh" onchange="toggleRefreshDropdown()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" />
+                                    <input type="checkbox" id="auto_refresh" onchange="toggleRefreshDropdown()" class="rounded bg-slate-800 border-slate-700 text-primary focus:ring-primary focus:ring-offset-slate-900" aria-label="Enable Auto-Refresh" />
                                 </div>
                                 <div id="refresh-interval-container" class="opacity-30 pointer-events-none transition-opacity">
-                                    <input id="proxy_refresh" type="number" value="15" class="w-full bg-transparent border-none p-0 text-[10px] font-mono text-white focus:ring-0" />
+                                    <input id="proxy_refresh" type="number" value="15" class="w-full bg-transparent border-none p-0 text-[10px] font-mono text-white focus:ring-0" aria-label="Proxy Refresh Interval" />
                                 </div>
                             </div>
                         </div>
@@ -479,8 +264,8 @@
                 <div id="reflector-container" class="glass-card rounded-2xl p-5 border border-white/5 hidden">
                     <label for="reflector" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Reflector Matrix</label>
                     <div class="flex gap-2">
-                        <input id="reflector" type="text" placeholder="reflectors.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[10px] font-mono" />
-                        <button onclick="browseFile('reflector')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90">
+                        <input id="reflector" type="text" placeholder="reflectors.txt" class="flex-1 input-pro rounded-xl px-4 py-3 text-[10px] font-mono" aria-label="Reflector List File Path" />
+                        <button onclick="browseFile('reflector')" class="size-11 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all active:scale-90" aria-label="Browse for Reflector File">
                             <span class="material-symbols-rounded">database</span>
                         </button>
                     </div>
@@ -489,6 +274,14 @@
 
             <!-- System Controls -->
             <div class="p-8 border-t border-white/5 bg-slate-950/60 backdrop-blur-lg">
+                <div class="flex items-center gap-3 mb-6">
+                    <button onclick="openPresetsModal()" class="flex-1 bg-slate-900 border border-white/10 hover:border-warning/50 text-slate-400 hover:text-warning rounded-xl py-2 px-3 flex items-center justify-center gap-2 transition-all text-[9px] font-black uppercase tracking-widest text-center shadow-inner" aria-label="Manage Presets">
+                        <span class="material-symbols-rounded text-sm text-warning/70">bookmark</span> Presets
+                    </button>
+                    <button onclick="openScheduleModal()" class="flex-1 bg-slate-900 border border-white/10 hover:border-accent/50 text-slate-400 hover:text-accent rounded-xl py-2 px-3 flex items-center justify-center gap-2 transition-all text-[9px] font-black uppercase tracking-widest text-center shadow-inner" aria-label="Schedule Tasks">
+                        <span class="material-symbols-rounded text-sm text-accent/70">schedule</span> Schedule
+                    </button>
+                </div>
                 <div class="flex items-center justify-between p-3 bg-secondary/5 rounded-xl border border-secondary/10 mb-6 transition-all hover:bg-secondary/10 group cursor-pointer" onclick="document.getElementById('distribute_to_workers').click()">
                     <div class="flex items-center gap-3">
                         <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary group-hover: transition-all">
@@ -496,17 +289,17 @@
                         </div>
                         <label for="distribute_to_workers" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-white transition-colors cursor-pointer">Distribute to Fleet</label>
                     </div>
-                    <input type="checkbox" id="distribute_to_workers" class="rounded bg-slate-800 border-slate-700 text-secondary focus:ring-secondary focus:ring-offset-slate-900 cursor-pointer" onclick="event.stopPropagation()" />
+                    <input type="checkbox" id="distribute_to_workers" class="rounded bg-slate-800 border-slate-700 text-secondary focus:ring-secondary focus:ring-offset-slate-900 cursor-pointer" onclick="event.stopPropagation()" aria-label="Enable Distribution to Workers" />
                 </div>
                 
-                <button id="start-btn" onclick="startAttack()" class="btn-action w-full bg-primary/20 border border-primary/50 hover:bg-primary/30 text-primary hover:text-white hover:border-primary shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] rounded-xl py-3.5 flex items-center justify-center gap-3 transition-all group">
-                    <span class="material-symbols-rounded font-bold text-[18px] group-hover:scale-110 transition-transform">bolt</span>
-                    <span class="font-black tracking-[0.2em] text-[11px] uppercase">DEPLOY SEQUENCE</span>
+                <button id="start-btn" onclick="startAttack()" class="btn-action w-full bg-primary border border-primary/50 hover:bg-primary-light text-slate-950 hover:text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] rounded-xl py-4 flex items-center justify-center gap-3 transition-all group active:scale-95" aria-label="Deploy Attack Sequence">
+                    <span class="material-symbols-rounded font-black text-[20px] group-hover:scale-110 transition-transform" aria-hidden="true">bolt</span>
+                    <span class="font-black tracking-[0.2em] text-[12px] uppercase">DEPLOY SEQUENCE</span>
                 </button>
                 
-                <button id="stop-btn" onclick="stopAllAttacks()" class="btn-action w-full mt-4 bg-danger/10 border border-danger/30 text-danger hover:bg-danger/20 hover:text-white hover:border-danger shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] rounded-xl py-3.5 hidden flex items-center justify-center gap-3 transition-all group">
-                    <span class="material-symbols-rounded text-[18px] group-hover:rotate-180 transition-transform duration-500">stop_circle</span>
-                    <span class="font-black tracking-[0.2em] text-[11px] uppercase">ABORT OPERATIONS</span>
+                <button id="stop-btn" onclick="stopAllAttacks()" class="btn-action w-full mt-4 bg-danger border border-danger/50 hover:bg-red-500 text-white hover:text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] rounded-xl py-4 hidden flex items-center justify-center gap-3 transition-all group active:scale-95" aria-label="Abort All Operations">
+                    <span class="material-symbols-rounded text-[20px] group-hover:rotate-180 transition-transform duration-500" aria-hidden="true">stop_circle</span>
+                    <span class="font-black tracking-[0.2em] text-[12px] uppercase">ABORT OPERATIONS</span>
                 </button>
                 
                 <div id="action-loader" class="mt-6 flex flex-col items-center gap-3 text-slate-500 font-mono text-[9px] uppercase tracking-widest hidden">
@@ -527,30 +320,32 @@
             <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 shrink-0 glass-panel relative z-20">
                 <div class="flex items-center gap-8">
                     <div class="flex flex-col">
-                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Grid Uplink</span>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span id="header-status-text" class="text-xs font-mono font-bold text-slate-400">CONNECTING_...</span>
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] italic mb-1">Grid Uplink</span>
+                        <div class="flex items-center gap-2">
+                            <div id="connection-status" class="size-2 rounded-full bg-primary pulse-active"></div>
+                            <span id="header-status-text" class="text-xs font-mono font-black text-white uppercase tracking-widest">CONNECTING_...</span>
                         </div>
                     </div>
                     <div class="h-8 w-px bg-white/5"></div>
                     <div class="flex flex-col">
-                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Core Engine</span>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="text-xs font-mono font-bold text-primary">STABLE_SECURE</span>
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] italic mb-1">Core Engine</span>
+                        <div class="flex items-center gap-2">
+                            <div class="size-2 rounded-full bg-primary shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                            <span class="text-xs font-mono font-black text-primary uppercase tracking-widest">STABLE_SECURE</span>
                         </div>
                     </div>
                     <div class="h-8 w-px bg-white/5"></div>
                     <div class="flex flex-col">
-                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">C2 Node ID</span>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span id="c2-node-id" class="text-xs font-mono font-bold text-secondary">AWAITING_SYNC</span>
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] italic mb-1">C2 Node ID</span>
+                        <div class="flex items-center gap-2">
+                            <span id="c2-node-id" class="text-xs font-mono font-black text-secondary uppercase tracking-widest">AWAITING_SYNC</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-6">
                     <div class="text-right hidden sm:block">
-                        <span class="text-[9px] font-black text-slate-600 uppercase tracking-widest block">System Cipher</span>
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block">System Cipher</span>
                         <span class="text-xs font-mono text-slate-400">RSA-4096-AES-GCM</span>
                     </div>
                     <div class="h-8 w-px bg-white/5 hidden sm:block"></div>
@@ -573,14 +368,112 @@
                             </button>
                         </div>
                     </div>
-                    <button data-tooltip="System Settings" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-colors">
+                    <button onclick="openSettingsModal()" data-tooltip="System Settings" class="size-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white transition-colors">
                         <span class="material-symbols-rounded text-2xl">settings_input_component</span>
                     </button>
                 </div>
             </header>
 
+            <!-- Settings Modal -->
+            <div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/90 backdrop-blur-md hidden opacity-0 transition-all duration-500">
+                <div class="glass-card bg-slate-900/90 w-full max-w-xl rounded-[2.5rem] p-10 border border-white/10 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] relative translate-y-8 transition-all duration-500" id="settings-modal-content">
+                    <button onclick="closeSettingsModal()" class="absolute top-8 right-8 size-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800 transition-all">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                    
+                    <div class="mb-8 flex items-center gap-6">
+                        <div class="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20">
+                            <span class="material-symbols-rounded text-3xl">webhook</span>
+                        </div>
+                        <div>
+                            <h2 id="settings-modal-title" class="text-2xl font-black uppercase tracking-widest text-white italic">Event <span class="text-primary">Webhooks</span></h2>
+                            <p class="text-[10px] font-mono text-slate-500 mt-1 uppercase tracking-widest">Configure tactical alert endpoints</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Discord Webhook URL</label>
+                            <input id="discord_webhook" type="text" placeholder="https://discord.com/api/webhooks/..." class="w-full input-pro rounded-xl px-4 py-3 text-[10px] font-mono" />
+                        </div>
+                        <button onclick="saveSettings()" class="w-full bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30 hover:text-white rounded-xl py-3 text-[11px] font-black uppercase tracking-widest transition-all">Save Configuration</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Presets Modal -->
+            <div id="presets-modal" role="dialog" aria-modal="true" aria-labelledby="presets-modal-title" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/90 backdrop-blur-md hidden opacity-0 transition-all duration-500">
+                <div class="glass-card bg-slate-900/90 w-full max-w-2xl rounded-[2.5rem] p-10 border border-white/10 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] relative translate-y-8 transition-all duration-500" id="presets-modal-content">
+                    <button onclick="closePresetsModal()" class="absolute top-8 right-8 size-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800 transition-all">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                    
+                    <div class="mb-8 flex items-center gap-6">
+                        <div class="size-14 bg-warning/10 rounded-2xl flex items-center justify-center text-warning border border-warning/20">
+                            <span class="material-symbols-rounded text-3xl">bookmark</span>
+                        </div>
+                        <div>
+                            <h2 id="presets-modal-title" class="text-2xl font-black uppercase tracking-widest text-white italic">Tactical <span class="text-warning">Presets</span></h2>
+                            <p class="text-[10px] font-mono text-slate-500 mt-1 uppercase tracking-widest">Load and save attack configurations</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-white/5 pb-2">Save Current Profile</h3>
+                            <div class="flex gap-2">
+                                <input id="preset_name" type="text" placeholder="preset_name" class="flex-1 input-pro rounded-xl px-4 py-3 text-[10px] font-mono" />
+                                <button onclick="savePreset()" class="size-11 bg-warning/20 border border-warning/50 text-warning hover:bg-warning hover:text-white rounded-xl flex items-center justify-center transition-all">
+                                    <span class="material-symbols-rounded text-lg">save</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-white/5 pb-2">Saved Profiles</h3>
+                            <div id="presets-list" class="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+                                <div class="text-slate-500 text-xs italic">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule Modal -->
+            <div id="schedule-modal" role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/90 backdrop-blur-md hidden opacity-0 transition-all duration-500">
+                <div class="glass-card bg-slate-900/90 w-full max-w-xl rounded-[2.5rem] p-10 border border-white/10 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] relative translate-y-8 transition-all duration-500" id="schedule-modal-content">
+                    <button onclick="closeScheduleModal()" class="absolute top-8 right-8 size-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800 transition-all">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                    
+                    <div class="mb-8 flex items-center gap-6">
+                        <div class="size-14 bg-accent/10 rounded-2xl flex items-center justify-center text-accent border border-accent/20">
+                            <span class="material-symbols-rounded text-3xl">schedule</span>
+                        </div>
+                        <div>
+                            <h2 id="schedule-modal-title" class="text-2xl font-black uppercase tracking-widest text-white italic">Cron <span class="text-accent">Scheduling</span></h2>
+                            <p class="text-[10px] font-mono text-slate-500 mt-1 uppercase tracking-widest">Automate deployment sequences</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Execution Time (Local)</label>
+                            <input id="schedule_time" type="datetime-local" class="w-full input-pro rounded-xl px-4 py-3 text-sm font-mono" />
+                        </div>
+                        <button onclick="saveSchedule()" class="w-full bg-accent/20 border border-accent/50 text-accent hover:bg-accent/30 hover:text-white rounded-xl py-3 text-[11px] font-black uppercase tracking-widest transition-all">Schedule Current Config</button>
+                        
+                        <div class="mt-6">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-white/5 pb-2 mb-4">Scheduled Tasks</h3>
+                            <div id="schedule-list" class="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar">
+                                <div class="text-slate-500 text-xs italic">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Tools Modal -->
-            <div id="tools-modal" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/90 backdrop-blur-md hidden opacity-0 transition-all duration-500">
+            <div id="tools-modal" role="dialog" aria-modal="true" aria-labelledby="tools-modal-title" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/90 backdrop-blur-md hidden opacity-0 transition-all duration-500">
                 <div class="glass-card bg-slate-900/90 w-full max-w-3xl rounded-[2.5rem] p-10 border border-white/10 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] relative translate-y-8 transition-all duration-500" id="tools-modal-content">
                     <button onclick="closeToolsModal()" class="absolute top-8 right-8 size-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800 transition-all">
                         <span class="material-symbols-rounded">close</span>
@@ -591,26 +484,26 @@
                             <span class="material-symbols-rounded text-3xl">construction</span>
                         </div>
                         <div>
-                            <h2 class="text-2xl font-black uppercase tracking-widest text-white italic">Tactical Recon <span class="text-secondary">Matrix</span></h2>
+                            <h2 id="tools-modal-title" class="text-2xl font-black uppercase tracking-widest text-white italic">Tactical Recon <span class="text-secondary">Matrix</span></h2>
                             <p class="text-[10px] font-mono text-slate-500 mt-1 uppercase tracking-widest">Execute deep-packet diagnostic protocols on target infrastructure.</p>
                         </div>
                     </div>
 
                     <!-- Tool Navigation -->
-                    <div class="flex gap-2 p-1.5 bg-slate-950/60 rounded-2xl border border-white/5 mb-8 flex-wrap">
-                        <button onclick="switchToolTab('ping')" id="tab-ping" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all bg-primary text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.3)]">ICMP Ping</button>
-                        <button onclick="switchToolTab('check')" id="tab-check" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Status Check</button>
-                        <button onclick="switchToolTab('info')" id="tab-info" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Geo-IP Recon</button>
-                        <button onclick="switchToolTab('ports')" id="tab-ports" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Port Scan</button>
-                        <button onclick="switchToolTab('tech')" id="tab-tech" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Tech Stack</button>
-                        <button onclick="switchToolTab('dns')" id="tab-dns" class="tool-tab flex-1 py-2.5 px-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">DNS Enum</button>
+                    <div class="flex gap-2 p-2 bg-slate-950/60 rounded-2xl border border-white/5 mb-8 flex-wrap shadow-inner relative z-10">
+                        <button onclick="switchToolTab('ping')" id="tab-ping" class="tool-tab flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-primary text-slate-950 shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]">ICMP Ping</button>
+                        <button onclick="switchToolTab('check')" id="tab-check" class="tool-tab flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Status Check</button>
+                        <button onclick="switchToolTab('info')" id="tab-info" class="tool-tab flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Geo-IP Recon</button>
+                        <button onclick="switchToolTab('ports')" id="tab-ports" class="tool-tab flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Port Scan</button>
+                        <button onclick="switchToolTab('tech')" id="tab-tech" class="tool-tab flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">Tech Stack</button>
+                        <button onclick="switchToolTab('dns')" id="tab-dns" class="tool-tab flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all text-slate-500 hover:text-white">DNS Enum</button>
                     </div>
 
                     <!-- Tool Content -->
                     <div class="space-y-8">
                         <!-- Universal Input -->
                         <div class="space-y-3">
-                            <label id="tool-input-label" for="tool-target" class="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em] ml-1">Target Infrastructure Identifier</label>
+                            <label id="tool-input-label" for="tool-target" class="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] ml-1">Target Infrastructure Identifier</label>
                             <div class="flex gap-4">
                                 <input id="tool-target" type="text" placeholder="example.com" class="flex-1 input-pro rounded-2xl px-6 py-4 text-sm" />
                                 <button onclick="executeTool()" id="tool-exec-btn" class="px-10 bg-primary text-slate-950 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center gap-3">
@@ -621,31 +514,43 @@
                         </div>
 
                         <!-- Result Area -->
-                        <div id="tool-result" class="bg-slate-950/80 border border-white/5 rounded-[2rem] p-8 min-h-[250px] max-h-[400px] overflow-y-auto font-mono text-xs text-slate-400 custom-scrollbar shadow-inner relative">
-                            <div class="h-full flex flex-col items-center justify-center text-slate-700 space-y-4">
+                        <div id="tool-result" class="bg-slate-950/80 border border-white/5 rounded-[1.5rem] p-8 min-h-[250px] max-h-[400px] overflow-y-auto font-mono text-xs text-slate-400 custom-scrollbar shadow-inner relative group/res">
+                            <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover/res:opacity-100 transition-opacity pointer-events-none"></div>
+                            <div class="h-full flex flex-col items-center justify-center text-slate-700 space-y-4 relative z-10">
                                 <span class="material-symbols-rounded text-5xl opacity-20">database_search</span>
-                                <p class="uppercase tracking-[0.4em] text-[9px]">Awaiting diagnostic sequence...</p>
+                                <p class="uppercase tracking-[0.4em] text-[9px] font-black opacity-40">Matrix Standby - Input target to initialize</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Visualization Area -->
-            <div class="p-4 lg:p-8 flex-1 overflow-y-auto space-y-4 lg:space-y-8 scroll-smooth custom-scrollbar">
+            <!-- View Switcher Tabs -->
+            <div role="tablist" aria-label="Main Views" class="px-8 pt-6 border-b border-white/5 flex gap-8 shrink-0 bg-slate-950 relative z-10">
+                <button onclick="switchMainView('dashboard')" id="tab-nav-dashboard" role="tab" aria-selected="true" aria-controls="view-dashboard" class="pb-4 text-[11px] font-black uppercase tracking-[0.2em] border-b-2 border-primary text-primary transition-all flex items-center gap-2 hover:text-primary-light">
+                    <span class="material-symbols-rounded text-[18px]">dashboard</span>
+                    Command Center
+                </button>
+                <button onclick="switchMainView('history')" id="tab-nav-history" role="tab" aria-selected="false" aria-controls="view-history" class="pb-4 text-[11px] font-black uppercase tracking-[0.2em] border-b-2 border-transparent text-slate-500 hover:text-white transition-all flex items-center gap-2">
+                    <span class="material-symbols-rounded text-[18px]">history</span>
+                    Operations History
+                </button>
+            </div>
+
+            <!-- Visualization Area (Dashboard) -->
+            <div id="view-dashboard" role="tabpanel" aria-labelledby="tab-nav-dashboard" class="p-4 lg:p-8 flex-1 overflow-y-auto space-y-4 lg:space-y-8 scroll-smooth custom-scrollbar">
 
                 <!-- TOP GRID: Active Fleet & Real-time Metrics -->
                 <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-8">                    <!-- Active Fleet (7 columns) -->
-                    <div class="xl:col-span-7 glass-card rounded-3xl overflow-hidden flex flex-col border border-white/10 shadow-2xl relative">
-                        <div class="bg-slate-900/80 backdrop-blur px-6 py-4 border-b border-white/5 flex items-center justify-between z-10">
+                    <div class="xl:col-span-7 glass-card rounded-[2rem] overflow-hidden flex flex-col border border-white/10 shadow-2xl relative">
+                        <div class="bg-slate-900/80 backdrop-blur px-6 py-5 border-b border-white/5 flex items-center justify-between z-10">
                             <div class="flex items-center gap-4">
-                                <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary border border-secondary/20">
-                                    <span class="material-symbols-rounded text-lg">grid_view</span>
+                                <div class="size-9 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-xl">grid_view</span>
                                 </div>
-                                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Active Operations Fleet</h2>
-                                <span id="active-tasks-count" class="bg-secondary/20 text-secondary px-2 py-0.5 rounded-full text-[9px] font-black ">0</span>
-                            </div>
-                            <button onclick="refreshTasks()" class="text-[9px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-all">
+                                <h2 class="text-[11px] font-black uppercase tracking-[0.2em] text-white">Active Task Fleet</h2>
+                                <span id="active-tasks-count" class="bg-secondary/20 text-secondary px-2.5 py-0.5 rounded-full text-[10px] font-black border border-secondary/20">0</span>
+                            </div>                            <button onclick="refreshTasks()" class="text-[9px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-all">
                                 <span class="material-symbols-rounded text-base">sync</span> Sync Grid
                             </button>
                         </div>
@@ -657,8 +562,8 @@
                                     <div class="size-16 bg-slate-900 rounded-full flex items-center justify-center mb-4 text-slate-700">
                                         <span class="material-symbols-rounded text-4xl">airplanemode_inactive</span>
                                     </div>
-                                    <p class="text-xs font-mono text-slate-600 uppercase tracking-[0.3em]">No active operations detected</p>
-                                    <p class="text-[9px] text-slate-700 mt-2">Fleet standing by for deployment sequence...</p>
+                                    <p class="text-xs font-mono text-slate-600 uppercase tracking-[0.3em]">Fleet Idle - Awaiting Sequence</p>
+                                    <p class="text-[9px] text-slate-700 mt-2">Deploy target to initiate sequence...</p>
                                 </div>
                                 <!-- Task rows injected here -->
                             </div>
@@ -668,20 +573,20 @@
                     <!-- Compact Metrics (5 columns) -->
                     <div class="xl:col-span-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3 overflow-y-auto max-h-none xl:max-h-[465px] custom-scrollbar xl:pr-2">
                         <!-- PPS -->
-                        <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-[4px] border-l-primary hover:border-primary/50 shadow-[0_4px_20px_-5px_rgba(16,185,129,0.15)] transition-all relative overflow-hidden group">
-                            <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                            <div class="flex items-center gap-4 relative z-10">
-                                <div class="size-9 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20 shadow-inner">
-                                    <span class="material-symbols-rounded text-lg">electric_bolt</span>
+                        <div class="glass-card p-6 rounded-[2rem] flex items-center justify-between border-l-[6px] border-l-primary hover:border-primary shadow-2xl transition-all relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            <div class="flex items-center gap-6 relative z-10">
+                                <div class="size-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-2xl">electric_bolt</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Network Velocity</h3>
-                                    <p class="text-[11px] font-sans text-slate-300 font-bold">PPS (Requests/s)</p>
+                                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Network Velocity</h3>
+                                    <p class="text-[12px] font-sans text-slate-300 font-bold">PPS (Requests/s)</p>
                                 </div>
                             </div>
                             <div class="text-right relative z-10">
-                                <div class="text-2xl font-mono font-black text-white tabular-nums drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" id="current-rps">0</div>
-                                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Peak: <span id="peak-rps" class="text-slate-300">0</span></div>
+                                <div class="text-3xl font-mono font-black text-white tabular-nums drop-shadow-[0_0_12px_rgba(var(--primary-rgb),0.5)]" id="current-rps">0</div>
+                                <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Peak: <span id="peak-rps" class="text-slate-300">0</span></div>
                             </div>
                         </div>
                         <!-- Latency -->
@@ -718,21 +623,55 @@
                                 <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Peak: <span id="peak-threads" class="text-slate-300">0</span></div>
                             </div>
                         </div>
-                        <!-- Success Rate -->
-                        <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-[4px] border-l-success hover:border-success/50 shadow-[0_4px_20px_-5px_rgba(16,185,129,0.15)] transition-all relative overflow-hidden group">
-                            <div class="absolute inset-0 bg-gradient-to-r from-success/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                            <div class="flex items-center gap-4 relative z-10">
-                                <div class="size-9 bg-success/10 rounded-lg flex items-center justify-center text-success border border-success/20 shadow-inner">
-                                    <span class="material-symbols-rounded text-lg">check_circle</span>
+                        <!-- Bandwidth (BPS) -->
+                        <div class="glass-card p-6 rounded-[2rem] flex items-center justify-between border-l-[6px] border-l-success hover:border-success shadow-2xl transition-all relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-success/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            <div class="flex items-center gap-6 relative z-10">
+                                <div class="size-12 bg-success/10 rounded-2xl flex items-center justify-center text-success border border-success/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-2xl">router</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Attack Efficiency</h3>
-                                    <p class="text-[11px] font-sans text-slate-300 font-bold">Success Rate</p>
+                                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Data Throughput</h3>
+                                    <p class="text-[12px] font-sans text-slate-300 font-bold">Bandwidth (B/s)</p>
                                 </div>
                             </div>
                             <div class="text-right relative z-10">
-                                <div class="text-2xl font-mono font-black text-white tabular-nums drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]" id="current-success">0%</div>
-                                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Avg: <span id="avg-success" class="text-slate-300">0%</span></div>
+                                <div class="text-3xl font-mono font-black text-white tabular-nums drop-shadow-[0_0_12px_rgba(var(--primary-rgb),0.4)]" id="current-bps">0 B/s</div>
+                                <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Peak: <span id="peak-bps" class="text-slate-300">0 B/s</span></div>
+                            </div>
+                        </div>
+                        <!-- Proxy Pool Health -->
+                        <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-[4px] border-l-primary hover:border-primary/50 shadow-[0_4px_20px_-5px_rgba(16,185,129,0.15)] transition-all relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="size-9 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-lg">hub</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Tactical Assets</h3>
+                                    <p class="text-[11px] font-sans text-slate-300 font-bold">Proxy Pool Health</p>
+                                </div>
+                            </div>
+                            <div class="text-right relative z-10">
+                                <div class="text-2xl font-mono font-black text-white tabular-nums drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]" id="proxy-stats">0/0</div>
+                                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Efficiency: <span id="proxy-efficiency" class="text-slate-300">0%</span></div>
+                            </div>
+                        </div>
+                        <!-- Bypass Fleet Sync -->
+                        <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-[4px] border-l-secondary hover:border-secondary/50 shadow-[0_4px_20px_-5px_rgba(59,130,246,0.15)] transition-all relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-r from-secondary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="size-9 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary border border-secondary/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-lg">sync</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Bypass Sync</h3>
+                                    <p class="text-[11px] font-sans text-slate-300 font-bold" id="bypass-sync-status">Inactive</p>
+                                </div>
+                            </div>
+                            <div class="text-right relative z-10">
+                                <div class="text-xs font-mono font-black text-white" id="bypass-fleet-count">0 Nodes</div>
+                                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Fleet Credentials</div>
                             </div>
                         </div>
                         <!-- Current Target -->
@@ -756,13 +695,13 @@
                 </div>
 
                 <!-- MIDDLE GRID: Telemetry Charts -->
-                <div class="glass-card rounded-3xl p-6 border border-white/5 shadow-2xl relative">
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="flex items-center gap-3">
-                            <div class="size-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20">
-                                <span class="material-symbols-rounded">analytics</span>
+                <div class="glass-card rounded-[2rem] p-8 border border-white/5 shadow-2xl relative">
+                    <div class="flex items-center justify-between mb-8">
+                        <div class="flex items-center gap-4">
+                            <div class="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+                                <span class="material-symbols-rounded text-2xl">analytics</span>
                             </div>
-                            <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Advanced Telemetry Matrix</h2>
+                            <h2 class="text-[11px] font-black uppercase tracking-[0.2em] text-white">Advanced Telemetry Matrix</h2>
                         </div>
                         <div class="flex p-1 bg-slate-950/80 rounded-xl border border-white/10 shadow-inner">
                             <button onclick="setTimeframe('1M')" id="tf-1M" class="tf-btn px-3 py-1 rounded-lg text-[9px] font-black transition-all text-slate-500 hover:text-white">1M</button>
@@ -771,9 +710,11 @@
                             <button onclick="setTimeframe('1D')" id="tf-1D" class="tf-btn px-3 py-1 rounded-lg text-[9px] font-black transition-all text-slate-500 hover:text-white">1D</button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
-                        <div class="h-48 relative glass-card p-4 rounded-2xl border border-white/5"><canvas id="bytesSentChart"></canvas></div>
-                        <div class="h-48 relative glass-card p-4 rounded-2xl border border-white/5"><canvas id="bytesReceivedChart"></canvas></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-8">
+                        <div class="h-48 relative glass-card p-4 rounded-2xl border border-white/5"><canvas id="networkVelocityChart" role="img" aria-label="Network Velocity Line Chart"></canvas></div>
+                        <div class="h-48 relative glass-card p-4 rounded-2xl border border-white/5"><canvas id="dataThroughputChart" role="img" aria-label="Data Throughput Line Chart"></canvas></div>
+                        <div class="h-48 relative glass-card p-4 rounded-2xl border border-white/5"><canvas id="latencyChart" role="img" aria-label="Target Latency Line Chart"></canvas></div>
+                        <div class="h-48 relative glass-card p-4 rounded-2xl border border-white/5"><canvas id="impactChart" role="img" aria-label="Combat Impact Distribution"></canvas></div>
                     </div>                </div>
 
                 <!-- BOTTOM GRID: Intelligence & Live Matrix -->
@@ -781,34 +722,38 @@
                     <!-- Recon Section (5 columns) -->
                     <div class="xl:col-span-5 space-y-8">
                         <!-- Geo Map -->
-                        <div class="glass-card rounded-3xl p-6 flex flex-col min-h-[400px]">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center gap-3">
-                                    <span class="material-symbols-rounded text-secondary text-xl">public</span>
-                                    <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400">Asset Geography</h3>
+                        <div class="glass-card rounded-[2rem] p-8 flex flex-col min-h-[450px] border border-white/5 shadow-2xl relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            <div class="flex items-center justify-between mb-6 relative z-10">
+                                <div class="flex items-center gap-4">
+                                    <div class="size-9 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20 shadow-inner">
+                                        <span class="material-symbols-rounded text-xl">public</span>
+                                    </div>
+                                    <h3 class="text-[11px] font-black uppercase tracking-widest text-white">Asset Geography Recon</h3>
                                 </div>
                                 <div id="recon-waf-badge"></div>
                             </div>
-                            <div id="tactical-map" class="flex-1 rounded-2xl bg-slate-900/50 mb-4 border border-white/5"></div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="p-3 bg-slate-950/50 rounded-xl border border-white/5">
-                                    <span class="text-[8px] text-slate-600 block uppercase mb-1">ISP_PROVIDER</span>
-                                    <span id="geo-isp" class="text-[10px] font-mono font-bold text-slate-300 truncate block">WAITING_...</span>
+                            <div id="tactical-map" class="flex-1 rounded-2xl bg-slate-900/50 mb-6 border border-white/5 shadow-inner relative z-10"></div>
+                            <div class="grid grid-cols-2 gap-4 relative z-10">
+                                <div class="p-4 bg-slate-950/50 rounded-2xl border border-white/5 shadow-sm hover:border-secondary/20 transition-colors">
+                                    <span class="text-[9px] text-slate-400 block uppercase mb-1 font-black tracking-widest">ISP_PROVIDER</span>
+                                    <span id="geo-isp" class="text-[11px] font-mono font-bold text-slate-300 truncate block">WAITING_...</span>
                                 </div>
-                                <div class="p-3 bg-slate-950/50 rounded-xl border border-white/5">
-                                    <span class="text-[8px] text-slate-600 block uppercase mb-1">COORDINATES</span>
-                                    <span id="geo-loc" class="text-[10px] font-mono font-bold text-slate-300 truncate block">WAITING_...</span>
+                                <div class="p-4 bg-slate-950/50 rounded-2xl border border-white/5 shadow-sm hover:border-secondary/20 transition-colors">
+                                    <span class="text-[9px] text-slate-400 block uppercase mb-1 font-black tracking-widest">COORDINATES</span>
+                                    <span id="geo-loc" class="text-[11px] font-mono font-bold text-slate-300 truncate block">WAITING_...</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Live Matrix / Terminal (7 columns) -->
-                    <div class="xl:col-span-7 flex flex-col bg-[#171717] border border-white/10 rounded-xl overflow-hidden shadow-2xl h-[465px] scanlines">
-                        <div class="px-6 py-4 bg-[#1a1a1a] border-b border-white/5 flex items-center justify-between shrink-0 z-10">
+                    <div class="xl:col-span-7 flex flex-col bg-[#050505] border border-white/10 rounded-[1.5rem] overflow-hidden shadow-2xl h-[465px] scanlines relative group/term">
+                        <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover/term:opacity-100 transition-opacity pointer-events-none"></div>
+                        <div class="px-6 py-5 bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between shrink-0 z-10">
                             <div class="flex items-center gap-4">
-                                <div class="size-2 bg-primary rounded-full pulse-active "></div>
-                                <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-white">Live Intelligence Matrix</span>
+                                <div class="size-2 bg-primary rounded-full pulse-active shadow-[0_0_8px_rgba(var(--primary-rgb),0.8)]"></div>
+                                <span class="text-[11px] font-black uppercase tracking-[0.3em] text-white">Live Intelligence Matrix</span>
                             </div>
                             <div class="flex gap-2">
                                 <select onchange="setLogLevel(this.value)" id="log-level-selector" class="bg-[#242424] border border-white/10 text-slate-400 text-[9px] font-bold uppercase rounded-md px-2 py-1 outline-none focus:border-primary transition-all cursor-pointer hover:bg-[#2a2a2a]" title="Log Intensity Controller">
@@ -843,26 +788,27 @@
 
                 <!-- C2 Fleet & Surface Section -->
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
-                    <!-- Surface Explorer -->
-                    <div class="glass-card rounded-3xl p-6 flex flex-col h-[350px]">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="flex items-center gap-3">
-                                <div class="size-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20">
-                                    <span class="material-symbols-rounded text-lg">target</span>
+                    <!-- Target Node Explorer -->
+                    <div class="glass-card rounded-[2rem] p-8 flex flex-col h-[400px] border border-white/5 shadow-2xl relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="flex items-center justify-between mb-6 relative z-10">
+                            <div class="flex items-center gap-4">
+                                <div class="size-9 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-xl">target</span>
                                 </div>
-                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400">Surface Explorer</h3>
+                                <h3 class="text-[11px] font-black uppercase tracking-widest text-white">Target Node Explorer</h3>
                             </div>
-                            <button id="subdomain-scan-btn" onclick="scanSubdomains()" class="px-3 py-1.5 bg-slate-800 hover:bg-primary/20 hover:text-primary border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm">
-                                <span class="material-symbols-rounded text-sm">radar</span> Scan Network
+                            <button id="subdomain-scan-btn" onclick="scanSubdomains()" class="px-4 py-2 bg-slate-800 hover:bg-primary/20 hover:text-primary border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm">
+                                <span class="material-symbols-rounded text-lg">radar</span> Scan Network
                             </button>
                         </div>
-                        <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50 shadow-inner">
+                        <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50 shadow-inner group/table relative z-10">
                             <table class="w-full text-left text-[10px] font-mono min-w-[400px]">
-                                <thead class="text-slate-500 border-b border-white/5 sticky top-0 bg-slate-900/90 backdrop-blur z-10">
+                                <thead class="text-slate-500 border-b border-white/5 sticky top-0 bg-slate-900/95 backdrop-blur z-10">
                                     <tr>
-                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Endpoint</th>
-                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">IP_Node</th>
-                                        <th class="py-4 px-6 text-right uppercase tracking-[0.2em] font-black">Tactical</th>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black text-primary/80">Endpoint</th>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black text-primary/80">IP_Node</th>
+                                        <th class="py-4 px-6 text-right uppercase tracking-[0.2em] font-black text-primary/80">Tactical</th>
                                     </tr>
                                 </thead>
                                 <tbody id="subdomain-results" class="divide-y divide-white/5">
@@ -872,27 +818,28 @@
                         </div>
                     </div>
 
-                    <!-- C2 Fleet -->
-                    <div class="glass-card rounded-3xl p-6 flex flex-col h-[350px]">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="flex items-center gap-3">
-                                <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary border border-secondary/20">
-                                    <span class="material-symbols-rounded text-lg">dns</span>
+                    <!-- C2 Distributed Fleet -->
+                    <div class="glass-card rounded-[2rem] p-8 flex flex-col h-[400px] border border-white/5 shadow-2xl relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="flex items-center justify-between mb-6 relative z-10">
+                            <div class="flex items-center gap-4">
+                                <div class="size-9 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary border border-secondary/20 shadow-inner">
+                                    <span class="material-symbols-rounded text-xl">dns</span>
                                 </div>
-                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400">C2 Worker Fleet</h3>
+                                <h3 class="text-[11px] font-black uppercase tracking-widest text-white">C2 Distributed Fleet</h3>
                             </div>
-                            <button onclick="refreshC2Nodes()" class="px-3 py-1.5 bg-slate-800 hover:bg-secondary/20 hover:text-secondary border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm">
-                                <span class="material-symbols-rounded text-sm">refresh</span> Sync Grid
+                            <button onclick="refreshC2Nodes()" class="px-4 py-2 bg-slate-800 hover:bg-secondary/20 hover:text-secondary border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm">
+                                <span class="material-symbols-rounded text-lg">refresh</span> Sync Grid
                             </button>
                         </div>
-                        <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50 shadow-inner">
+                        <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50 shadow-inner group/table relative z-10">
                             <table class="w-full text-left text-[10px] font-mono min-w-[500px]">
-                                <thead class="text-slate-500 border-b border-white/5 sticky top-0 bg-slate-900/90 backdrop-blur z-10">
+                                <thead class="text-slate-500 border-b border-white/5 sticky top-0 bg-slate-900/95 backdrop-blur z-10">
                                     <tr>
-                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Node_ID</th>
-                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Hostname</th>
-                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Resources</th>
-                                        <th class="py-4 px-6 text-right uppercase tracking-[0.2em] font-black">Status</th>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black text-secondary/80">Node_ID</th>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black text-secondary/80">Hostname</th>
+                                        <th class="py-4 px-6 uppercase tracking-[0.2em] font-black text-secondary/80">Resources</th>
+                                        <th class="py-4 px-6 text-right uppercase tracking-[0.2em] font-black text-secondary/80">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody id="c2-worker-list" class="divide-y divide-white/5">
@@ -904,9 +851,101 @@
                 </div>
             </div>
 
+            <!-- Operations History View -->
+            <div id="view-history" role="tabpanel" aria-labelledby="tab-nav-history" class="hidden p-4 lg:p-8 flex-1 overflow-y-auto space-y-4 lg:space-y-8 scroll-smooth custom-scrollbar">
+                
+                <!-- History Table Panel -->
+                <div class="glass-card rounded-3xl p-6 border border-white/5 shadow-2xl relative flex flex-col min-h-[400px]">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="size-8 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary border border-secondary/20">
+                                <span class="material-symbols-rounded">manage_search</span>
+                            </div>
+                            <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Historical Operations Log</h2>
+                        </div>
+                        <div class="flex gap-3">
+                             <button onclick="refreshHistory()" class="size-8 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-slate-400 hover:text-primary transition-all flex items-center justify-center shadow-sm" data-tooltip="Refresh Log">
+                                 <span class="material-symbols-rounded text-sm">refresh</span>
+                             </button>
+                             <button onclick="exportHistory('csv')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all flex items-center gap-2 shadow-sm">
+                                 <span class="material-symbols-rounded text-sm">download</span> CSV
+                             </button>
+                             <button onclick="exportHistory('json')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all flex items-center gap-2 shadow-sm">
+                                 <span class="material-symbols-rounded text-sm">data_object</span> JSON
+                             </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar border border-white/5 rounded-2xl bg-slate-950/50 shadow-inner">
+                        <table class="w-full text-left text-[10px] font-mono min-w-[800px]">
+                            <thead class="text-slate-500 border-b border-white/5 sticky top-0 bg-slate-900/90 backdrop-blur z-10">
+                                <tr>
+                                    <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Timestamp</th>
+                                    <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Target (URI/IP)</th>
+                                    <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Method</th>
+                                    <th class="py-4 px-6 uppercase tracking-[0.2em] font-black">Duration</th>
+                                    <th class="py-4 px-6 text-right uppercase tracking-[0.2em] font-black">Peak Traffic</th>
+                                    <th class="py-4 px-6 text-center uppercase tracking-[0.2em] font-black">Status</th>
+                                    <th class="py-4 px-6 text-center uppercase tracking-[0.2em] font-black rounded-tr-2xl">Recon</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body" class="divide-y divide-white/5">
+                                <tr><td colspan="7" class="py-12 text-center text-slate-700 italic uppercase tracking-[0.2em] text-[9px] font-black font-sans">Awaiting historical payload data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4 flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-slate-500">
+                        <span id="history-total-records">Total: 0 records</span>
+                        <div class="flex gap-2">
+                            <button id="history-prev-btn" onclick="changeHistoryPage(-1)" class="px-3 py-1 bg-slate-800 rounded-md hover:bg-slate-700 transition-colors disabled:opacity-50" disabled>PREV</button>
+                            <span id="history-page-indicator" class="px-3 py-1">PAGE 1</span>
+                            <button id="history-next-btn" onclick="changeHistoryPage(1)" class="px-3 py-1 bg-slate-800 rounded-md hover:bg-slate-700 transition-colors disabled:opacity-50" disabled>NEXT</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Mission Telemetry Detail -->
+                <div id="history-detail-panel" class="hidden glass-card rounded-3xl p-6 border border-white/5 shadow-2xl relative mb-8">
+                     <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="size-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/20">
+                                <span class="material-symbols-rounded">query_stats</span>
+                            </div>
+                            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Mission Telemetry: <span id="detail-session-id" class="text-primary font-mono select-all"></span></h3>
+                        </div>
+                        <button onclick="closeHistoryDetail()" class="size-8 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 hover:text-danger hover:border-danger/30 transition-all shadow-sm">
+                            <span class="material-symbols-rounded text-sm">close</span>
+                        </button>
+                     </div>
+                     
+                     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                         <!-- Chart -->
+                         <div class="xl:col-span-2 glass-card p-5 rounded-2xl border border-white/5 h-[320px] relative">
+                             <div class="absolute top-4 right-4 flex gap-2 z-10">
+                                <div class="px-2 py-1 rounded bg-secondary/10 border border-secondary/20 text-[8px] font-black text-secondary tracking-widest">PPS</div>
+                                <div class="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-[8px] font-black text-primary tracking-widest">BPS</div>
+                             </div>
+                             <canvas id="historyDetailChart" role="img" aria-label="Mission Telemetry Chart"></canvas>
+                         </div>
+                         
+                         <!-- Event Log -->
+                         <div class="glass-card p-5 rounded-2xl border border-white/5 h-[320px] flex flex-col">
+                             <div class="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 mb-3 border-b border-white/5 pb-2 flex items-center gap-2">
+                                <span class="material-symbols-rounded text-[14px]">receipt_long</span> System Event Log
+                             </div>
+                             <div id="history-event-log" class="flex-1 overflow-y-auto space-y-3 font-mono text-[10px] text-slate-400 custom-scrollbar pr-2">
+                                 <!-- Dynamic Event Rows -->
+                             </div>
+                         </div>
+                     </div>
+                </div>
+
+            </div>
+
             <!-- Footer -->
             <footer class="h-14 border-t border-white/5 px-8 flex items-center justify-between shrink-0 bg-slate-950/90 backdrop-blur-xl relative z-20">
-                <div class="flex items-center gap-8 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">
+                <div class="flex items-center gap-8 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-rounded text-sm">security</span> E2EE_ACTIVE
                     </div>
@@ -915,7 +954,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
-                    <p class="text-[9px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.1.6_BUILD_2026</p>
+                    <p class="text-[9px] font-mono text-slate-700 italic">SECURE_DASHBOARD_V1.2.0_BUILD_2026</p>
                     <div class="size-1.5 rounded-full bg-primary animate-pulse"></div>
                 </div>
             </footer>
@@ -923,7 +962,7 @@
     </div>
 
     <!-- Config Modal -->
-    <div id="config-modal" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+    <div id="config-modal" role="dialog" aria-modal="true" aria-labelledby="config-modal-title" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
         <div class="glass-card bg-slate-900 w-full max-w-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative translate-y-4 transition-transform duration-300" id="config-modal-content">
             <button onclick="closeConfigModal()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors">
                 <span class="material-symbols-rounded">close</span>
@@ -956,1115 +995,9 @@
         </div>
     </div>
 
-    <script>
-        const term = document.getElementById('terminal-content');
-        const STATE = { IDLE: 'idle', STARTING: 'starting', RUNNING: 'running', STOPPING: 'stopping' };
-        let currentAppState = STATE.IDLE;
-        let ws = null;
-        let currentLogFilter = 'ALL';
-        let currentTaskFilter = null;
-        const LOG_LEVELS = { 'DEBUG': 0, 'INFO': 1, 'ERROR': 2 };
-        let currentLogLevel = localStorage.getItem('mhddos_log_level') || 'INFO';
+    
 
-        // --- Log Isolation ---
-        function setTaskFilter(taskId) {
-            if (currentTaskFilter === taskId) {
-                currentTaskFilter = null;
-                showToast("Terminal isolation disabled. Showing all traffic.", 'info');
-            } else {
-                currentTaskFilter = taskId;
-                showToast(`Terminal isolated to Task ${taskId.toUpperCase()}.`, 'success');
-            }
-            refreshLogVisibility();
-            refreshTasks(); // Update UI to show which one is isolated
-        }
-
-        // --- Toast System ---
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            const icons = {
-                'info': 'info',
-                'success': 'check_circle',
-                'warning': 'warning',
-                'error': 'error'
-            };
-            const colors = {
-                'info': 'bg-slate-900 border-secondary/30 text-secondary',
-                'success': 'bg-slate-900 border-primary/30 text-primary',
-                'warning': 'bg-slate-900 border-warning/30 text-warning',
-                'error': 'bg-slate-900 border-danger/30 text-danger'
-            };
-            
-            toast.className = `toast glass-card border ${colors[type]} p-4 rounded-2xl flex items-center gap-4 shadow-2xl`;
-            toast.innerHTML = `
-                <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center">
-                    <span class="material-symbols-rounded">${icons[type]}</span>
-                </div>
-                <div class="flex-1">
-                    <div class="text-[10px] font-black uppercase tracking-widest opacity-50">${type}_signal</div>
-                    <div class="text-xs font-bold text-white">${message}</div>
-                </div>
-            `;
-            
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.add('toast-exit');
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
-        }
-
-        // --- Theme Management ---
-        function setTheme(theme) {
-            document.body.dataset.theme = theme;
-            localStorage.setItem('mhddos_theme', theme);
-            showToast(`Tactical interface updated to ${theme.toUpperCase()} mode.`, 'info');
-        }
-
-        // --- Keyboard Shortcuts ---
-        window.addEventListener('keydown', (e) => {
-            if (e.altKey && e.key === 'd') {
-                e.preventDefault();
-                startAttack();
-            }
-            if (e.altKey && e.key === 's') {
-                e.preventDefault();
-                stopAllAttacks();
-            }
-            if (e.key === 'Escape') {
-                closeToolsModal();
-                closeConfigModal();
-            }
-        });
-
-        // --- Sidebar Module Toggles ---
-        function toggleModule(id) {
-            const content = document.getElementById(id);
-            const icon = document.getElementById(id + '-icon');
-            if (content.classList.contains('collapsed')) {
-                content.classList.remove('collapsed');
-                content.style.maxHeight = content.scrollHeight + 'px';
-                if(icon) icon.style.transform = 'rotate(0deg)';
-            } else {
-                content.style.maxHeight = content.scrollHeight + 'px';
-                setTimeout(() => {
-                    content.classList.add('collapsed');
-                    if(icon) icon.style.transform = 'rotate(180deg)';
-                }, 10);
-            }
-        }
-
-        // Initialize modules
-        document.addEventListener('DOMContentLoaded', () => {
-            ['mod-target', 'mod-payload'].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.style.maxHeight = el.scrollHeight + 'px';
-            });
-        });
-
-        // --- UI State Management ---
-        function setAppState(state) {
-            currentAppState = state;
-            document.body.dataset.appState = state;
-            const startBtn = document.getElementById('start-btn');
-            const stopBtn = document.getElementById('stop-btn');
-            const loader = document.getElementById('action-loader');
-            // Select all inputs except specific buttons we manage manually
-            const inputs = document.querySelectorAll('aside input, aside select, aside button:not(#stop-btn):not(#start-btn)');
-
-            switch(state) {
-                case STATE.IDLE:
-                    startBtn.classList.remove('hidden');
-                    stopBtn.classList.add('hidden');
-                    loader.classList.add('hidden');
-                    startBtn.disabled = false;
-                    inputs.forEach(i => { i.disabled = false; i.style.opacity = "1"; });
-                    document.getElementById('header-status-text').textContent = "SYSTEM_READY";
-                    document.getElementById('header-status-text').className = "text-xs font-mono font-bold text-primary";
-                    break;
-                case STATE.STARTING:
-                    startBtn.classList.add('hidden');
-                    stopBtn.classList.add('hidden');
-                    loader.classList.remove('hidden');
-                    inputs.forEach(i => { i.disabled = true; i.style.opacity = "0.5"; });
-                    break;
-                case STATE.RUNNING:
-                    startBtn.classList.remove('hidden'); // Ensure we can start MORE tasks
-                    startBtn.disabled = false;
-                    stopBtn.classList.remove('hidden'); // Show abort button to stop all tasks
-                    loader.classList.add('hidden');
-                    stopBtn.disabled = false;
-                    inputs.forEach(i => { i.disabled = false; i.style.opacity = "1"; }); // Ensure inputs are usable again
-                    document.getElementById('header-status-text').textContent = "SEQUENCE_ACTIVE";
-                    document.getElementById('header-status-text').className = "text-xs font-mono font-bold text-warning animate-pulse";
-                    break;
-                case STATE.STOPPING:
-                    startBtn.classList.add('hidden');
-                    stopBtn.classList.remove('hidden');
-                    stopBtn.disabled = true;
-                    loader.classList.add('hidden');
-                    inputs.forEach(i => { i.disabled = true; i.style.opacity = "0.5"; });
-                    break;
-            }
-        }
-
-        // --- Maps ---
-        let map = null;
-        let marker = null;
-
-        function initMap(lat = 0, lon = 0) {
-            if (map) map.remove();
-            map = L.map('tactical-map', {
-                center: [lat, lon],
-                zoom: 3,
-                zoomControl: false,
-                attributionControl: false
-            });
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19
-            }).addTo(map);
-            if(lat !== 0) marker = L.circleMarker([lat, lon], { color: '#10b981', radius: 8, fillOpacity: 0.6 }).addTo(map);
-        }
-
-        // --- Time-Series Analytics & Charts ---
-        let historyBuffer = [];
-        try {
-            const stored = localStorage.getItem('mhddos_telemetry');
-            if (stored) {
-                historyBuffer = JSON.parse(stored);
-                // Prune records older than 1 Week
-                const cutoff = Date.now() - (604800 * 1000);
-                historyBuffer = historyBuffer.filter(d => d.time >= cutoff);
-            }
-        } catch (e) {
-            console.error("Failed to parse telemetry history.", e);
-        }
-        let currentTimeframe = 3600; // Default to 1H (in seconds)
-        // Max buffer: 1W = 7 * 24 * 3600 = 604800 points. 
-        const MAX_BUFFER_SIZE = 604800;
-
-        const tfMap = {
-            '1M': 60,
-            '5M': 300,
-            '15M': 900,
-            '1H': 3600,
-            '4H': 14400,
-            '1D': 86400,
-            '1W': 604800
-        };
-
-        function setTimeframe(tfString) {
-            currentTimeframe = tfMap[tfString] || 3600;
-            
-            // UI styling
-            document.querySelectorAll('.tf-btn').forEach(btn => {
-                btn.className = "tf-btn px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 text-slate-500 hover:text-white";
-            });
-            const active = document.getElementById(`tf-${tfString}`);
-            if (active) {
-                active.className = "tf-btn active px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 bg-primary/20 text-primary border border-primary/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]";
-            }
-            
-            renderCharts();
-        }
-
-        const chartConfig = (color, title) => ({
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: title,
-                    data: [],
-                    borderColor: color,
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    tension: 0.2, // Smooth curves
-                    fill: true,
-                    backgroundColor: (context) => {
-                        const ctx = context.chart.ctx;
-                        const gradient = ctx.createLinearGradient(0, 0, 0, 150);
-                        gradient.addColorStop(0, color + '40');
-                        gradient.addColorStop(1, color + '00');
-                        return gradient;
-                    }
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { 
-                        display: true,
-                        labels: { color: '#94a3b8', font: { family: '"Fira Code", monospace', size: 10 } }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        titleColor: '#94a3b8',
-                        bodyColor: '#f1f5f9',
-                        borderColor: 'rgba(255, 255, 255, 0.1)',
-                        borderWidth: 1,
-                        padding: 10,
-                        titleFont: { family: '"Fira Code", monospace', size: 10 },
-                        bodyFont: { family: '"Fira Code", monospace', size: 12 },
-                        callbacks: {
-                            label: function(context) {
-                                let val = context.raw;
-                                if (val > 1024*1024*1024) return ` ${title}: ${(val/(1024*1024*1024)).toFixed(2)} GB/s`;
-                                if (val > 1024*1024) return ` ${title}: ${(val/(1024*1024)).toFixed(2)} MB/s`;
-                                if (val > 1024) return ` ${title}: ${(val/1024).toFixed(2)} KB/s`;
-                                return ` ${title}: ${val.toFixed(2)} B/s`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        display: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.02)' },
-                        ticks: { color: '#64748b', font: { family: '"Fira Code", monospace', size: 9 }, maxTicksLimit: 6 }
-                    },
-                    y: { 
-                        display: false,
-                        grid: { display: false },
-                        suggestedMin: 0
-                    }
-                },
-                animation: false,
-                interaction: { mode: 'nearest', axis: 'x', intersect: false }
-            }
-        });
-
-        const bytesSentChart = new Chart(document.getElementById('bytesSentChart'), chartConfig('#13ec5b', 'Bytes Sent'));
-        const bytesReceivedChart = new Chart(document.getElementById('bytesReceivedChart'), chartConfig('#3b82f6', 'Bytes Received'));
-
-        let peakThreads = 0;
-        let avgSuccessRate = 100;
-        let globalTarget = "None";
-
-        // Render historical data initially if available
-        if (historyBuffer.length > 0) {
-            setTimeout(renderCharts, 100);
-        }
-
-        function formatTimeLabel(timestamp, timeframe) {
-            const d = new Date(timestamp);
-            if (timeframe > 86400) { // > 1D
-                return `${d.getDate()}/${d.getMonth()+1} ${d.getHours().toString().padStart(2, '0')}:00`;
-            } else if (timeframe > 3600) { // > 1H
-                return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-            }
-            return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
-        }
-
-        function downsample(data, targetLength) {
-            if (data.length <= targetLength) return data;
-            const factor = Math.ceil(data.length / targetLength);
-            const res = [];
-            for (let i = 0; i < data.length; i += factor) {
-                const chunk = data.slice(i, i + factor);
-                const avg = {
-                    time: chunk[chunk.length - 1].time,
-                    rps: chunk.reduce((s, c) => s + c.rps, 0) / chunk.length,
-                    bps: chunk.reduce((s, c) => s + c.bps, 0) / chunk.length,
-                    lat: chunk.reduce((s, c) => s + c.lat, 0) / chunk.length
-                };
-                res.push(avg);
-            }
-            return res;
-        }
-
-        function renderCharts() {
-            const now = Date.now();
-            const cutoff = now - (currentTimeframe * 1000);
-            
-            // Filter data within timeframe
-            let visibleData = historyBuffer.filter(d => d.time >= cutoff);
-            
-            // Pad if necessary (for small initial data so charts look flowing)
-            if (visibleData.length < 2) {
-                visibleData = [
-                    { time: cutoff, rps: 0, bps: 0, lat: 0 },
-                    { time: now, rps: visibleData[0]?.rps||0, bps: visibleData[0]?.bps||0, lat: visibleData[0]?.lat||0 }
-                ];
-            }
-
-            // Downsample for performance (limit to ~120 points per chart)
-            const sampled = downsample(visibleData, 120);
-
-            const labels = sampled.map(d => formatTimeLabel(d.time, currentTimeframe));
-            const sentData = sampled.map(d => d.bps);
-            // Simulate Bytes Received based on Bytes Sent (since backend only logs BYTES_SEND currently)
-            const receivedData = sampled.map(d => d.bps * 0.15); // Mock 15% response ratio for visual realism
-
-            bytesSentChart.data.labels = labels;
-            bytesSentChart.data.datasets[0].data = sentData;
-            bytesSentChart.update('none');
-
-            bytesReceivedChart.data.labels = labels;
-            bytesReceivedChart.data.datasets[0].data = receivedData;
-            bytesReceivedChart.update('none');
-        }
-
-        let successHistory = [];
-        let peakRPS = 0;
-        let peakLat = 0;
-
-        function updateMetrics(rpsStr, bpsStr, latStr) {
-            let valRps = parseFloat(rpsStr.replace(/[^0-9.]/g, ''));
-            if (isNaN(valRps)) valRps = 0;
-            if (rpsStr.toLowerCase().includes('k')) valRps *= 1000;
-            else if (rpsStr.toLowerCase().includes('m')) valRps *= 1000000;
-
-            if (document.getElementById('current-rps')) {
-                document.getElementById('current-rps').textContent = rpsStr;
-                if (valRps > peakRPS) {
-                    peakRPS = valRps;
-                    document.getElementById('peak-rps').textContent = rpsStr;
-                }
-            }
-
-            let valBps = parseFloat(bpsStr.replace(/[^0-9.]/g, ''));
-            if (isNaN(valBps)) valBps = 0;
-            const bpsLower = bpsStr.toLowerCase();
-            if (bpsLower.includes('gb')) valBps *= 1024 * 1024 * 1024;
-            else if (bpsLower.includes('mb')) valBps *= 1024 * 1024;
-            else if (bpsLower.includes('kb')) valBps *= 1024;
-
-            let valLat = 0;
-            if (latStr) {
-                if (document.getElementById('current-latency')) {
-                    document.getElementById('current-latency').textContent = latStr;
-                    valLat = parseFloat(latStr.replace(/[^0-9.]/g, ''));
-                    if (isNaN(valLat)) valLat = 0;
-                    if (valLat > peakLat) {
-                        peakLat = valLat;
-                        document.getElementById('peak-latency').textContent = latStr;
-                    }
-                }
-            }
-
-            // Update Success Rate based on Latency
-            let isSuccess = 1;
-            if (latStr && latStr.includes('TIMEOUT')) isSuccess = 0;
-            
-            successHistory.push(isSuccess);
-            if(successHistory.length > 50) successHistory.shift();
-            
-            let currentSuccess = (successHistory.reduce((a, b) => a + b, 0) / successHistory.length) * 100;
-            
-            if (document.getElementById('current-success')) {
-                document.getElementById('current-success').textContent = `${currentSuccess.toFixed(1)}%`;
-                avgSuccessRate = (avgSuccessRate * 0.9) + (currentSuccess * 0.1); // smoothing
-                document.getElementById('avg-success').textContent = `${avgSuccessRate.toFixed(1)}%`;
-            }
-
-            // Push to history buffer
-            historyBuffer.push({
-                time: Date.now(),
-                bps: valBps
-            });
-
-            // Trim buffer to max size (1W) to prevent memory leak
-            if (historyBuffer.length > MAX_BUFFER_SIZE) {
-                historyBuffer.shift();
-            }
-
-            renderCharts();
-            
-            // Throttle save to localStorage (every 5 seconds) to prevent UI thread lag
-            if (!window.lastTelemetrySave || Date.now() - window.lastTelemetrySave > 5000) {
-                try {
-                    // Downsample to max 2000 points before stringifying to save space & serialization overhead
-                    const dataToSave = historyBuffer.length > 2000 ? downsample(historyBuffer, 2000) : historyBuffer;
-                    localStorage.setItem('mhddos_telemetry', JSON.stringify(dataToSave));
-                } catch(e) {
-                    console.error("Telemetry save fail", e);
-                }
-                window.lastTelemetrySave = Date.now();
-            }
-        }
-
-        // --- Core Logic ---
-        function getMsgLevel(msg) {
-            if (msg.includes("[!]") || msg.includes("ENGINE_CRASH") || msg.includes("API_FAIL") || msg.includes("ERROR")) return 'ERROR';
-            if (msg.includes("[*]") || msg.includes("LAUNCHING") || msg.includes("DEPLOYED") || msg.includes("COMMAND") || msg.includes("Scoring complete")) return 'INFO';
-            return 'DEBUG';
-        }
-
-        function setLogLevel(level) {
-            currentLogLevel = level;
-            localStorage.setItem('mhddos_log_level', level);
-            refreshLogVisibility();
-        }
-
-        function refreshLogVisibility() {
-            const filter = currentLogFilter;
-            const levelThreshold = LOG_LEVELS[currentLogLevel];
-            const taskFilter = currentTaskFilter;
-            
-            document.querySelectorAll('.log-entry').forEach(entry => {
-                const entryType = entry.dataset.type;
-                const entryLevel = entry.dataset.level;
-                const entryTaskId = entry.dataset.taskId;
-                const entryLevelVal = LOG_LEVELS[entryLevel] || 0;
-                
-                const matchesFilter = (filter === 'ALL' || entryType === filter);
-                const matchesLevel = (entryLevelVal >= levelThreshold);
-                const matchesTask = (!taskFilter || entryTaskId === taskFilter);
-                
-                entry.style.display = (matchesFilter && matchesLevel && matchesTask) ? 'flex' : 'none';
-            });
-        }
-
-        function appendLog(msg, type = 'SYSTEM', taskId = null) {
-            if (!msg) return;
-            const lines = msg.split('\n');
-            if (lines.length > 1) {
-                lines.forEach(line => appendLog(line, type, taskId));
-                return;
-            }
-
-            const cleanMsg = msg.replace(/\x1B\[[0-9;]*[mK]/g, '').trim();
-            if (!cleanMsg) return;
-
-            const rpsMatch = cleanMsg.match(/PPS:\s*([^,]+)/i);
-            const bpsMatch = cleanMsg.match(/BPS:\s*([^,]+)/i);
-            const latMatch = cleanMsg.match(/Latency:\s*([\d\.]+ms|TIMEOUT)/i);
-            
-            if (rpsMatch || bpsMatch) {
-                updateMetrics(rpsMatch ? rpsMatch[1] : "0", bpsMatch ? bpsMatch[1].split(',')[0].trim() : "0 B", latMatch ? latMatch[1] : "0 ms");
-                return;
-            }
-
-            const entry = document.createElement('div');
-            let logType = type;
-            if (cleanMsg.includes("[!]")) logType = 'ERROR';
-            else if (cleanMsg.includes("LAUNCHING") || cleanMsg.includes("DEPLOYED")) logType = 'ATTACK';
-            else if (cleanMsg.includes("[*]")) logType = 'SYSTEM';
-
-            const entryLevel = getMsgLevel(cleanMsg);
-            entry.dataset.level = entryLevel;
-            entry.dataset.type = logType;
-            if(taskId) entry.dataset.taskId = taskId;
-
-            const matchesLevel = (LOG_LEVELS[entryLevel] >= LOG_LEVELS[currentLogLevel]);
-            const matchesFilter = (currentLogFilter === 'ALL' || logType === currentLogFilter);
-            const matchesTask = (!currentTaskFilter || taskId === currentTaskFilter);
-
-            if (!(matchesLevel && matchesFilter && matchesTask)) entry.style.display = 'none';
-
-            entry.className = `log-entry flex gap-4 ${logType === 'ERROR' ? 'text-danger' : entryLevel === 'DEBUG' ? 'text-slate-500 opacity-60' : 'text-slate-400'}`;
-            const label = document.createElement('span');
-            label.className = `shrink-0 font-bold w-20 ${logType === 'ERROR' ? 'text-danger' : logType === 'ATTACK' ? 'text-primary' : 'text-slate-600'}`;
-            label.textContent = taskId ? `[${taskId.toUpperCase()}]` : `[${logType}]`;
-            const content = document.createElement('span');
-            content.className = "flex-1 break-all";
-            content.textContent = cleanMsg;
-            entry.appendChild(label);
-            entry.appendChild(content);
-            term.appendChild(entry);
-            
-            if (term.scrollHeight - term.clientHeight <= term.scrollTop + 100) term.scrollTop = term.scrollHeight;
-            while (term.childNodes.length > 1000) { term.removeChild(term.firstChild); }
-        }
-
-        function setLogFilter(filter) {
-            currentLogFilter = filter;
-            document.querySelectorAll('.filter-chip').forEach(c => {
-                c.classList.remove('active', 'bg-primary', 'text-slate-950');
-                c.classList.add('text-slate-500');
-            });
-            const activeChip = document.getElementById(`filter-${filter}`);
-            activeChip.classList.add('active', 'bg-primary', 'text-slate-950');
-            activeChip.classList.remove('text-slate-500');
-            refreshLogVisibility();
-        }
-
-        async function analyzeTarget() {
-            const target = document.getElementById('target').value;
-            if (!target) return appendLog("[!] RECON_ERR: Target required for radar scan.", "ERROR");
-            appendLog(`[*] INITIATING RADAR SCAN: Analyzing infrastructure for ${target}...`);
-            try {
-                const res = await fetch('/api/recon/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target })
-                });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    appendLog(`[*] RADAR LOCK: Detected Stack = [${data.server}], HTTP ${data.status_code}`);
-                    appendLog(`[*] TACTICAL RECOMMENDATION: Applying ${data.recommendation} sequence.`);
-                    document.getElementById('method').value = data.recommendation;
-                    updateVisibility();
-                    const badgeContainer = document.getElementById('recon-waf-badge');
-                    const wafClass = (data.server || '').toLowerCase().replace(/[\/\s]/g, '');
-                    badgeContainer.innerHTML = `<span class="recon-badge badge-${wafClass}">${data.server} PROTECTED</span>`;
-                } else { appendLog(`[!] RECON_FAIL: ${data.message}`, "ERROR"); }
-            } catch (e) { appendLog(`[!] API_FAIL: ${e.message}`, "ERROR"); }
-            
-            try {
-                const geoRes = await fetch(`/api/recon/geo?target=${encodeURIComponent(target)}`);
-                const geoData = await geoRes.json();
-                if (geoData.status === 'success') {
-                    document.getElementById('geo-isp').textContent = geoData.isp;
-                    document.getElementById('geo-loc').textContent = `${geoData.city}, ${geoData.country}`;
-                    initMap(geoData.lat, geoData.lon);
-                }
-            } catch (e) { console.error(e); }
-        }
-
-        async function startAttack() {
-            const target = document.getElementById('target').value;
-            if (!target) return appendLog("[!] VALIDATION_FAILED: Destination target required.", "ERROR");
-            setAppState(STATE.STARTING);
-            const params = {
-                target: target,
-                method: document.getElementById('method').value,
-                threads: parseInt(document.getElementById('threads').value),
-                duration: parseInt(document.getElementById('duration').value),
-                proxy_type: document.getElementById('proxy_type').value,
-                proxy_list: document.getElementById('auto_harvest').checked ? "auto_harvest.txt" : document.getElementById('proxy_list').value,
-                rpc: parseInt(document.getElementById('rpc').value),
-                reflector: document.getElementById('reflector').value,
-                proxy_refresh: document.getElementById('auto_refresh').checked ? parseInt(document.getElementById('proxy_refresh').value) : 0,
-                auto_harvest: document.getElementById('auto_harvest').checked,
-                smart_rpc: document.getElementById('smart_rpc').checked,
-                autoscale: document.getElementById('auto_scale').checked,
-                evasion: document.getElementById('advanced_evasion').checked,
-                distribute_to_workers: document.getElementById('distribute_to_workers').checked
-            };
-            try {
-                const res = await fetch('/api/attack/start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(params)
-                });
-                const data = await res.json();
-                if (data.status === 'error') {
-                    showToast(`Deployment Failed: ${data.message}`, 'error');
-                    appendLog(`[!] DEPLOYMENT_ERR: ${data.message}`, "ERROR");
-                    setAppState(STATE.IDLE);
-                } else { 
-                    saveToMemory(); 
-                    refreshTasks(); 
-                    setAppState(STATE.RUNNING);
-                    showToast(`Deployment Successful. Sequence ${data.recommendation} active.`, 'success');
-                }
-            } catch (e) {
-                showToast(`Critical API Failure: ${e.message}`, 'error');
-                appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
-                setAppState(STATE.IDLE);
-            }
-        }
-
-        async function stopAttack(taskId = null) {
-            if (!taskId) {
-                showToast("Task ID missing for termination.", 'warning');
-                return;
-            }
-            try {
-                const res = await fetch('/api/attack/stop', { 
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ task_id: taskId })
-                });
-                const data = await res.json();
-                if (data.status === 'error') {
-                    showToast(`Purge Error: ${data.message}`, 'error');
-                } else {
-                    showToast(`Task ${taskId} successfully purged.`, 'success');
-                }
-                setTimeout(refreshTasks, 500);
-            } catch (e) {
-                showToast(`Purge API Failure: ${e.message}`, 'error');
-            }
-        }
-
-        async function stopAllAttacks() {
-            setAppState(STATE.STOPPING);
-            showToast("Initiating global termination sequence...", 'warning');
-            try {
-                const res = await fetch('/api/attack/status');
-                const data = await res.json();
-                if(data.status === 'success' && data.active_tasks) {
-                    for(let t of data.active_tasks) {
-                        await fetch('/api/attack/stop', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ task_id: t.task_id })
-                        });
-                    }
-                }
-                setTimeout(refreshTasks, 1000);
-            } catch(e) {
-                 appendLog(`[!] API_FAIL: ${e.message}`, "ERROR");
-            }
-        }
-
-        async function refreshTasks() {
-            try {
-                const res = await fetch('/api/attack/status');
-                const data = await res.json();
-                if (data.status === 'success') {
-                    renderTasksList(data.active_tasks);
-                    if (data.active_tasks.length === 0) {
-                        setAppState(STATE.IDLE);
-                    } else {
-                        setAppState(STATE.RUNNING);
-                    }
-                }
-            } catch (e) { console.error("Error refreshing tasks:", e); }
-        }
-
-        function renderTasksList(tasks) {
-            const container = document.getElementById('tasks-container');
-            const emptyState = document.getElementById('tasks-empty-state');
-            const countBadge = document.getElementById('active-tasks-count');
-
-            if(countBadge) countBadge.textContent = tasks.length;
-
-            // Update Active Threads & Target
-            let totalThreads = 0;
-            let currentTarget = "None";
-            if (tasks.length > 0) {
-                totalThreads = tasks.reduce((sum, t) => sum + (t.threads || 0), 0);
-                if (tasks.length === 1) currentTarget = tasks[0].target;
-                else currentTarget = "Multiple Targets";
-                document.getElementById('target-status').textContent = "Engaged";
-                document.getElementById('target-status').className = "text-danger";
-            } else {
-                document.getElementById('target-status').textContent = "Standby";
-                document.getElementById('target-status').className = "text-warning";
-            }
-
-            document.getElementById('current-threads').textContent = totalThreads;
-            if (totalThreads > peakThreads) {
-                peakThreads = totalThreads;
-                document.getElementById('peak-threads').textContent = peakThreads;
-            }
-            document.getElementById('current-target').textContent = currentTarget;
-
-            if (!container) return;
-            if (tasks.length === 0) {
-                container.innerHTML = '';
-                if(emptyState) container.appendChild(emptyState);
-                return;
-            }
-            
-            container.innerHTML = '';
-            tasks.forEach(t => {
-                const isIsolated = currentTaskFilter === t.task_id;
-                const row = document.createElement('div');
-                row.onclick = () => setTaskFilter(t.task_id);
-                row.className = `glass-card cursor-pointer border rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all group module-enter relative overflow-hidden ${isIsolated ? 'border-primary ' : 'border-white/5 hover:border-primary/30'}`;
-                row.innerHTML = `
-                    <div class="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <div class="flex items-center gap-5 relative z-10">
-                        <div class="size-12 rounded-xl flex items-center justify-center relative transition-all bg-slate-900 border ${isIsolated ? 'border-primary text-primary shadow-inner' : 'border-white/10 text-slate-400 group-hover:border-primary/50 group-hover:text-primary'}">
-                            <span class="material-symbols-rounded">${isIsolated ? 'visibility' : 'radar'}</span>
-                            <span class="absolute -top-1 -right-1 size-3 bg-primary rounded-full animate-ping opacity-75"></span>
-                            <span class="absolute -top-1 -right-1 size-3 bg-primary rounded-full "></span>
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-sm font-mono font-black text-white mb-1.5 truncate max-w-[280px]" data-tooltip="${t.target}">${t.target}</div>
-                            <div class="flex items-center gap-3">
-                                <span class="bg-primary/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] px-2.5 py-1 rounded-lg border border-primary/20">${t.method}</span>
-                                <span class="text-slate-400 text-[10px] font-mono font-bold flex items-center gap-1"><span class="material-symbols-rounded text-[12px]">memory</span> ${t.threads} WORKERS</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-between md:justify-end gap-8 w-full md:w-auto relative z-10">
-                        <div class="text-right">
-                            <div class="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">Time Elapsed</div>
-                            <div class="text-sm font-mono font-black text-white tabular-nums">${t.elapsed}s <span class="text-slate-500 text-[10px] font-normal">/ ${t.duration}s</span></div>
-                        </div>
-                        <button onclick="event.stopPropagation(); stopAttack('${t.task_id}')" class="bg-danger/10 hover:bg-danger text-danger hover:text-white border border-danger/30 rounded-xl px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm  group/btn">
-                            <span class="material-symbols-rounded text-sm group-hover/btn:rotate-90 transition-transform">close</span>
-                            <span>Purge</span>
-                        </button>
-                    </div>
-                `;                container.appendChild(row);
-            });
-        }
-
-        function updateVisibility() {
-            const method = document.getElementById('method').value;
-            const L7 = ["BYPASS", "CFB", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD", "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM", "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP"];
-            const L4_AMP = ["MEM", "NTP", "DNS", "RDP"];
-            document.getElementById('rpc-container').style.display = L7.includes(method) ? 'block' : 'none';
-            document.getElementById('reflector-container').style.display = L4_AMP.includes(method) ? 'block' : 'none';
-        }
-
-        function toggleRefreshDropdown() {
-            const checked = document.getElementById('auto_refresh').checked;
-            const container = document.getElementById('refresh-interval-container');
-            container.style.opacity = checked ? "1" : "0.3";
-            container.style.pointerEvents = checked ? "auto" : "none";
-        }
-
-        function toggleHarvest() {
-            const checked = document.getElementById('auto_harvest').checked;
-            const proxyListInput = document.getElementById('proxy_list');
-            if (checked) {
-                proxyListInput.disabled = true;
-                proxyListInput.style.opacity = "0.5";
-            } else {
-                proxyListInput.disabled = false;
-                proxyListInput.style.opacity = "1";
-            }
-        }
-
-        const memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector', 'auto_refresh', 'proxy_refresh', 'auto_harvest', 'smart_rpc', 'auto_scale', 'advanced_evasion', 'distribute_to_workers'];
-        function saveToMemory() {
-            memoryFields.forEach(id => {
-                const el = document.getElementById(id);
-                if(el) localStorage.setItem('mhddos_gui_v113_' + id, el.type === 'checkbox' ? el.checked : el.value);
-            });
-        }
-
-        function loadFromMemory() {
-            memoryFields.forEach(id => {
-                const val = localStorage.getItem('mhddos_gui_v113_' + id);
-                if (val !== null) {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        if (el.type === 'checkbox') el.checked = (val === 'true');
-                        else el.value = val;
-                    }
-                }
-            });
-            // Attach auto-save listeners to all fields
-            memoryFields.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    const eventType = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'number') ? 'change' : 'input';
-                    el.addEventListener(eventType, saveToMemory);
-                }
-            });
-        }
-
-        async function checkC2Status() {
-            document.getElementById('c2-node-id').textContent = 'C2_MASTER';
-            document.getElementById('c2-node-id').className = 'text-xs font-mono font-bold text-secondary';
-            document.getElementById('session-uuid').textContent = 'MODE: C2_CONTROLLER | LISTENING';
-        }
-
-        async function refreshC2Nodes() {
-            try {
-                const res = await fetch('/api/c2/nodes');
-                const data = await res.json();
-                if (data.status === 'success') {
-                    const tbody = document.getElementById('c2-worker-list');
-                    const countBadge = document.getElementById('c2-worker-count');
-                    const countFooter = document.getElementById('c2-worker-count-footer');
-
-                    if(countBadge) countBadge.textContent = data.workers.length;
-                    if(countFooter) countFooter.textContent = data.workers.length;
-
-                    if (data.workers.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4" class="py-12 text-center text-slate-600 italic uppercase tracking-[0.2em] text-[9px] font-black">No worker nodes connected.</td></tr>';
-                        return;
-                    }
-
-                    tbody.innerHTML = data.workers.map(w => `
-                        <tr class="hover:bg-slate-800/50 transition-colors group border-b border-white/5 last:border-0">
-                            <td class="py-4 px-6 text-secondary font-mono font-bold flex items-center gap-3 tracking-wider"><div class="size-2 rounded-full bg-secondary  pulse-active"></div>${w.node_id}</td>
-                            <td class="py-4 px-6 text-slate-400 font-mono group-hover:text-white transition-colors">${w.hostname} <span class="text-[9px] text-slate-600 block uppercase tracking-widest mt-1 font-sans font-black">${w.os}</span></td>
-                            <td class="py-4 px-6">
-                                <div class="flex items-center gap-3 mb-1.5">
-                                    <div class="w-16 h-1 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-primary" style="width: ${w.cpu_percent}%"></div></div>
-                                    <span class="text-[10px] text-slate-400 w-8 font-mono font-bold">${w.cpu_percent}%</span>
-                                </div>
-                                <div class="flex items-center gap-3">
-                                    <div class="w-16 h-1 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-warning" style="width: ${w.ram_percent}%"></div></div>
-                                    <span class="text-[10px] text-slate-400 w-8 font-mono font-bold">${w.ram_percent}%</span>
-                                </div>
-                            </td>
-                            <td class="py-4 px-6 text-right">
-                                <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] font-sans ${w.status === 'busy' ? 'bg-warning/10 text-warning border border-warning/20' : 'bg-primary/10 text-primary border border-primary/20 shadow-inner'}">
-                                    ${w.status === 'busy' ? 'COMBAT' : 'IDLE'}
-                                </span>
-                            </td>
-                        </tr>
-                    `).join('');
-                }
-            } catch(e) { console.error("Error fetching C2 nodes:", e); }
-        }
-        async function setupWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
-            ws.onopen = () => {
-                document.getElementById('connection-status').className = 'size-2 rounded-full bg-primary pulse-active';
-                document.getElementById('header-status-text').textContent = "GRID_CONNECTED";
-            };
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if(data.task_id) {
-                        appendLog(data.msg, 'SYSTEM', data.task_id);
-                        if (data.msg.includes("COMMAND DEPLOYED")) {
-                            setAppState(STATE.RUNNING);
-                            refreshTasks();
-                        }
-                        if (data.msg.includes("COMMAND TERMINATED")) {
-                            setTimeout(refreshTasks, 1000);
-                        }
-                    }
-                } catch(e) {
-                    // Fallback for non-JSON logs
-                    const msg = event.data;
-                    appendLog(msg);
-                    if (msg.includes("COMMAND DEPLOYED")) setAppState(STATE.RUNNING);
-                    if (msg.includes("COMMAND TERMINATED")) setTimeout(refreshTasks, 1000);
-                }
-            };
-            ws.onclose = () => {
-                document.getElementById('connection-status').className = 'size-2 rounded-full bg-danger pulse-active';
-                document.getElementById('header-status-text').textContent = "OFFLINE_RECONNECTING";
-                setTimeout(setupWebSocket, 3000);
-            };
-        }
-
-        async function browseFile(inputId) {
-            try {
-                const res = await fetch('/api/select_file');
-                const data = await res.json();
-                if (data.path) document.getElementById(inputId).value = data.path;
-            } catch (e) { console.error(e); }
-        }
-
-        function clearTerminal() { term.innerHTML = ''; appendLog("Buffer purged. Intelligence matrix re-calibrated."); }
-        async function copyLogs() {
-            const text = Array.from(document.querySelectorAll('.log-entry')).map(e => e.innerText).join('\n');
-            await navigator.clipboard.writeText(text);
-            appendLog("Matrix data exported to clipboard.");
-        }
-
-        // --- Config Modal Logic ---
-        async function openConfigModal() {
-            const modal = document.getElementById('config-modal');
-            const content = document.getElementById('config-modal-content');
-            const container = document.getElementById('config-sources-container');
-            modal.classList.remove('hidden');
-            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-4'); }, 10);
-            container.innerHTML = '<div class="text-center text-slate-500 py-4"><span class="material-symbols-rounded animate-spin">refresh</span></div>';
-            try {
-                const res = await fetch('/api/config/proxies');
-                const data = await res.json();
-                if (data.status === 'success') renderConfigSources(data.providers);
-            } catch (e) { console.error(e); }
-        }
-
-        function closeConfigModal() {
-            const modal = document.getElementById('config-modal');
-            const content = document.getElementById('config-modal-content');
-            modal.classList.add('opacity-0'); content.classList.add('translate-y-4');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-
-        let configSources = [];
-        function renderConfigSources(providers) {
-            configSources = providers;
-            const container = document.getElementById('config-sources-container');
-            container.innerHTML = '';
-            if (providers.length === 0) { container.innerHTML = '<div class="text-center text-slate-500 py-4 text-xs">No resources defined.</div>'; return; }
-            providers.forEach((p, index) => {
-                const item = document.createElement('div');
-                item.className = 'flex items-center gap-3 p-3 bg-slate-950 rounded-xl border border-white/5 group';
-                item.innerHTML = `
-                    <select onchange="updateConfigSource(${index}, 'type', parseInt(this.value))" class="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 focus:border-primary outline-none w-24 shrink-0">
-                        <option value="0" ${p.type === 0 ? 'selected' : ''}>ALL</option>
-                        <option value="1" ${p.type === 1 ? 'selected' : ''}>HTTP</option>
-                        <option value="4" ${p.type === 4 ? 'selected' : ''}>SOCKS4</option>
-                        <option value="5" ${p.type === 5 ? 'selected' : ''}>SOCKS5</option>
-                    </select>
-                    <input type="text" value="${p.url}" onchange="updateConfigSource(${index}, 'url', this.value)" class="flex-1 bg-transparent border-b border-slate-800 text-slate-300 text-xs px-2 py-1 focus:border-primary outline-none" />
-                    <button onclick="removeConfigSource(${index})" class="text-slate-600 hover:text-danger opacity-0 group-hover:opacity-100 transition-all"><span class="material-symbols-rounded">delete</span></button>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        function updateConfigSource(index, field, value) { configSources[index][field] = value; }
-        function removeConfigSource(index) { configSources.splice(index, 1); renderConfigSources(configSources); }
-        function addConfigSource() { configSources.push({ type: 5, url: '', timeout: 10 }); renderConfigSources(configSources); }
-        async function saveProxyConfig() {
-            try {
-                const res = await fetch('/api/config/proxies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providers: configSources }) });
-                const data = await res.json();
-                if(data.status === 'success') closeConfigModal();
-            } catch (e) { console.error(e); }
-        }
-
-        async function scanSubdomains() {
-            const target = document.getElementById('target').value;
-            if(!target) {
-                showToast("Target required for surface scan.", "warning");
-                return;
-            }
-            const btn = document.getElementById('subdomain-scan-btn');
-            const table = document.getElementById('subdomain-results');
-            btn.disabled = true; btn.innerHTML = '<span class="material-symbols-rounded text-sm animate-spin">refresh</span> Scanning...';
-            table.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-primary animate-pulse font-bold uppercase tracking-widest text-[9px]">Discovering attack surfaces...</td></tr>';
-            try {
-                const res = await fetch('/api/recon/subdomains', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target }) });
-                const data = await res.json();
-                if(data.status === 'success' && data.subdomains.length > 0) {
-                    table.innerHTML = data.subdomains.map(s => `<tr class="hover:bg-slate-800/50 transition-colors group border-b border-white/5 last:border-0"><td class="py-3 px-6 text-white font-mono font-bold tracking-wider">${s.subdomain}</td><td class="py-3 px-6 text-slate-400 font-mono group-hover:text-white transition-colors">${s.ip}</td><td class="py-3 px-6 text-right"><button onclick="quickAttack('${s.subdomain}')" class="text-primary hover:text-white hover:bg-primary uppercase font-black font-sans text-[9px] tracking-widest border border-primary/30 px-3 py-1.5 rounded-lg transition-all shadow-[0_0_10px_rgba(19,236,91,0.1)] hover:">Lock-On</button></td></tr>`).join('');
-                } else { table.innerHTML = '<tr><td colspan="3" class="py-12 text-center text-slate-600 italic uppercase tracking-[0.2em] text-[9px] font-black">No additional endpoints identified.</td></tr>'; }
-            } catch(e) { console.error(e); }
-            btn.disabled = false; btn.innerHTML = '<span class="material-symbols-rounded text-sm">radar</span> Scan Network';
-        }
-
-        function quickAttack(target) { document.getElementById('target').value = target; analyzeTarget(); }
-
-        // --- Tactical Tools Logic ---
-        let currentTool = 'ping';
-
-        function openToolsModal() {
-            const modal = document.getElementById('tools-modal');
-            const content = document.getElementById('tools-modal-content');
-            modal.classList.remove('hidden');
-            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-4'); }, 10);
-            const mainTarget = document.getElementById('target').value;
-            if (mainTarget) {
-                const host = mainTarget.replace(/https?:\/\//, '').split('/')[0];
-                document.getElementById('tool-target').value = host;
-            }
-        }
-
-        function closeToolsModal() {
-            const modal = document.getElementById('tools-modal');
-            const content = document.getElementById('tools-modal-content');
-            modal.classList.add('opacity-0'); content.classList.add('translate-y-4');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-
-        function switchToolTab(tool) {
-            currentTool = tool;
-            document.querySelectorAll('.tool-tab').forEach(t => { t.classList.remove('bg-primary', 'text-slate-950', 'shadow-[0_0_15px_rgba(16,185,129,0.3)]'); t.classList.add('text-slate-500', 'hover:text-white'); });
-            const active = document.getElementById(`tab-${tool}`);
-            active.classList.add('bg-primary', 'text-slate-950', 'shadow-[0_0_15px_rgba(16,185,129,0.3)]'); active.classList.remove('text-slate-500', 'hover:text-white');
-            const label = document.getElementById('tool-input-label');
-            if (tool === 'check') label.textContent = 'Target URL'; else label.textContent = 'Target Host / IP';
-        }
-
-        async function executeTool() {
-            const target = document.getElementById('tool-target').value;
-            const resultArea = document.getElementById('tool-result');
-            const btn = document.getElementById('tool-exec-btn');
-            if (!target) return alert("Target required for diagnostic.");
-            btn.disabled = true; btn.innerHTML = '<span class="material-symbols-rounded animate-spin">refresh</span> Processing...';
-            resultArea.innerHTML = `<div class="text-primary font-bold animate-pulse">> Initializing ${currentTool.toUpperCase()} protocol...</div>`;
-            try {
-                const res = await fetch(`/api/tools/${currentTool}?${currentTool === 'check' ? 'url' : 'host'}=${encodeURIComponent(target)}`);
-                const data = await res.json();
-                if (data.status === 'error') { resultArea.innerHTML = `<div class="text-danger">[!] ERROR: ${data.message}</div>`; } else { renderToolResult(data); }
-            } catch (e) { resultArea.innerHTML = `<div class="text-danger">[!] NETWORK_FAIL: ${e.message}</div>`; } finally { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-rounded text-lg">play_arrow</span> Run'; }
-        }
-
-        function renderToolResult(data) {
-            const resultArea = document.getElementById('tool-result');
-            let html = `<div class="text-primary font-bold mb-4">> ${currentTool.toUpperCase()} DATA RETRIEVED</div>`;
-            if (currentTool === 'ping') {
-                html += `<div class="grid grid-cols-2 gap-4"><div class="space-y-1"><span class="text-slate-600">Resolved:</span> ${data.address}</div><div class="space-y-1"><span class="text-slate-600">Status:</span> ${data.is_alive ? '<span class="text-primary">ONLINE</span>' : '<span class="text-danger">DEAD</span>'}</div><div class="space-y-1"><span class="text-slate-600">Avg RTT:</span> ${data.avg_rtt.toFixed(2)} ms</div><div class="space-y-1"><span class="text-slate-600">Loss:</span> ${((data.packets_sent - data.packets_received)/data.packets_sent*100).toFixed(0)}%</div></div>`;
-            } else if (currentTool === 'check') {
-                html += `<div class="flex items-center gap-4"><div class="text-3xl font-black ${data.online ? 'text-primary' : 'text-danger'}">${data.status_code}</div><div><div class="font-bold">${data.online ? 'WEB_SERVER_ACTIVE' : 'WEB_SERVER_OFFLINE'}</div><div class="text-[10px] text-slate-600">Target responded to HTTP/S handshake.</div></div></div>`;
-            } else if (currentTool === 'info') {
-                html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">${Object.entries(data).map(([k, v]) => `<div class="flex justify-between border-b border-white/5 py-1"><span class="text-slate-600 capitalize">${k.replace(/_/g, ' ')}:</span><span class="text-slate-300 font-bold">${v}</span></div>`).join('')}</div>`;
-            } else if (currentTool === 'ports') {
-                if(data.ports && data.ports.length > 0) {
-                    html += `<div class="grid grid-cols-2 md:grid-cols-3 gap-2">${data.ports.map(p => `<div class="bg-slate-900 border border-primary/20 p-2 rounded-lg text-center"><div class="text-primary font-bold text-lg">${p.port}</div><div class="text-[9px] uppercase tracking-widest text-slate-500">${p.status}</div></div>`).join('')}</div>`;
-                } else {
-                    html += `<div class="text-slate-500 italic">No common ports detected as open.</div>`;
-                }
-            } else if (currentTool === 'tech') {
-                if(data.tech_stack && data.tech_stack.length > 0) {
-                    html += `<div class="flex flex-wrap gap-2">${data.tech_stack.map(t => `<span class="px-3 py-1 bg-secondary/10 border border-secondary/30 text-secondary rounded-full text-xs font-bold">${t}</span>`).join('')}</div>`;
-                } else {
-                    html += `<div class="text-slate-500 italic">Could not accurately identify the technology stack.</div>`;
-                }
-            } else if (currentTool === 'dns') {
-                html += `<div class="space-y-4">`;
-                for(const [type, records] of Object.entries(data.records || {})) {
-                    if(records.length > 0) {
-                        html += `<div><div class="text-primary font-bold mb-1">${type} Records</div><div class="bg-slate-900 p-2 rounded-lg space-y-1">${records.map(r => `<div class="text-slate-300 break-all">${r}</div>`).join('')}</div></div>`;
-                    }
-                }
-                html += `</div>`;
-            }
-            resultArea.innerHTML = html;
-        }
-
-        window.onload = () => {
-            loadFromMemory(); 
-            // Synchronize UI logic after load
-            updateVisibility(); 
-            toggleRefreshDropdown(); 
-            toggleHarvest(); 
-            setupWebSocket(); 
-            setLogFilter('ALL'); 
-            checkC2Status(); 
-            refreshC2Nodes();
-            setInterval(refreshC2Nodes, 5000); // Poll C2 nodes every 5s
-            initMap();
-            document.getElementById('log-level-selector').value = currentLogLevel; 
-            refreshLogVisibility();
-            fetch('/api/health').then(r => r.json()).then(d => { if (d.engine_active) setAppState(STATE.RUNNING); });
-        };
-    </script>
-
-    <script>
-        // --- Tooltip System Logic ---
-        const tooltipEl = document.createElement('div');
-        tooltipEl.id = 'custom-tooltip';
-        document.body.appendChild(tooltipEl);
-
-        let rafId = null;
-
-        document.addEventListener('mouseover', (e) => {
-            const target = e.target.closest('[data-tooltip]');
-            if (target) {
-                const text = target.getAttribute('data-tooltip');
-                if(!text) return;
-                
-                tooltipEl.innerHTML = `<span class="tt-header">SYS_INFO</span><span>${text}</span>`;
-                tooltipEl.classList.add('active');
-                
-                // Position initial
-                let x = e.pageX + 15;
-                let y = e.pageY + 15;
-                tooltipEl.style.left = x + 'px';
-                tooltipEl.style.top = y + 'px';
-            }
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (tooltipEl.classList.contains('active')) {
-                if (rafId) cancelAnimationFrame(rafId);
-                rafId = requestAnimationFrame(() => {
-                    const tRect = tooltipEl.getBoundingClientRect();
-                    let x = e.pageX + 15;
-                    let y = e.pageY + 15;
-                    
-                    if (x + tRect.width > window.innerWidth) x = e.pageX - tRect.width - 10;
-                    if (y + tRect.height > window.innerHeight + window.scrollY) y = e.pageY - tRect.height - 10;
-                    
-                    tooltipEl.style.left = x + 'px';
-                    tooltipEl.style.top = y + 'px';
-                });
-            }
-        });
-
-        document.addEventListener('mouseout', (e) => {
-            const target = e.target.closest('[data-tooltip]');
-            if (target) {
-                tooltipEl.classList.remove('active');
-            }
-        });
-    </script>
+    
+<script src="script.js"></script>
 </body>
 </html>
