@@ -502,6 +502,9 @@ def build_attack_command(params: AttackParams) -> list[str]:
         command.append("--evasion")
         command.extend(["--intensity", str(params.behavioral_intensity)])
 
+    # Always pass --debug so backend emits verbose diagnostics for GUI terminal filtering
+    command.append("--debug")
+
     # New Bypass Parameters
     if not params.adaptive_learning:
         command.extend(["--adaptive", "false"])

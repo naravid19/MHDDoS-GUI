@@ -81,3 +81,4 @@ tests/*.txt
 task_fix.txt
 /error_logs
 /data/assets
+log.txt
