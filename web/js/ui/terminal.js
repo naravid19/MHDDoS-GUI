@@ -33,10 +33,15 @@ export class TerminalUI {
         const numericLevel = this.levels[level] ?? 1;
         const threshold = this.filterMap[this.logLevel] ?? 1;
 
-        if (numericLevel < threshold) return;
-
         const entry = document.createElement('div');
         entry.className = `terminal-entry animate-reveal flex flex-col gap-1 p-2 rounded border-l-2 transition-all hover:bg-white/5 group ${this.getLevelClass(level)}`;
+        entry.dataset.numericLevel = String(numericLevel);
+
+        if (numericLevel < threshold) {
+            entry.classList.add('hidden');
+        } else {
+            entry.classList.remove('hidden');
+        }
 
         const timestamp = new Date().toLocaleTimeString('en-GB', { hour12: false });
 
@@ -95,6 +100,20 @@ export class TerminalUI {
 
     setLevel(level) {
         this.logLevel = level;
+        const threshold = this.filterMap[this.logLevel] ?? 1;
+        
+        if (this.container) {
+            const entries = this.container.querySelectorAll('.terminal-entry');
+            entries.forEach(entry => {
+                const numLvl = parseInt(entry.dataset.numericLevel ?? '1', 10);
+                if (numLvl < threshold) {
+                    entry.classList.add('hidden');
+                } else {
+                    entry.classList.remove('hidden');
+                }
+            });
+        }
+        
         this.append(`Log filtration set to: ${level}`, "INFO");
     }
 }
