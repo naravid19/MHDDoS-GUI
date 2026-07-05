@@ -1,7 +1,7 @@
 # tests/test_api_integration.py
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, ANY
 from api import app
 from src.core.state_manager import state_manager, AttackStatus
 from src.worker.service import worker_service
@@ -31,7 +31,7 @@ def test_api_start_and_stop_attack(mock_start: AsyncMock, client: TestClient) ->
     })
     assert response.status_code == 200
     assert response.json()["status"] == "success"
-    mock_start.assert_awaited_once_with(target="https://example.com", duration=60, threads=10, method="GET", rpc=100)
+    mock_start.assert_awaited_once_with(target="https://example.com", duration=60, threads=10, method="GET", rpc=100, log_callback=ANY)
     
     with patch("src.worker.service.worker_service.stop_attack", new_callable=AsyncMock) as mock_stop:
         response = client.post("/api/attack/stop")
@@ -133,6 +133,23 @@ async def test_log_broadcaster_no_attribute_error():
         assert "Test log message" in call_args
     finally:
         ws_manager._clients.discard(mock_ws)
+
+
+def test_api_status_post_method(client: TestClient) -> None:
+    response = client.post("/api/attack/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "status" in data
+    assert "active_tasks" in data
+
+
+@patch("src.worker.service.worker_service.stop_attack", new_callable=AsyncMock)
+def test_api_stop_attack_global_fallback(mock_stop: AsyncMock, client: TestClient) -> None:
+    response = client.post("/api/attack/stop", json={})
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    mock_stop.assert_awaited_once()
+
 
 
 

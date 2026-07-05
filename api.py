@@ -46,6 +46,53 @@ async def get_status() -> AttackStateSnapshot:
     return await state_manager.get_state()
 
 
+async def _api_log_handler(line: str) -> None:
+    """Broadcasts CLI log lines to connected WebSocket clients."""
+    from src.api.ws_manager import ws_manager, WSMessage
+    import json
+    import re
+    
+    # Strip ANSI escape codes
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    line = ansi_escape.sub("", line).strip()
+    if not line:
+        return
+
+    if line.startswith("{") and line.endswith("}"):
+        try:
+            data = json.loads(line)
+            msg_type = data.get("type", "log")
+            if "level" not in data:
+                log_level = "INFO"
+                if any(err in line.upper() for err in ["ERROR", "FAIL", "EXCEPTION"]):
+                    log_level = "ERROR"
+                elif any(warn in line.upper() for warn in ["WARNING", "WARN"]):
+                    log_level = "WARNING"
+                elif any(succ in line.upper() for succ in ["SUCCESS", "SOLVED"]):
+                    log_level = "SUCCESS"
+                data["level"] = log_level
+            await ws_manager.broadcast(WSMessage(
+                type=msg_type,
+                payload=data
+            ))
+            return
+        except json.JSONDecodeError:
+            pass
+
+    log_level = "INFO"
+    if any(err in line.upper() for err in ["ERROR", "FAIL", "EXCEPTION"]):
+        log_level = "ERROR"
+    elif any(warn in line.upper() for warn in ["WARNING", "WARN"]):
+        log_level = "WARNING"
+    elif any(succ in line.upper() for succ in ["SUCCESS", "SOLVED"]):
+        log_level = "SUCCESS"
+
+    await ws_manager.broadcast(WSMessage(
+        type="log",
+        payload={"level": log_level, "msg": line}
+    ))
+
+
 @app.post("/api/attack/start", response_model=ApiResponse)
 async def start_attack(request: StartAttackRequest) -> ApiResponse:
     """Triggers worker service to spawn background MHDDoS process."""
@@ -56,6 +103,7 @@ async def start_attack(request: StartAttackRequest) -> ApiResponse:
             threads=request.threads,
             method=request.method,
             rpc=request.rpc,
+            log_callback=_api_log_handler,
         )
         current_state = await state_manager.get_state()
         return ApiResponse(
@@ -71,7 +119,7 @@ async def start_attack(request: StartAttackRequest) -> ApiResponse:
 
 
 @app.post("/api/attack/stop", response_model=ApiResponse)
-async def stop_attack() -> ApiResponse:
+async def stop_attack(request: dict[str, Any] | None = None) -> ApiResponse:
     """Terminates running attack process tree via worker service."""
     try:
         await worker_service.stop_attack()
@@ -84,6 +132,25 @@ async def stop_attack() -> ApiResponse:
     except Exception as exc:
         logger.exception("Error stopping attack")
         raise HTTPException(status_code=500, detail="Internal server error stopping attack.")
+
+
+@app.get("/api/attack/status")
+@app.post("/api/attack/status")
+async def get_attack_status() -> dict[str, Any]:
+    """Returns the current attack status and active tasks."""
+    snapshot = await state_manager.get_state()
+    return {
+        "status": "success",
+        "active_tasks": [
+            {
+                "task_id": "global",
+                "target": snapshot.target or "Unknown",
+                "method": snapshot.method or "GET",
+                "threads": snapshot.threads,
+            }
+        ] if snapshot.status.value in ("running", "starting") else []
+    }
+
 
 
 @app.websocket("/ws")
