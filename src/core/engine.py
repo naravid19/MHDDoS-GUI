@@ -1890,7 +1890,12 @@ class BrowserEngine:
                 from patchright.sync_api import sync_playwright
                 with sync_playwright() as p:
                     browser = p.chromium.launch(headless=True)
-                    context = browser.new_context(user_agent=user_agent)
+                    context_kwargs = {"user_agent": user_agent} if user_agent else {}
+                    if proxy:
+                        p_url = f"http://{proxy}" if "://" not in proxy else proxy
+                        context_kwargs["proxy"] = {"server": p_url}
+                    
+                    context = browser.new_context(**context_kwargs)
                     page = context.new_page()
                     try:
                         page.goto(url, timeout=timeout * 1000)
@@ -1902,6 +1907,15 @@ class BrowserEngine:
                             cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
                             if "cf_clearance" in cookie_str:
                                 return cookie_str, user_agent
+                                
+                            # Attempt Turnstile checkbox interaction if present
+                            try:
+                                iframe = page.frame_locator("iframe[src*='turnstile'], iframe[src*='cloudflare']")
+                                checkbox = iframe.locator("input[type='checkbox'], .cb-lb, #challenge-stage")
+                                if checkbox.count() > 0:
+                                    checkbox.first.click(timeout=1000)
+                            except Exception:
+                                pass
                                 
                             if i % 3 == 0:
                                 try:
@@ -1980,6 +1994,15 @@ class BrowserEngine:
                             if "cf_clearance" in cookie_str:
                                 ua = page.evaluate("navigator.userAgent")
                                 return cookie_str, ua
+
+                            # Attempt Turnstile checkbox interaction if present
+                            try:
+                                iframe = page.frame_locator("iframe[src*='turnstile'], iframe[src*='cloudflare']")
+                                checkbox = iframe.locator("input[type='checkbox'], .cb-lb, #challenge-stage")
+                                if checkbox.count() > 0:
+                                    checkbox.first.click(timeout=1000)
+                            except Exception:
+                                pass
 
                             # Adaptive Interaction
                             if i % 3 == 0:
