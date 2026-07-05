@@ -911,6 +911,25 @@ CURRENT_LATENCY = RawValue("d", 0.0)
 DYNAMIC_RPC = RawValue("i", 100)
 
 
+async def _check_target_latency_once(scheme: str, target_host: str, port: int, timeout: int) -> None:
+    """Helper to perform a single latency check with WAF challenge detection."""
+    import aiohttp
+    from time import time
+    start_t = time()
+    try:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+            client_timeout = aiohttp.ClientTimeout(total=timeout)
+            async with session.get(f"{scheme}://{target_host}:{port}", timeout=client_timeout) as response:
+                content = await response.text()
+                waf_keywords = ["Just a moment...", "Enable JavaScript", "Turnstile", "Cloudflare", "Attention Required"]
+                if response.status in (403, 503, 429) or any(kw in content for kw in waf_keywords):
+                    CURRENT_LATENCY.value = -1.0
+                else:
+                    CURRENT_LATENCY.value = (time() - start_t) * 1000
+    except Exception:
+        CURRENT_LATENCY.value = -1.0
+
+
 class HealthMonitor:
     def __init__(
         self, target_host: str, port: int, method_type: str, interval: int = 2
@@ -923,20 +942,16 @@ class HealthMonitor:
     async def run(self):
         while True:
             try:
-                start_t = time()
                 if self.method_type == "L7":
-                    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
-                        scheme = "https" if self.port in (443, 8443) else "http"
-                        timeout = aiohttp.ClientTimeout(total=5)
-                        async with session.get(f"{scheme}://{self.target_host}:{self.port}", timeout=timeout):
-                            pass
+                    scheme = "https" if self.port in (443, 8443) else "http"
+                    await _check_target_latency_once(scheme, self.target_host, self.port, 5)
                 else:
+                    start_t = time()
                     # Async socket connect check for L4
                     reader, writer = await asyncio.open_connection(self.target_host, self.port)
                     writer.close()
                     await writer.wait_closed()
-                
-                CURRENT_LATENCY.value = (time() - start_t) * 1000
+                    CURRENT_LATENCY.value = (time() - start_t) * 1000
             except Exception:
                 CURRENT_LATENCY.value = -1.0  # -1 means offline or timeout
             await asyncio.sleep(self.interval)
