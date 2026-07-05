@@ -1006,6 +1006,11 @@ class TacticalProxy:
 
 class TacticalProxyValidator:
     @staticmethod
+    def count_elite_proxies(proxies: list) -> int:
+        valid_cf_statuses = {200, 301, 302, 403, 503}
+        return len([p for p in proxies if getattr(p, "latency_ms", 9999) < 3000 and getattr(p, "http_status", 0) in valid_cf_statuses])
+
+    @staticmethod
     async def validate_and_score(raw_proxies: Set[Proxy], target_url: str = None, is_layer7: bool = True, is_udp: bool = False) -> List[TacticalProxy]:
         tactical_proxies = []
         total_raw = len(raw_proxies)
@@ -1152,9 +1157,9 @@ class TacticalProxyValidator:
                 if not t.done():
                     t.cancel()
 
-        elite_count = len([p for p in tactical_proxies if p.latency_ms < 3000 and p.http_status == 200])
+        elite_count = TacticalProxyValidator.count_elite_proxies(tactical_proxies)
         logger.info(
-            f"{bcolors.OKGREEN}[*] Resource: Scoring complete. Elite-Tier (200 OK & <3s): {elite_count:,} | Valid Assets (<30s): {len(tactical_proxies):,}.{bcolors.RESET}"
+            f"{bcolors.OKGREEN}[*] Resource: Scoring complete. Elite-Tier (CF-OK & <3s): {elite_count:,} | Valid Assets (<30s): {len(tactical_proxies):,}.{bcolors.RESET}"
         )
         
         tactical_proxies.sort(key=lambda p: p.score, reverse=True)
