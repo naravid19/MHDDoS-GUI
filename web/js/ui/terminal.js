@@ -15,7 +15,8 @@ export class TerminalUI {
             'INFO': 1,
             'WARNING': 2,
             'SUCCESS': 3,
-            'ERROR': 4
+            'ERROR': 4,
+            'SYSTEM': 5
         };
 
         this.filterMap = {
@@ -71,6 +72,7 @@ export class TerminalUI {
             case 'ERROR': return 'text-error border-error/40';
             case 'WARNING': return 'text-warning border-warning/40';
             case 'DEBUG': return 'text-slate-500 border-slate-700';
+            case 'SYSTEM': return 'text-cyan-400 border-cyan-400/40';
             default: return 'text-on-surface-variant border-outline-variant';
         }
     }
@@ -90,9 +92,9 @@ export class TerminalUI {
         if (!this.container) return;
         const entries = this.container.querySelectorAll('.terminal-entry');
         const text = Array.from(entries).map(e => {
-            const time = e.querySelector('span:nth-child(1)')?.innerText || '';
-            const lvl = e.querySelector('span:nth-child(2)')?.innerText || '';
-            const m = e.querySelector('span:nth-child(3)')?.innerText || '';
+            const time = e.querySelector('span:nth-child(1)')?.textContent || '';
+            const lvl = e.querySelector('span:nth-child(2)')?.textContent || '';
+            const m = e.querySelector('span:nth-child(3)')?.textContent || '';
             return `[${time}] [${lvl}] ${m}`;
         }).join('\n');
         await navigator.clipboard.writeText(text);
@@ -114,7 +116,7 @@ export class TerminalUI {
             });
         }
         
-        this.append(`Log filtration set to: ${level}`, "INFO");
+        this.append(`Log filtration set to: ${level}`, "SYSTEM");
     }
 }
 
