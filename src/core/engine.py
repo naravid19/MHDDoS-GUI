@@ -1007,6 +1007,11 @@ class TacticalProxy:
 
 class TacticalProxyValidator:
     @staticmethod
+    def get_platform_semaphore_limit() -> int:
+        import sys
+        return 64 if sys.platform == "win32" else 128
+
+    @staticmethod
     def count_elite_proxies(proxies: list) -> int:
         valid_cf_statuses = {200, 301, 302, 403, 503}
         return len([p for p in proxies if getattr(p, "latency_ms", 9999) < 3000 and getattr(p, "http_status", 0) in valid_cf_statuses])
@@ -1036,8 +1041,7 @@ class TacticalProxyValidator:
         bulk_intel = await asyncio.to_thread(INTEL_DB.get_bulk_proxy_intel, all_ip_ports)
 
         # OS-aware semaphore to avoid select() FD limits on Windows
-        is_windows = sys.platform.lower().startswith('win')
-        sem_limit = 128 if is_windows else 1000
+        sem_limit = TacticalProxyValidator.get_platform_semaphore_limit()
         semaphore = asyncio.Semaphore(sem_limit)
 
         progress = [0]
