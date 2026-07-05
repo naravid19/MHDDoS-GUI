@@ -1019,6 +1019,73 @@ class TacticalProxy:
             s.settimeout(timeout)
         return s
 
+    @property
+    def latency(self) -> float:
+        return self.latency_ms
+
+    @latency.setter
+    def latency(self, value: float):
+        self.latency_ms = value
+
+    @property
+    def proxy(self):
+        return self.base
+
+    @property
+    def host(self):
+        if hasattr(self.base, 'host'):
+            return self.base.host
+        if isinstance(self.base, str):
+            return self.base.split(":")[0] if ":" in self.base else self.base
+        return None
+
+    @property
+    def port(self):
+        if hasattr(self.base, 'port'):
+            return self.base.port
+        if isinstance(self.base, str):
+            try:
+                return int(self.base.split(":")[1]) if ":" in self.base else 0
+            except ValueError:
+                return 0
+        return 0
+
+
+async def _check_proxy_async(target_host: str, proxy: Union['TacticalProxy', Proxy], timeout: float = 3.0) -> 'TacticalProxy':
+    """Pure async non-blocking proxy verification."""
+    from time import time
+    from contextlib import suppress
+    
+    base_proxy = getattr(proxy, "proxy", None)
+    if base_proxy is None:
+        base_proxy = getattr(proxy, "base", proxy)
+        
+    host = getattr(proxy, "host", None)
+    if host is None:
+        host = getattr(base_proxy, "host", str(base_proxy).split(":")[0] if ":" in str(base_proxy) else str(base_proxy))
+        
+    port = getattr(proxy, "port", None)
+    if port is None:
+        try:
+            port = getattr(base_proxy, "port", int(str(base_proxy).split(":")[1]) if ":" in str(base_proxy) else 80)
+        except (ValueError, IndexError):
+            port = 80
+            
+    start_time = time()
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout
+        )
+        writer.close()
+        with suppress(Exception):
+            await writer.wait_closed()
+        latency = (time() - start_time) * 1000
+        return TacticalProxy(base_proxy, latency, True, 200)
+    except (asyncio.TimeoutError, ConnectionRefusedError, OSError, Exception):
+        return TacticalProxy(base_proxy, 5000.0, False, 0)
+
+
 
 class TacticalProxyValidator:
     @staticmethod
@@ -1100,57 +1167,21 @@ class TacticalProxyValidator:
                                 pass # Fallback to raw TCP salvage
                         
                         if not is_verified:
-                            try:
-                                s = await asyncio.to_thread(proxy.open_socket, AF_INET, SOCK_STREAM)
-                                if not s: return TacticalProxy(proxy, 5000.0, False, 0)
-                                
-                                s.settimeout(3)
-                                if requires_ssl:
-                                    try:
-                                        ctx = ssl.create_default_context()
-                                        ctx.check_hostname = False
-                                        ctx.verify_mode = ssl.CERT_NONE
-                                        s = await asyncio.to_thread(ctx.wrap_socket, s, server_hostname=target_host)
-                                    except Exception:
-                                        is_verified = True
-                                        latency = (time() - start_time) * 1000
-                                        return TacticalProxy(proxy, latency, True, 0)
-                                
-                                req = f"GET / HTTP/1.1\r\nHost: {target_host}\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36\r\nConnection: close\r\n\r\n"
-                                await asyncio.to_thread(s.sendall, req.encode())
-                                s.settimeout(3)
-                                res_bytes = await asyncio.to_thread(s.recv, 1024)
-                                res_str = res_bytes.decode('utf-8', errors='ignore')
-                                if res_str.startswith("HTTP/"):
-                                    http_status = int(res_str.split()[1])
-                                
-                                with suppress(Exception): s.close()
+                            tp = await _check_proxy_async(target_host, proxy, timeout=3.0)
+                            if tp.is_protocol_verified:
                                 is_verified = True
-                            except Exception:
-                                if s:
-                                    with suppress(Exception): s.close()
-                                    latency = (time() - start_time) * 1000
-                                    if latency <= 5000:
-                                        is_verified = True # Salvage as TCP success
-                                if not is_verified:
-                                    return TacticalProxy(proxy, 5000.0, False, 0)
+                                http_status = tp.http_status
+                            else:
+                                return tp
                     
                     elif is_udp and proxy.type == ProxyType.SOCKS5:
-                        s = await asyncio.to_thread(proxy.open_socket, AF_INET, SOCK_STREAM)
-                        if not s: return TacticalProxy(proxy, 5000.0, False, 0)
-                        try:
-                            s.settimeout(5)
-                            await asyncio.to_thread(s.sendall, b"\x05\x03\x00\x01\x00\x00\x00\x00\x00\x00")
-                            res = await asyncio.to_thread(s.recv, 10)
-                            if res and res[1] == 0x00: is_verified = True
-                        except: pass
-                        finally:
-                            with suppress(Exception): s.close()
+                        tp = await _check_proxy_async(target_host, proxy, timeout=5.0)
+                        if tp.is_protocol_verified:
+                            is_verified = True
                     else:
-                        s = await asyncio.to_thread(proxy.open_socket, AF_INET, SOCK_STREAM)
-                        if not s: return TacticalProxy(proxy, 5000.0, False, 0)
-                        with suppress(Exception): s.close()
-                        is_verified = True
+                        tp = await _check_proxy_async(target_host, proxy, timeout=3.0)
+                        if tp.is_protocol_verified:
+                            is_verified = True
 
                     latency = (time() - start_time) * 1000
                     if latency > 5000: return TacticalProxy(proxy, 5000.0, False, 0)
