@@ -24,7 +24,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from src.core.state_manager import state_manager, AttackStatus, AttackStateSnapshot
-from src.api.ws_manager import ws_manager
+from src.api.ws_manager import ws_manager, WSMessage
 from src.worker.service import worker_service
 
 # --- Logging Configuration ---
@@ -172,13 +172,21 @@ async def log_broadcaster_daemon():
             coalesced = []
             latest_telemetry = {}
             for msg in batch:
-                try:
-                    parsed = json.loads(msg)
-                    if parsed.get("type") in ["telemetry", "impact"] and "task_id" in parsed:
-                        latest_telemetry[parsed["task_id"]] = msg
+                if isinstance(msg, dict):
+                    if msg.get("type") in ["telemetry", "impact"] and "task_id" in msg:
+                        latest_telemetry[msg["task_id"]] = msg
                     else:
                         coalesced.append(msg)
-                except json.JSONDecodeError:
+                elif isinstance(msg, str):
+                    try:
+                        parsed = json.loads(msg)
+                        if parsed.get("type") in ["telemetry", "impact"] and "task_id" in parsed:
+                            latest_telemetry[parsed["task_id"]] = parsed
+                        else:
+                            coalesced.append(parsed)
+                    except json.JSONDecodeError:
+                        coalesced.append({"msg": msg, "level": "INFO", "type": "log"})
+                else:
                     coalesced.append(msg)
             
             coalesced.extend(latest_telemetry.values())
@@ -524,6 +532,29 @@ def build_attack_command(params: AttackParams) -> list[str]:
     # session-id is appended by start_attack() after build
     return command
 
+def _parse_numeric(s: str) -> float:
+    """Parse metric string with optional unit suffix into a plain float.
+    Examples: "1234" → 1234.0 | "1.5k" → 1500.0 | "42ms" → 42.0 | "2MB/s" → 2097152.0
+    """
+    s = s.strip().replace(',', '')
+    SUFFIXES: list[tuple[str, float]] = [
+        ('GB/s', 1_073_741_824.0), ('MB/s', 1_048_576.0), ('kB/s', 1_024.0), ('B/s', 1.0),
+        ('G/s', 1_000_000_000.0), ('M/s', 1_000_000.0), ('k/s', 1_000.0),
+        ('ms', 1.0), ('G', 1_000_000_000.0), ('M', 1_000_000.0), ('k', 1_000.0),
+    ]
+    s_lower = s.lower()
+    for suffix, multiplier in SUFFIXES:
+        if s_lower.endswith(suffix.lower()):
+            raw = s[:len(s) - len(suffix)].strip()
+            try:
+                return float(raw) * multiplier
+            except ValueError:
+                return 0.0
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
 async def broadcast_log(message_data: Any, priority: str = "low") -> None:
     """Queues a log message for the efficient broadcaster daemon with priority handling."""
     if state.log_queue is None:
@@ -561,8 +592,6 @@ async def broadcast_log(message_data: Any, priority: str = "low") -> None:
         print(terminal_msg, flush=True)
 
     # 4. Queue for WebSockets
-    payload = json.dumps(data)
-    
     # Update diagnostic depth
     q_size = state.log_queue.qsize()
     if q_size > state.queue_depth_max:
@@ -571,10 +600,10 @@ async def broadcast_log(message_data: Any, priority: str = "low") -> None:
     try:
         if priority == "high":
             # Block until space is available for high priority
-            await state.log_queue.put(payload)
+            await state.log_queue.put(data)
         else:
             # Drop low priority if queue is full
-            state.log_queue.put_nowait(payload)
+            state.log_queue.put_nowait(data)
     except asyncio.QueueFull:
         state.dropped_low_priority += 1
 
@@ -590,9 +619,6 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
         "level": "SYSTEM",
         "msg": f"LAUNCHING TASK {task_id}: {' '.join(command)}"
     }, priority="high")
-
-    last_broadcast = [time.time()]
-    buffer = []
 
     async def handle_log_line(decoded_line: str):
         decoded_line = ANSI_ESCAPE.sub('', decoded_line)
@@ -621,16 +647,17 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
                 m_pool = re.search(r'Pool:\s*(\d+)/(\d+)(?:\s*\(Warm:\s*(\d+)\))?', decoded_line)
                 
                 if m_pps and m_bps:
+                    lat_raw = m_lat.group(1).strip() if m_lat else "0"
                     await broadcast_log({
                         "task_id": task_id,
                         "type": "telemetry",
                         "level": "DEBUG",
-                        "pps": m_pps.group(1).strip(),
-                        "bps": m_bps.group(1).strip(),
-                        "lat": m_lat.group(1).strip() if m_lat else "0ms",
-                        "pool_active": m_pool.group(1) if m_pool else "0",
-                        "pool_total": m_pool.group(2) if m_pool else "0",
-                        "pool_warm": m_pool.group(3) if m_pool and m_pool.group(3) else "0"
+                        "rps": _parse_numeric(m_pps.group(1)),           # renamed pps→rps, float
+                        "bps": _parse_numeric(m_bps.group(1)),           # float
+                        "lat": _parse_numeric(lat_raw.replace('ms','')), # float in ms
+                        "threads": int(m_pool.group(1)) if m_pool else 0, # NEW: int
+                        "pool_total": int(m_pool.group(2)) if m_pool else 0,
+                        "pool_warm": int(m_pool.group(3)) if m_pool and m_pool.group(3) else 0,
                     })
             except Exception as e:
                 logger.debug(f"Telemetry parse error: {e}")
@@ -661,31 +688,29 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
                     })
             except: pass
 
-        # 4. Infer Level from message content
+        # 4. Infer Level from message content or logger tag
         log_level = "INFO"
-        if any(x in decoded_line.upper() for x in ["ERROR", "FAILED", "CRITICAL", "EXCEPTION"]):
-            log_level = "ERROR"
-        elif any(x in decoded_line.upper() for x in ["WARNING", "WARN"]):
-            log_level = "WARNING"
-        elif any(x in decoded_line.upper() for x in ["SUCCESS", "COMPLETED", "FINISHED"]):
-            log_level = "SUCCESS"
-        elif any(x in decoded_line.upper() for x in ["DEBUG", "TRACE"]):
-            log_level = "DEBUG"
+        m_level = re.search(r'-\s*(DEBUG|INFO|WARNING|ERROR|CRITICAL|SUCCESS)\s*\]', decoded_line, re.IGNORECASE)
+        if m_level:
+            log_level = m_level.group(1).upper()
+            if log_level == "CRITICAL":
+                log_level = "ERROR"
+        else:
+            if any(x in decoded_line.upper() for x in ["ERROR", "FAILED", "CRITICAL", "EXCEPTION"]):
+                log_level = "ERROR"
+            elif any(x in decoded_line.upper() for x in ["WARNING", "WARN"]):
+                log_level = "WARNING"
+            elif any(x in decoded_line.upper() for x in ["SUCCESS", "COMPLETED", "FINISHED"]):
+                log_level = "SUCCESS"
+            elif any(x in decoded_line.upper() for x in ["DEBUG", "TRACE"]):
+                log_level = "DEBUG"
 
-        buffer.append({
+        await broadcast_log({
             "task_id": task_id,
             "type": "log",
             "level": log_level,
             "msg": decoded_line
         })
-
-        now = time.time()
-        if buffer and (now - last_broadcast[0] > 0.05 or len(buffer) > 10):
-            for log_item in buffer:
-                await broadcast_log(log_item)
-            buffer.clear()
-            last_broadcast[0] = now
-            await asyncio.sleep(0.01)
 
     try:
         await worker_service.start_attack(
@@ -713,11 +738,6 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
                 await worker_service._monitor_task
             except asyncio.CancelledError:
                 pass
-            
-        if buffer:
-            for log_item in buffer:
-                await broadcast_log(log_item)
-            buffer.clear()
                 
         await broadcast_log({
             "task_id": task_id, 
@@ -1473,12 +1493,25 @@ async def start_attack(params: AttackParams) -> StatusResponse:
     return StatusResponse(status="success", message="Attack sequence initiated.", recommendation=task_id)
 
 class StopParams(BaseModel):
-    task_id: str
+    task_id: str | None = None
 
 @app.post("/api/attack/stop", response_model=StatusResponse)
-async def stop_attack(params: StopParams) -> StatusResponse:
+async def stop_attack(params: StopParams | None = None) -> StatusResponse:
     import datetime
-    task_id = params.task_id
+    task_id = params.task_id if params and params.task_id else None
+
+    if not task_id:
+        for nid in list(C2.workers.keys()):
+            C2.pending_tasks[nid].append({"action": "stop", "task_id": "all"})
+        await worker_service.stop_attack()
+        for tid in list(state.active_tasks.keys()):
+            del state.active_tasks[tid]
+            await HistoryDB.finalize_session(tid, 'aborted')
+        snapshot = await state_manager.get_state()
+        if snapshot.status in (AttackStatus.RUNNING, AttackStatus.STARTING):
+            await state_manager.update_status(AttackStatus.STOPPED)
+            await ws_manager.broadcast(WSMessage(type="state_update", payload=await state_manager.get_state()))
+        return StatusResponse(status="success", message="All attack processes stopped.")
 
     # Broadcast stop to workers
     for nid in list(C2.workers.keys()):
@@ -1494,6 +1527,10 @@ async def stop_attack(params: StopParams) -> StatusResponse:
     if task_id not in state.active_tasks and not worker_service._process:
         # Mark as aborted in DB if it was left running
         await HistoryDB.finalize_session(task_id, 'aborted')
+        snapshot = await state_manager.get_state()
+        if snapshot.status in (AttackStatus.RUNNING, AttackStatus.STARTING):
+            await state_manager.update_status(AttackStatus.STOPPED)
+            await ws_manager.broadcast(WSMessage(type="state_update", payload=await state_manager.get_state()))
         if was_tracked:
             asyncio.create_task(fire_webhook("Attack Manual Termination", f"Task ID: {task_id}\nTarget: {target} (Already Terminated)"))
             return StatusResponse(status="success", message=f"Task {task_id} cleared from tracking.")
@@ -1520,6 +1557,7 @@ async def get_system_status() -> AttackStateSnapshot:
     return await state_manager.get_state()
 
 @app.get("/api/attack/status")
+@app.post("/api/attack/status")
 async def get_attack_status() -> dict[str, Any]:
     tasks = []
     now = time.time()
