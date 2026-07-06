@@ -4,6 +4,11 @@ import pytest
 import sys
 from src.core.engine import BrowserEngine
 
+@pytest.fixture(autouse=True)
+def mock_sleep():
+    with patch("time.sleep", return_value=None):
+        yield
+
 def test_patchright_receives_proxy_config():
     mock_playwright = MagicMock()
     mock_browser = MagicMock()
@@ -17,10 +22,15 @@ def test_patchright_receives_proxy_config():
     
     mock_patchright_module = MagicMock()
     mock_patchright_module.sync_playwright = MagicMock(return_value=MagicMock(__enter__=MagicMock(return_value=mock_playwright)))
-    sys.modules['patchright'] = MagicMock()
-    sys.modules['patchright.sync_api'] = mock_patchright_module
     
-    with patch("src.core.engine.PATCHRIGHT_INSTALLED", True), \
+    # Use patch.dict for sys.modules mutation cleanup
+    modules_mock = {
+        "patchright": MagicMock(),
+        "patchright.sync_api": mock_patchright_module
+    }
+    
+    with patch.dict("sys.modules", modules_mock), \
+         patch("src.core.engine.PATCHRIGHT_INSTALLED", True), \
          patch("src.core.engine.CLOAKBROWSER_INSTALLED", False):
         cookie, ua = BrowserEngine._solve_tier3_heavy_stealth("https://example.com", proxy="192.0.2.1:8080", timeout=10)
         
@@ -50,10 +60,15 @@ def test_patchright_automates_turnstile():
     
     mock_patchright_module = MagicMock()
     mock_patchright_module.sync_playwright = MagicMock(return_value=MagicMock(__enter__=MagicMock(return_value=mock_playwright)))
-    sys.modules['patchright'] = MagicMock()
-    sys.modules['patchright.sync_api'] = mock_patchright_module
     
-    with patch("src.core.engine.PATCHRIGHT_INSTALLED", True), \
+    # Use patch.dict for sys.modules mutation cleanup
+    modules_mock = {
+        "patchright": MagicMock(),
+        "patchright.sync_api": mock_patchright_module
+    }
+    
+    with patch.dict("sys.modules", modules_mock), \
+         patch("src.core.engine.PATCHRIGHT_INSTALLED", True), \
          patch("src.core.engine.CLOAKBROWSER_INSTALLED", False):
         cookie, ua = BrowserEngine._solve_tier3_heavy_stealth("https://example.com", timeout=10)
         
@@ -65,8 +80,6 @@ def test_camoufox_automates_turnstile():
     mock_camoufox_module = MagicMock()
     mock_camoufox_class = MagicMock()
     mock_camoufox_module.Camoufox = mock_camoufox_class
-    sys.modules['camoufox'] = MagicMock()
-    sys.modules['camoufox.sync_api'] = mock_camoufox_module
     
     mock_browser = MagicMock()
     mock_context = MagicMock()
@@ -86,7 +99,14 @@ def test_camoufox_automates_turnstile():
     mock_iframe.locator.return_value = mock_checkbox
     mock_checkbox.count.return_value = 1
     
-    with patch("src.core.engine.CAMOUFOX_INSTALLED", True):
+    # Use patch.dict for sys.modules mutation cleanup
+    modules_mock = {
+        "camoufox": MagicMock(),
+        "camoufox.sync_api": mock_camoufox_module
+    }
+    
+    with patch.dict("sys.modules", modules_mock), \
+         patch("src.core.engine.CAMOUFOX_INSTALLED", True):
         cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://example.com", timeout=10)
         
     mock_page.frame_locator.assert_called()

