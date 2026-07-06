@@ -164,7 +164,15 @@ function populateMethods() {
 }
 
 // WebSocket Orchestration
-const socket = new SocketManager('/ws', (data) => {
+const handleSocketData = (data) => {
+    if (!data) return;
+    if (data.type === 'batch' && Array.isArray(data.items)) {
+        data.items.forEach(item => {
+            const parsed = typeof item === 'string' ? JSON.parse(item) : item;
+            handleSocketData(parsed);
+        });
+        return;
+    }
     if (data.type === 'state_reconcile' || data.type === 'state_update') {
         const state = data.payload || {};
         const status = String(state.status || 'idle').toLowerCase();
@@ -223,18 +231,20 @@ const socket = new SocketManager('/ws', (data) => {
         telemetry.updateTask(data.task_id, data);
         const agg = telemetry.getAggregate();
         
-        const elements = {
-            'current-rps': (val) => helpers.formatHuman(val),
-            'peak-rps': (val) => helpers.formatHuman(val),
-            'current-bps': (val) => helpers.formatBytes(val),
-            'peak-bps': (val) => helpers.formatBytes(val),
-            'active-tasks-count': (val) => val,
-            'current-threads': (val) => helpers.formatHuman(val)
-        };
-
-        Object.entries(elements).forEach(([id, formatter]) => {
+        const statUpdates = [
+            { id: 'current-rps',       text: helpers.formatHuman(agg['current-rps'] || 0) },
+            { id: 'peak-rps',          text: helpers.formatHuman(agg['peak-rps'] || 0) },
+            { id: 'current-bps',       text: helpers.formatBytes(agg['current-bps'] || 0) },
+            { id: 'peak-bps',          text: `PEAK: ${helpers.formatBytes(agg['peak-bps'] || 0)}` },
+            { id: 'current-latency',   text: `${(agg['current-latency'] || 0).toFixed(1)}ms` },
+            { id: 'peak-latency',      text: `PEAK: ${(agg['peak-latency'] || 0).toFixed(1)}ms` },
+            { id: 'current-threads',   text: helpers.formatHuman(agg['current-threads'] || 0) },
+            { id: 'peak-threads',      text: `PEAK: ${helpers.formatHuman(agg['peak-threads'] || 0)}` },
+            { id: 'active-tasks-count', text: String(agg['active-tasks-count'] || 0) },
+        ];
+        statUpdates.forEach(({ id, text }) => {
             const el = document.getElementById(id);
-            if (el) el.innerText = formatter(agg[id] || 0);
+            if (el) el.innerText = text;
         });
 
         mainChart.update(agg);
@@ -243,7 +253,9 @@ const socket = new SocketManager('/ws', (data) => {
             detail: agg
         }));
     }
-});
+};
+
+const socket = new SocketManager('/ws', handleSocketData);
 
 let map;
 let mapMarker;

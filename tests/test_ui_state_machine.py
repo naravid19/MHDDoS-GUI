@@ -40,3 +40,27 @@ def test_js_set_app_state_reconciliation() -> None:
     assert "tactical-glow-primary" in content, "setAppState must apply tactical-glow-primary in idle state"
     assert "if (!deployBtn || !deployIcon || !deployText) return;" in content, "setAppState must defensively check deployBtn, deployIcon, and deployText"
     assert "views.forEach(n =>" in content or "const navs =" in content, "switchView must not reference undefined navs variable"
+
+
+def test_telemetry_js_reads_rps_not_pps() -> None:
+    js_path = os.path.join(root_dir, "web", "js", "core", "telemetry.js")
+    with open(js_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    assert 'm.rps' in content, "telemetry.js must read m.rps"
+    assert 'm.pps' not in content, "telemetry.js must not read m.pps"
+
+
+def test_telemetry_js_has_latency_in_aggregate() -> None:
+    js_path = os.path.join(root_dir, "web", "js", "core", "telemetry.js")
+    with open(js_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    assert "'current-latency'" in content, "getAggregate must return current-latency"
+    assert "'peak-latency'" in content, "getAggregate must return peak-latency"
+
+
+def test_main_js_maps_latency_dom() -> None:
+    js_path = os.path.join(root_dir, "web", "js", "main.js")
+    with open(js_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    assert 'current-latency' in content, "main.js must update current-latency DOM"
+    assert 'peak-latency' in content, "main.js must update peak-latency DOM"
