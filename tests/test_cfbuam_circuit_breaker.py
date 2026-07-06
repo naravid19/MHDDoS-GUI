@@ -1,13 +1,19 @@
-import pytest
+# tests/test_cfbuam_circuit_breaker.py
+from __future__ import annotations
+
+from typing import Any
 from unittest.mock import patch
+import pytest
 from yarl import URL
 from PyRoxy import Proxy, ProxyType
 
 from src.core.engine import HttpFlood, TacticalProxyPool, TacticalProxy
 from src.core.proxy_guard import ProxyCircuitBreaker
 
+
 @pytest.mark.asyncio
 async def test_cfbuam_evicts_dead_proxy_on_failure() -> None:
+    """Verify that a dead proxy gets evicted on registration of failure."""
     # Ensure HttpFlood._circuit_breaker exists as class attribute
     HttpFlood._circuit_breaker = ProxyCircuitBreaker(failure_threshold=1, recovery_timeout=10.0)
     dead_proxy = "http://10.0.0.1:8080"
@@ -16,8 +22,10 @@ async def test_cfbuam_evicts_dead_proxy_on_failure() -> None:
     await HttpFlood._circuit_breaker.register_failure(dead_proxy)
     assert HttpFlood._circuit_breaker.is_available(dead_proxy) is False
 
+
 @pytest.mark.asyncio
 async def test_cfbuam_circuit_breaker_integration() -> None:
+    """Assert end-to-end integration: filtering, failure/success registration."""
     # Set up custom breaker on HttpFlood
     HttpFlood._circuit_breaker = ProxyCircuitBreaker(failure_threshold=1, recovery_timeout=60.0)
     
@@ -46,8 +54,15 @@ async def test_cfbuam_circuit_breaker_integration() -> None:
     p1_str = str(p1)
     p2_str = str(p2)
     
-    solve_calls = []
-    def mock_solve_cf(url, proxy=None, user_agent=None, timeout=45000):
+    solve_calls: list[str | None] = []
+    
+    def mock_solve_cf(
+        url: Any,
+        proxy: str | None = None,
+        user_agent: str | None = None,
+        timeout: int = 45000
+    ) -> tuple[str | None, str | None]:
+        """Mock solve_cf implementation."""
         solve_calls.append(proxy)
         if proxy == p1_str:
             return None, None
@@ -58,7 +73,9 @@ async def test_cfbuam_circuit_breaker_integration() -> None:
     with patch("src.core.engine.BrowserEngine.solve_cf", side_effect=mock_solve_cf):
         # We mock get_proxy to return p1 first, then p2.
         pool_proxies = [p1, p2, p2, p2]
-        def mock_get_proxy():
+        
+        def mock_get_proxy() -> Proxy:
+            """Mock get_proxy implementation."""
             return pool_proxies.pop(0) if pool_proxies else p2
             
         with patch.object(pool, "get_proxy", side_effect=mock_get_proxy):

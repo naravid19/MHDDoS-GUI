@@ -3562,7 +3562,7 @@ class HttpFlood:
     _curl_cffi_sem = asyncio.Semaphore(500)
     _sample_count = 0
     _waf_blocks = 0
-    _circuit_breaker = ProxyCircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
+    _circuit_breaker: ProxyCircuitBreaker = ProxyCircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
     
     _payload: str
     _defaultpayload: Any
