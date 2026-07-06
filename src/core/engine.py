@@ -736,6 +736,21 @@ class EngineState:
 
 ENGINE_STATE = EngineState()
 
+
+def get_max_ram_threshold(platform_name: str = sys.platform) -> float:
+    """Return OS-calibrated maximum RAM threshold before triggering worker downscaling."""
+    if platform_name == "win32":
+        return 94.0
+    return 85.0
+
+
+def get_optimal_ram_threshold(platform_name: str = sys.platform) -> float:
+    """Return OS-calibrated optimal RAM threshold for worker upscaling."""
+    if platform_name == "win32":
+        return 75.0
+    return 60.0
+
+
 class DynamicScaler(Thread):
     def __init__(self, target_host: str, interval: int = 5):
         Thread.__init__(self, daemon=True)
@@ -752,19 +767,22 @@ class DynamicScaler(Thread):
             lat = CURRENT_LATENCY.value
             current_target = ENGINE_STATE.active_threads_target.value
 
-            # Downscale if host is struggling (CPU > 85% or RAM > 85% or Latency Timeout)
-            if cpu > 85 or mem > 85 or lat == -1.0:
+            max_ram = get_max_ram_threshold()
+            opt_ram = get_optimal_ram_threshold()
+
+            # Downscale if host is struggling (CPU > 85% or RAM > max_ram or Latency Timeout)
+            if cpu > 85 or mem > max_ram or lat == -1.0:
                 self.consecutive_high_load += 1
                 self.consecutive_low_load = 0
                 if self.consecutive_high_load >= 2:
                     new_target = max(10, int(current_target * 0.8)) # Drop by 20%
                     if new_target < current_target:
-                        logger.warning(f"{bcolors.WARNING}[!] Dynamic Scaler: High load detected (CPU: {cpu}%, RAM: {mem}%). Downscaling workers to {new_target}.{bcolors.RESET}")
+                        logger.warning(f"{bcolors.WARNING}[!] Dynamic Scaler: High load detected (CPU: {cpu}%, RAM: {mem}% / Threshold: {max_ram}%). Downscaling workers to {new_target}.{bcolors.RESET}")
                         ENGINE_STATE.active_threads_target.value = new_target
                     self.consecutive_high_load = 0
             
-            # Upscale if host is bored and target is responding well (CPU < 50%, RAM < 60%, Latency < 1000ms)
-            elif cpu < 50 and mem < 60 and 0 < lat < 1000:
+            # Upscale if host is bored and target is responding well (CPU < 50%, RAM < opt_ram, Latency < 1000ms)
+            elif cpu < 50 and mem < opt_ram and 0 < lat < 1000:
                 self.consecutive_low_load += 1
                 self.consecutive_high_load = 0
                 if self.consecutive_low_load >= 3:
