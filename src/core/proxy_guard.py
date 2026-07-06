@@ -103,21 +103,20 @@ class ProxyCircuitBreaker:
                 self._recovery_tasks[proxy_url] = task
 
     async def _schedule_recovery(self, node: ProxyNode) -> None:
-        """Sleep for the recovery timeout, then restore the proxy.
+        """Schedule a background task to restore the proxy after the cooldown period.
 
         Args:
-            node: The ProxyNode representing the proxy to recover.
+            node: The ProxyNode instance to be restored.
         """
         try:
             await asyncio.sleep(self.recovery_timeout)
+            async with self._lock:
+                current_task = asyncio.current_task()
+                if self._recovery_tasks.get(node.url) is current_task:
+                    self._recovery_tasks.pop(node.url, None)
+                    node.failures = 0
+                    node.is_evicted = False
+                    logger.info(f"[Circuit Breaker] Restored proxy {node.url} to active rotation.")
         except asyncio.CancelledError:
             logger.debug(f"[Circuit Breaker] Recovery task for {node.url} cancelled.")
             raise
-
-        async with self._lock:
-            current_task = asyncio.current_task()
-            if self._recovery_tasks.get(node.url) is current_task:
-                self._recovery_tasks.pop(node.url, None)
-            node.failures = 0
-            node.is_evicted = False
-            logger.info(f"[Circuit Breaker] Restored proxy {node.url} to active rotation.")
