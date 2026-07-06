@@ -103,30 +103,27 @@ class WorkerService:
         await state_manager.update_status(AttackStatus.STOPPED)
         await self._broadcast_state()
 
-    async def _monitor_process(self, proc: asyncio.subprocess.Process, log_callback: Any | None = None) -> None:
+    async def _monitor_process(self, proc: Any, log_callback: Any | None = None) -> None:
         try:
-            if proc.stdout and hasattr(proc.stdout, "readline"):
+            if proc.stdout and hasattr(proc.stdout, "read"):
+                buffer = b""
                 while True:
                     try:
-                        line = await proc.stdout.readline()
+                        chunk = await proc.stdout.read(8192)
                     except Exception:
                         break
-                    if not line or not isinstance(line, (bytes, str)):
+                    if not chunk or not isinstance(chunk, bytes):
+                        if buffer:
+                            decoded = buffer.decode("utf-8", errors="replace").strip()
+                            if decoded and log_callback:
+                                self._dispatch_log(log_callback, decoded)
                         break
-                    if isinstance(line, bytes):
+                    buffer += chunk
+                    while b"\n" in buffer:
+                        line, buffer = buffer.split(b"\n", 1)
                         decoded = line.decode("utf-8", errors="replace").strip()
-                    else:
-                        decoded = str(line).strip()
-                    if not decoded:
-                        continue
-                    if log_callback:
-                        try:
-                            if asyncio.iscoroutinefunction(log_callback):
-                                await log_callback(decoded)
-                            else:
-                                log_callback(decoded)
-                        except Exception as e:
-                            logger.debug(f"Error in log_callback: {e}")
+                        if decoded and log_callback:
+                            self._dispatch_log(log_callback, decoded)
 
             returncode = await proc.wait()
             async with self._lock:
@@ -147,6 +144,15 @@ class WorkerService:
             logger.exception(f"Error monitoring attack process: {exc}")
             await state_manager.update_status(AttackStatus.ERROR, str(exc))
             await self._broadcast_state()
+
+    def _dispatch_log(self, log_callback: Any, decoded: str) -> None:
+        try:
+            if asyncio.iscoroutinefunction(log_callback):
+                asyncio.create_task(log_callback(decoded))
+            else:
+                log_callback(decoded)
+        except Exception as e:
+            logger.debug(f"Error in log_callback: {e}")
 
     async def _terminate_process_tree(self, pid: int) -> None:
         """Windows-resilient process tree termination."""
