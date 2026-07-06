@@ -5,7 +5,18 @@ import asyncio
 import logging
 import subprocess
 import sys
-from typing import Any
+from typing import Any, Protocol
+
+class StreamReaderLike(Protocol):
+    async def read(self, n: int = -1) -> bytes: ...
+
+class ProcessLike(Protocol):
+    @property
+    def stdout(self) -> StreamReaderLike | None: ...
+    @property
+    def returncode(self) -> int | None: ...
+    async def wait(self) -> int: ...
+
 
 from src.core.state_manager import state_manager, AttackStatus
 from src.api.ws_manager import ws_manager, WSMessage
@@ -20,6 +31,7 @@ class WorkerService:
         self._process: asyncio.subprocess.Process | None = None
         self._monitor_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
+        self._active_tasks: set[asyncio.Task[Any]] = set()
 
     async def start_attack(
         self,
@@ -103,7 +115,30 @@ class WorkerService:
         await state_manager.update_status(AttackStatus.STOPPED)
         await self._broadcast_state()
 
-    async def _monitor_process(self, proc: Any, log_callback: Any | None = None) -> None:
+    async def _monitor_process(self, proc: ProcessLike, log_callback: Any | None = None) -> None:
+        """Monitor process stdout using buffered reading and sequential Queue-based logging."""
+        queue: asyncio.Queue[str] = asyncio.Queue()
+
+        async def log_consumer() -> None:
+            """Consume logs sequentially from queue to guarantee order."""
+            while True:
+                line = await queue.get()
+                try:
+                    if log_callback:
+                        if asyncio.iscoroutinefunction(log_callback):
+                            await log_callback(line)
+                        else:
+                            log_callback(line)
+                except Exception as e:
+                    logger.debug(f"Error in log_callback: {e}")
+                finally:
+                    queue.task_done()
+
+        # Start consumer task and store strong reference
+        consumer_task = asyncio.create_task(log_consumer())
+        self._active_tasks.add(consumer_task)
+        consumer_task.add_done_callback(self._active_tasks.discard)
+
         try:
             if proc.stdout and hasattr(proc.stdout, "read"):
                 buffer = b""
@@ -115,15 +150,18 @@ class WorkerService:
                     if not chunk or not isinstance(chunk, bytes):
                         if buffer:
                             decoded = buffer.decode("utf-8", errors="replace").strip()
-                            if decoded and log_callback:
-                                self._dispatch_log(log_callback, decoded)
+                            if decoded:
+                                await queue.put(decoded)
                         break
                     buffer += chunk
                     while b"\n" in buffer:
                         line, buffer = buffer.split(b"\n", 1)
                         decoded = line.decode("utf-8", errors="replace").strip()
-                        if decoded and log_callback:
-                            self._dispatch_log(log_callback, decoded)
+                        if decoded:
+                            await queue.put(decoded)
+
+            # Ensure all log items are consumed before finishing
+            await queue.join()
 
             returncode = await proc.wait()
             async with self._lock:
@@ -144,15 +182,12 @@ class WorkerService:
             logger.exception(f"Error monitoring attack process: {exc}")
             await state_manager.update_status(AttackStatus.ERROR, str(exc))
             await self._broadcast_state()
-
-    def _dispatch_log(self, log_callback: Any, decoded: str) -> None:
-        try:
-            if asyncio.iscoroutinefunction(log_callback):
-                asyncio.create_task(log_callback(decoded))
-            else:
-                log_callback(decoded)
-        except Exception as e:
-            logger.debug(f"Error in log_callback: {e}")
+        finally:
+            consumer_task.cancel()
+            try:
+                await consumer_task
+            except asyncio.CancelledError:
+                pass
 
     async def _terminate_process_tree(self, pid: int) -> None:
         """Windows-resilient process tree termination."""
