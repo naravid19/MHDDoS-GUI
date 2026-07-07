@@ -33,6 +33,7 @@ class TokenBucketRateLimiter:
         self.last_update = time.monotonic()
         self.active_workers_scale = 1.0
         self.current_jitter_delay = 0.0
+        self._lock = asyncio.Lock()
 
     async def calculate_backoff(self, cpu_pct: float, ram_pct: float) -> float:
         """
@@ -49,17 +50,21 @@ class TokenBucketRateLimiter:
         return self.current_jitter_delay
 
     async def acquire(self) -> None:
-        now = time.monotonic()
-        elapsed = now - self.last_update
-        self.last_update = now
-        self.tokens = min(float(self.capacity), self.tokens + elapsed * self.rate)
-        
-        if self.tokens < 1.0:
-            wait_time = (1.0 - self.tokens) / self.rate
+        async with self._lock:
+            now = time.monotonic()
+            elapsed = now - self.last_update
+            self.last_update = now
+            self.tokens = min(float(self.capacity), self.tokens + elapsed * self.rate)
+            
+            if self.tokens < 1.0:
+                wait_time = (1.0 - self.tokens) / self.rate
+                self.tokens -= 1.0
+            else:
+                self.tokens -= 1.0
+                wait_time = 0.0
+                
+        if wait_time > 0.0:
             await asyncio.sleep(wait_time)
-            self.tokens = 0.0
-        else:
-            self.tokens -= 1.0
 
 
 class WorkerService:

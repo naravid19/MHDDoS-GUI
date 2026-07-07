@@ -112,3 +112,20 @@ async def test_token_bucket_backoff_recovery():
     finally:
         service_module.asyncio.sleep = original_service_sleep
 
+@pytest.mark.asyncio
+async def test_token_bucket_concurrent_requests():
+    # rate=10.0, capacity=2
+    # 10 requests total
+    # 2 are immediate, 8 queue with incrementing sleeps.
+    # Total time should be around 0.8 seconds (>= 0.7s)
+    limiter = TokenBucketRateLimiter(rate=10.0, capacity=2)
+    
+    async def task():
+        await limiter.acquire()
+        
+    start = time.monotonic()
+    await asyncio.gather(*(task() for _ in range(10)))
+    elapsed = time.monotonic() - start
+    
+    assert elapsed >= 0.7
+
