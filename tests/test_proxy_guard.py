@@ -46,3 +46,67 @@ async def test_proxy_circuit_breaker_compatibility():
     
     await asyncio.sleep(0.15)
     assert cb.is_available(proxy) is True
+
+
+def test_proxy_rotation():
+    silo = ProxyPoolSilo()
+    silo.add_proxies(["http://1.1.1.1:80", "http://2.2.2.2:80", "http://3.3.3.3:80"])
+    
+    p1 = silo.get_proxy("http")
+    p2 = silo.get_proxy("http")
+    p3 = silo.get_proxy("http")
+    p4 = silo.get_proxy("http")
+    
+    assert p1 == "http://1.1.1.1:80"
+    assert p2 == "http://2.2.2.2:80"
+    assert p3 == "http://3.3.3.3:80"
+    assert p4 == "http://1.1.1.1:80"
+
+
+def test_https_mapping():
+    silo = ProxyPoolSilo()
+    silo.add_proxies(["http://1.1.1.1:80"])
+    assert silo.get_proxy("https") == "http://1.1.1.1:80"
+
+
+def test_exact_error_code_matching():
+    silo = ProxyPoolSilo()
+    silo.add_proxies(["http://1.1.1.1:80"])
+    
+    # "135" contains "35", but should not trigger circuit breaker because it's a substring, not exact match
+    silo.report_failure("http://1.1.1.1:80", "135")
+    silo.report_failure("http://1.1.1.1:80", "135")
+    assert silo.is_quarantined("http://1.1.1.1:80") is False
+    
+    # Exact match "35" should trigger circuit breaker
+    silo.report_failure("http://1.1.1.1:80", "35")
+    silo.report_failure("http://1.1.1.1:80", "35")
+    assert silo.is_quarantined("http://1.1.1.1:80") is True
+
+
+def test_url_sanitization():
+    silo = ProxyPoolSilo()
+    silo.add_proxies(["  http://1.1.1.1:80  ", "\tsocks5://2.2.2.2:1080\n"])
+    assert "http://1.1.1.1:80" in silo.silos["http"]
+    assert "socks5://2.2.2.2:1080" in silo.silos["socks5"]
+
+
+@pytest.mark.asyncio
+async def test_quarantine_cleanup_memory_growth():
+    cb = ProxyCircuitBreaker(failure_threshold=1, recovery_timeout=0.05)
+    proxy1 = "http://1.1.1.1:80"
+    proxy2 = "http://2.2.2.2:80"
+    
+    cb.record_failure(proxy1)
+    cb.record_failure(proxy2)
+    assert proxy1 in cb.quarantined_until
+    assert proxy2 in cb.quarantined_until
+    
+    await asyncio.sleep(0.08)
+    
+    # We check proxy1. In the current codebase, checking proxy1 will NOT clean up proxy2 from quarantined_until.
+    assert cb.is_quarantined(proxy1) is False
+    
+    # Under current code, proxy2 is still in quarantined_until, but under the new cleanup it should be removed.
+    assert proxy2 not in cb.quarantined_until
+
