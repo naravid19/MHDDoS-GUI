@@ -1504,7 +1504,8 @@ async def stop_attack(params: StopParams | None = None) -> StatusResponse:
         for nid in list(C2.workers.keys()):
             C2.pending_tasks[nid].append({"action": "stop", "task_id": "all"})
         await worker_service.stop_attack()
-        for tid in list(state.active_tasks.keys()):
+        for tid, proc in list(state.active_tasks.items()):
+            await worker_service.terminate_process_tree(proc)
             del state.active_tasks[tid]
             await HistoryDB.finalize_session(tid, 'aborted')
         snapshot = await state_manager.get_state()
@@ -1538,9 +1539,11 @@ async def stop_attack(params: StopParams | None = None) -> StatusResponse:
 
     await broadcast_log(json.dumps({"task_id": task_id, "type": "system", "msg": f"[*] INITIATING TERMINATION FOR TASK {task_id}: Cleaning up process tree..."}), priority="high")
     try:
-        await worker_service.stop_attack()
         if task_id in state.active_tasks:
+            proc = state.active_tasks[task_id]
+            await worker_service.terminate_process_tree(proc)
             del state.active_tasks[task_id]
+        await worker_service.stop_attack()
 
         asyncio.create_task(fire_webhook("Attack Manual Termination", f"Task ID: {task_id}\nTarget: {target}"))
 

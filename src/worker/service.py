@@ -189,8 +189,39 @@ class WorkerService:
             except asyncio.CancelledError:
                 pass
 
-    async def _terminate_process_tree(self, pid: int) -> None:
-        """Windows-resilient process tree termination."""
+    async def _terminate_process_tree(self, target: Any) -> None:
+        """Robust multi-layer process tree termination using psutil, taskkill, and process handle methods."""
+        pid = None
+        proc = None
+        if isinstance(target, int):
+            pid = target
+            if self._process and getattr(self._process, "pid", None) == pid:
+                proc = self._process
+        elif hasattr(target, "pid"):
+            proc = target
+            pid = getattr(target, "pid", None)
+
+        if not pid:
+            return
+
+        # Layer 1: psutil recursive child & parent termination
+        try:
+            import psutil
+            parent = psutil.Process(pid)
+            children = parent.children(recursive=True)
+            for child in children:
+                try:
+                    child.kill()
+                except Exception:
+                    pass
+            try:
+                parent.kill()
+            except Exception:
+                pass
+        except Exception as exc:
+            logger.debug(f"psutil tree kill note for PID {pid}: {exc}")
+
+        # Layer 2: Platform-specific tree kill (taskkill / SIGTERM / SIGKILL)
         if sys.platform == "win32":
             try:
                 kill_proc = await asyncio.create_subprocess_exec(
@@ -200,14 +231,36 @@ class WorkerService:
                 )
                 await kill_proc.wait()
             except Exception as exc:
-                logger.error(f"taskkill failed for PID {pid}: {exc}")
+                logger.debug(f"taskkill note for PID {pid}: {exc}")
         else:
             try:
                 import os
                 import signal
                 os.killpg(os.getpgid(pid), signal.SIGTERM)
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
             except Exception as exc:
-                logger.error(f"SIGTERM failed for PID {pid}: {exc}")
+                logger.debug(f"SIGKILL note for PID {pid}: {exc}")
+
+        # Layer 3: Direct asyncio.subprocess.Process handle termination
+        if proc is not None:
+            try:
+                if hasattr(proc, "terminate"):
+                    res = proc.terminate()
+                    if asyncio.iscoroutine(res):
+                        await res
+            except Exception:
+                pass
+            try:
+                if hasattr(proc, "kill"):
+                    res = proc.kill()
+                    if asyncio.iscoroutine(res):
+                        await res
+            except Exception:
+                pass
+
+    async def terminate_process_tree(self, target: Any) -> None:
+        """Alias for _terminate_process_tree."""
+        await self._terminate_process_tree(target)
 
     async def _broadcast_state(self) -> None:
         state = await state_manager.get_state()

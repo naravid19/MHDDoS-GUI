@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.6] - 2026-07-07
+### Fixed
+- **Attack Process Tree Termination (Critical)**: Fixed an issue where clicking "Stop Attack" failed to terminate grandchild processes (such as `bombardier`, Go core binaries, or browser workers). Implemented multi-layer process tree termination in `WorkerService._terminate_process_tree` utilizing recursive `psutil` child termination, Windows `taskkill /F /T /PID`, POSIX process groups (`SIGTERM`/`SIGKILL`), and direct process handle termination.
+- **Active Task Cleanup**: Updated `/api/attack/stop` in `src/app/main.py` to explicitly iterate through `state.active_tasks` and invoke `terminate_process_tree` on each tracked process handle before removing it from state.
+
 ## [1.6.5] - 2026-07-05
 ### Added
 - **Unified State Manager (`src/core/state_manager.py`)**: Implemented thread-safe Single Source of Truth (SSOT) using `asyncio.Lock()` and Pydantic V2 models (`AttackStateSnapshot`, `AttackStatus`) to prevent state desynchronization across UI and backend layers.
