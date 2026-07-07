@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 logger = logging.getLogger("mhddos_gui.proxy_guard")
 
@@ -19,6 +19,7 @@ class ProxyCircuitBreaker:
         self.quarantine_duration = recovery_timeout if recovery_timeout is not None else quarantine_duration
         self.failures: Dict[str, int] = {}
         self.quarantined_until: Dict[str, float] = {}
+        self.last_cleanup = 0.0
 
     def record_failure(self, proxy: str) -> None:
         self.failures[proxy] = self.failures.get(proxy, 0) + 1
@@ -42,9 +43,14 @@ class ProxyCircuitBreaker:
             self.failures.pop(proxy, None)
 
     def is_quarantined(self, proxy: str) -> bool:
-        self.cleanup_expired()
+        now = time.time()
+        # Rate-limit full cleanup to once every 15 seconds
+        if now - self.last_cleanup > 15.0:
+            self.cleanup_expired()
+            self.last_cleanup = now
+
         if proxy in self.quarantined_until:
-            if time.time() < self.quarantined_until[proxy]:
+            if now < self.quarantined_until[proxy]:
                 return True
             else:
                 self.quarantined_until.pop(proxy, None)
