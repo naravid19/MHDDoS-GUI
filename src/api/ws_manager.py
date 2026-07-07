@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+import time
+from typing import Any, Dict
 from fastapi import WebSocket
 from pydantic import BaseModel
 
@@ -75,3 +76,64 @@ class ConnectionManager:
 
 
 ws_manager = ConnectionManager()
+
+
+class TelemetryAggregator:
+    def __init__(self, emit_interval: float = 1.0):
+        self.emit_interval = emit_interval
+        self.last_emit = time.time()
+        self.ok_count = 0
+        self.waf_count = 0
+        self.err_count = 0
+        self.tmo_count = 0
+        self.total_latency = 0.0
+        self.probe_count = 0
+
+    def record_probe(self, status: int, is_waf: bool = False, latency_ms: float = 0.0, is_err: bool = False, is_tmo: bool = False) -> None:
+        self.probe_count += 1
+        if is_waf or status == 403:
+            self.waf_count += 1
+        elif is_tmo:
+            self.tmo_count += 1
+        elif is_err or status >= 500:
+            self.err_count += 1
+        elif status == 200:
+            self.ok_count += 1
+            
+        if latency_ms > 0:
+            self.total_latency += latency_ms
+
+    def get_telemetry_frame(self, target: str, method: str) -> Dict[str, Any]:
+        now = time.time()
+        elapsed = max(now - self.last_emit, 1.0)
+        
+        pps = int(self.probe_count / elapsed)
+        avg_latency = round(self.total_latency / max(self.probe_count, 1), 2)
+        
+        frame = {
+            "timestamp": int(now),
+            "target": target,
+            "method": method,
+            "status": {
+                "pps": pps,
+                "bps_kb": round(pps * 5.8, 2),
+                "latency_ms": avg_latency
+            },
+            "counters": {
+                "ok": self.ok_count,
+                "waf": self.waf_count,
+                "err": self.err_count,
+                "tmo": self.tmo_count
+            }
+        }
+        
+        # Reset counters after frame generation
+        self.last_emit = now
+        self.probe_count = 0
+        self.ok_count = 0
+        self.waf_count = 0
+        self.err_count = 0
+        self.tmo_count = 0
+        self.total_latency = 0.0
+        
+        return frame
