@@ -5,7 +5,8 @@ import asyncio
 import logging
 import subprocess
 import sys
-from typing import Any, Protocol
+import time
+from typing import Any, Protocol, Optional
 
 class StreamReaderLike(Protocol):
     async def read(self, n: int = -1) -> bytes: ...
@@ -22,6 +23,43 @@ from src.core.state_manager import state_manager, AttackStatus
 from src.api.ws_manager import ws_manager, WSMessage
 
 logger = logging.getLogger("mhddos_gui.worker")
+
+
+class TokenBucketRateLimiter:
+    def __init__(self, rate: float = 100.0, capacity: int = 100):
+        self.rate = rate
+        self.capacity = capacity
+        self.tokens = float(capacity)
+        self.last_update = time.monotonic()
+        self.active_workers_scale = 1.0
+        self.current_jitter_delay = 0.0
+
+    async def calculate_backoff(self, cpu_pct: float, ram_pct: float) -> float:
+        """
+        Calculates graceful jitter delay under host pressure without dropping workers.
+        """
+        if cpu_pct > 85.0 or ram_pct > 80.0:
+            # Add dynamic jitter backoff instead of terminating threads
+            self.current_jitter_delay = min(self.current_jitter_delay + 0.05, 0.50)
+        elif cpu_pct < 60.0 and ram_pct < 70.0:
+            self.current_jitter_delay = max(self.current_jitter_delay - 0.02, 0.0)
+            
+        if self.current_jitter_delay > 0:
+            await asyncio.sleep(self.current_jitter_delay)
+        return self.current_jitter_delay
+
+    async def acquire(self) -> None:
+        now = time.monotonic()
+        elapsed = now - self.last_update
+        self.last_update = now
+        self.tokens = min(float(self.capacity), self.tokens + elapsed * self.rate)
+        
+        if self.tokens < 1.0:
+            wait_time = (1.0 - self.tokens) / self.rate
+            await asyncio.sleep(wait_time)
+            self.tokens = 0.0
+        else:
+            self.tokens -= 1.0
 
 
 class WorkerService:
