@@ -936,25 +936,50 @@ async def resolve_turnstile_challenge(page: Any, timeout: int = 15000) -> bool:
     and verifying bounding box height > 0 before interacting.
     """
     try:
-        await page.wait_for_selector("#turnstile-wrapper iframe", state="visible", timeout=timeout)
+        # Resilient selectors targeting different Cloudflare structures
+        selectors = [
+            "#turnstile-wrapper iframe",
+            "iframe[src*='challenges.cloudflare.com']",
+            "iframe[id^='cf-']"
+        ]
+        
+        target_selector = None
+        for sel in selectors:
+            try:
+                await page.wait_for_selector(sel, state="visible", timeout=1000)
+                target_selector = sel
+                break
+            except Exception:
+                continue
+                
+        if not target_selector:
+            # Fallback to the primary selector with full timeout
+            target_selector = selectors[0]
+            await page.wait_for_selector(target_selector, state="visible", timeout=timeout)
         
         max_attempts = 5
         for attempt in range(max_attempts):
-            box = await page.evaluate("""() => {
-                const el = document.querySelector("#turnstile-wrapper iframe");
-                return el ? el.getBoundingClientRect() : {height: 0};
-            }""")
+            box = await page.evaluate(f"""() => {{
+                const el = document.querySelector("{target_selector}");
+                return el ? el.getBoundingClientRect() : {{height: 0}};
+            }}""")
             
             if box and box.get("height", 0) > 0:
                 break
                 
             # Force layout reflow if element height is 0
+            original_viewport = getattr(page, "viewport_size", None)
             await page.set_viewport_size({"width": 1920, "height": 1080})
             await asyncio.sleep(1.0)
+            if original_viewport:
+                try:
+                    await page.set_viewport_size(original_viewport)
+                except Exception:
+                    pass
         else:
             return False
             
-        frame = page.frame_locator("#turnstile-wrapper iframe")
+        frame = page.frame_locator(target_selector)
         checkbox = frame.locator("input[type='checkbox'], .cb-lb")
         
         # Add entropy jitter before clicking
