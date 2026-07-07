@@ -28,13 +28,27 @@ class ProxyCircuitBreaker:
                 f"[Circuit Breaker] Evicting/quarantining proxy {proxy} after {self.failures[proxy]} failures."
             )
 
+    def cleanup_expired(self) -> None:
+        """Remove all expired quarantine entries from the circuit breaker to prevent memory leaks."""
+        if not self.quarantined_until:
+            return
+        now = time.time()
+        expired_proxies = [
+            proxy for proxy, until in self.quarantined_until.items()
+            if now >= until
+        ]
+        for proxy in expired_proxies:
+            self.quarantined_until.pop(proxy, None)
+            self.failures.pop(proxy, None)
+
     def is_quarantined(self, proxy: str) -> bool:
+        self.cleanup_expired()
         if proxy in self.quarantined_until:
             if time.time() < self.quarantined_until[proxy]:
                 return True
             else:
-                del self.quarantined_until[proxy]
-                self.failures[proxy] = 0
+                self.quarantined_until.pop(proxy, None)
+                self.failures.pop(proxy, None)
         return False
 
     # --- Legacy Compatibility Layer ---
@@ -69,10 +83,18 @@ class ProxyPoolSilo:
             "socks5": []
         }
         self.circuit_breaker = ProxyCircuitBreaker()
+        self.current_indices: Dict[str, int] = {
+            "http": 0,
+            "socks4": 0,
+            "socks5": 0
+        }
 
     def add_proxies(self, proxy_list: List[str]) -> None:
         """Parses and distributes raw proxy strings into their protocol silos."""
         for p in proxy_list:
+            p = p.strip()
+            if not p:
+                continue
             p_lower = p.lower()
             if p_lower.startswith("socks5://") or p_lower.startswith("socks5h://"):
                 self.silos["socks5"].append(p)
@@ -84,19 +106,34 @@ class ProxyPoolSilo:
                 self.silos["http"].append(p)
 
     def get_proxy(self, protocol: str) -> Optional[str]:
-        """Returns the first non-quarantined proxy for the specified protocol, or None if none available."""
+        """Returns a non-quarantined proxy for the specified protocol, rotating through available healthy proxies in a round-robin fashion."""
         protocol = protocol.lower()
+        if protocol == "https":
+            protocol = "http"
+            
         if protocol not in self.silos:
             return None
-        for proxy in self.silos[protocol]:
+            
+        proxies = self.silos[protocol]
+        if not proxies:
+            return None
+            
+        n = len(proxies)
+        start_idx = self.current_indices.get(protocol, 0) % n
+        
+        for i in range(n):
+            idx = (start_idx + i) % n
+            proxy = proxies[idx]
             if not self.circuit_breaker.is_quarantined(proxy):
+                self.current_indices[protocol] = (idx + 1) % n
                 return proxy
+                
         return None
 
     def report_failure(self, proxy: str, error_code: str) -> None:
         """Records a failure on a proxy if the error indicates a connection/protocol level failure."""
         critical_errors = {"CURLE_COULDNT_CONNECT", "0x01", "97", "35", "SOCKS_FAILURE"}
-        if any(err in error_code for err in critical_errors):
+        if error_code in critical_errors:
             self.circuit_breaker.record_failure(proxy)
 
     def is_quarantined(self, proxy: str) -> bool:
