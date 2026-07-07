@@ -930,6 +930,41 @@ CURRENT_LATENCY = RawValue("d", 0.0)
 DYNAMIC_RPC = RawValue("i", 100)
 
 
+async def resolve_turnstile_challenge(page: Any, timeout: int = 15000) -> bool:
+    """
+    Resolves Cloudflare Turnstile challenge by waiting for Shadow DOM rendering
+    and verifying bounding box height > 0 before interacting.
+    """
+    try:
+        await page.wait_for_selector("#turnstile-wrapper iframe", state="visible", timeout=timeout)
+        
+        max_attempts = 5
+        for attempt in range(max_attempts):
+            box = await page.evaluate("""() => {
+                const el = document.querySelector("#turnstile-wrapper iframe");
+                return el ? el.getBoundingClientRect() : {height: 0};
+            }""")
+            
+            if box and box.get("height", 0) > 0:
+                break
+                
+            # Force layout reflow if element height is 0
+            await page.set_viewport_size({"width": 1920, "height": 1080})
+            await asyncio.sleep(1.0)
+        else:
+            return False
+            
+        frame = page.frame_locator("#turnstile-wrapper iframe")
+        checkbox = frame.locator("input[type='checkbox'], .cb-lb")
+        
+        # Add entropy jitter before clicking
+        await asyncio.sleep(random.uniform(0.2, 0.6))
+        await checkbox.click(delay=random.randint(120, 300))
+        return True
+    except Exception:
+        return False
+
+
 async def _check_target_latency_once(scheme: str, target_host: str, port: int, timeout: int) -> None:
     """Helper to perform a single latency check with WAF challenge detection."""
     import aiohttp
