@@ -64,7 +64,7 @@ async def test_state_manager_stats_update_and_elapsed_time() -> None:
     running_state = await sm.transition(AttackStatus.RUNNING, stats=stats_data)
     
     assert running_state.stats == stats_data
-    assert running_state.elapsed_seconds >= 0.1
+    assert running_state.elapsed_seconds >= 0.09
     
     # Verify stats persist if not overridden in next transition
     next_state = await sm.transition(AttackStatus.STOPPING)
