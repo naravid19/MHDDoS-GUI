@@ -233,7 +233,7 @@ class WorkerService:
                 pass
 
     async def _terminate_process_tree(self, target: Any) -> None:
-        """Robust multi-layer process tree termination using psutil, taskkill, and process handle methods."""
+        """Robust multi-layer process tree termination using taskkill (first on Windows), psutil, and process handles."""
         pid = None
         proc = None
         if isinstance(target, int):
@@ -247,7 +247,27 @@ class WorkerService:
         if not pid:
             return
 
-        # Layer 1: psutil recursive child & parent termination
+        # Layer 1 (Windows-first): Execute taskkill /F /T while parent PID graph is intact
+        if sys.platform == "win32":
+            try:
+                kill_proc = await asyncio.create_subprocess_exec(
+                    "taskkill", "/F", "/T", "/PID", str(pid),
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                await asyncio.wait_for(kill_proc.wait(), timeout=5.0)
+            except Exception as exc:
+                logger.debug(f"taskkill note for PID {pid}: {exc}")
+        else:
+            try:
+                import os
+                import signal
+                os.killpg(os.getpgid(pid), signal.SIGTERM)
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
+            except Exception as exc:
+                logger.debug(f"POSIX process group kill note for PID {pid}: {exc}")
+
+        # Layer 2: psutil recursive child & parent cleanup for any remaining survivors
         try:
             import psutil
             parent = psutil.Process(pid)
@@ -263,26 +283,6 @@ class WorkerService:
                 pass
         except Exception as exc:
             logger.debug(f"psutil tree kill note for PID {pid}: {exc}")
-
-        # Layer 2: Platform-specific tree kill (taskkill / SIGTERM / SIGKILL)
-        if sys.platform == "win32":
-            try:
-                kill_proc = await asyncio.create_subprocess_exec(
-                    "taskkill", "/F", "/T", "/PID", str(pid),
-                    stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.DEVNULL,
-                )
-                await kill_proc.wait()
-            except Exception as exc:
-                logger.debug(f"taskkill note for PID {pid}: {exc}")
-        else:
-            try:
-                import os
-                import signal
-                os.killpg(os.getpgid(pid), signal.SIGTERM)
-                os.killpg(os.getpgid(pid), signal.SIGKILL)
-            except Exception as exc:
-                logger.debug(f"SIGKILL note for PID {pid}: {exc}")
 
         # Layer 3: Direct asyncio.subprocess.Process handle termination
         if proc is not None:
