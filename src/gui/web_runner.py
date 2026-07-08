@@ -105,6 +105,51 @@ def start_redis_backend():
     except Exception as e:
         print(f"[!] Redis Management Error: {e}")
 
+def is_port_listening(port: int) -> bool:
+    """Checks if a port is open and listening locally."""
+    with socket(AF_INET, SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) == 0
+
+def start_flaresolverr_backend():
+    """Checks and starts portable FlareSolverr backend if port 8191 is inactive."""
+    try:
+        if is_port_listening(8191):
+            print("[*] FlareSolverr: ACTIVE (Listening on port 8191)")
+            return
+
+        bin_dir = Path(__file__).resolve().parent.parent.parent / "bin"
+        candidates = [
+            bin_dir / "flaresolverr" / "flaresolverr.exe",
+            bin_dir / "flaresolverr.exe",
+            bin_dir / "flaresolverr" / "FlareSolverr.exe",
+            bin_dir / "FlareSolverr.exe"
+        ]
+
+        fs_path = None
+        for candidate in candidates:
+            if candidate.exists():
+                fs_path = candidate
+                break
+
+        if fs_path:
+            print("[*] FlareSolverr: STARTING...")
+            subprocess.Popen(
+                [str(fs_path)],
+                cwd=str(fs_path.parent),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=0x08000000 if sys.platform == "win32" else 0
+            )
+            time.sleep(1.5)  # Give it a moment to initialize
+            if is_port_listening(8191):
+                print("[*] FlareSolverr: ONLINE (Port 8191)")
+            else:
+                print("[!] FlareSolverr: FAILED TO BIND to port 8191")
+        else:
+            print("[*] FlareSolverr: NOT FOUND in bin/flaresolverr/ (Optional for bypass methods)")
+    except Exception as e:
+        print(f"[!] FlareSolverr Management Error: {e}")
+
 def find_available_port(start_port: int, max_attempts: int = 100) -> int:
     """Finds the first available port starting from start_port."""
     for port in range(start_port, start_port + max_attempts):
@@ -126,6 +171,7 @@ def main() -> None:
     
     # 0. System Dependencies
     start_redis_backend()
+    start_flaresolverr_backend()
     
     # 1. Port Selection & Conflict Handling
     # Priority: 1. CLI --port, 2. .env MHDDoS_PORT, 3. Default 8000

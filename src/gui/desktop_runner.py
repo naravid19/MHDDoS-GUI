@@ -9,8 +9,55 @@ from typing import Optional
 import requests
 import webview
 
+from pathlib import Path
+
 API_URL = "http://127.0.0.1:8000"
 HEALTH_ENDPOINT = f"{API_URL}/api/health"
+
+def is_port_listening(port: int) -> bool:
+    """Checks if a port is open and listening locally."""
+    with socket(AF_INET, SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) == 0
+
+def start_flaresolverr_backend():
+    """Checks and starts portable FlareSolverr backend if port 8191 is inactive."""
+    try:
+        if is_port_listening(8191):
+            print("[*] FlareSolverr: ACTIVE (Listening on port 8191)")
+            return
+
+        bin_dir = Path(__file__).resolve().parent.parent.parent / "bin"
+        candidates = [
+            bin_dir / "flaresolverr" / "flaresolverr.exe",
+            bin_dir / "flaresolverr.exe",
+            bin_dir / "flaresolverr" / "FlareSolverr.exe",
+            bin_dir / "FlareSolverr.exe"
+        ]
+
+        fs_path = None
+        for candidate in candidates:
+            if candidate.exists():
+                fs_path = candidate
+                break
+
+        if fs_path:
+            print("[*] FlareSolverr: STARTING...")
+            subprocess.Popen(
+                [str(fs_path)],
+                cwd=str(fs_path.parent),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=0x08000000 if sys.platform == "win32" else 0
+            )
+            time.sleep(1.5)  # Give it a moment to initialize
+            if is_port_listening(8191):
+                print("[*] FlareSolverr: ONLINE (Port 8191)")
+            else:
+                print("[!] FlareSolverr: FAILED TO BIND to port 8191")
+        else:
+            print("[*] FlareSolverr: NOT FOUND in bin/flaresolverr/ (Optional for bypass methods)")
+    except Exception as e:
+        print(f"[!] FlareSolverr Management Error: {e}")
 
 def is_api_running() -> bool:
     """Checks if something is already listening on port 8000."""
@@ -36,6 +83,7 @@ def wait_for_api(timeout: float = 10.0) -> bool:
         time.sleep(0.5)
     return False
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="MHDDoS Professional Desktop Launcher")
     parser.add_argument("--debug", action="store_true", help="Enable developer tools for UI debugging")
@@ -46,6 +94,9 @@ def main() -> None:
     # 1. Check if server is already active
     server_process: Optional[subprocess.Popen[bytes]] = None
     if not is_api_running():
+        # Auto-start FlareSolverr backend if not already active
+        start_flaresolverr_backend()
+        
         # 2. Prepare paths
         try:
             from src.core.paths import get_project_root
