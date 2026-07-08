@@ -652,15 +652,15 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
                         "task_id": task_id,
                         "type": "telemetry",
                         "level": "DEBUG",
-                        "rps": _parse_numeric(m_pps.group(1)),           # renamed pps→rps, float
-                        "bps": _parse_numeric(m_bps.group(1)),           # float
-                        "lat": _parse_numeric(lat_raw.replace('ms','')), # float in ms
-                        "threads": int(m_pool.group(1)) if m_pool else 0, # NEW: int
+                        "rps": float(_parse_numeric(m_pps.group(1))),           # float rps
+                        "bps": float(_parse_numeric(m_bps.group(1))),           # float bps
+                        "lat": float(_parse_numeric(lat_raw.replace('ms', ''))), # float in ms
+                        "threads": int(m_pool.group(1)) if m_pool else 0,
                         "pool_total": int(m_pool.group(2)) if m_pool else 0,
                         "pool_warm": int(m_pool.group(3)) if m_pool and m_pool.group(3) else 0,
                     })
-            except Exception as e:
-                logger.debug(f"Telemetry parse error: {e}")
+            except Exception as exc:
+                logger.debug(f"Telemetry parse error: {exc}")
 
         # 3. Dynamic Impact Metric Extraction (Textual Fallback)
         if "Impact:" in decoded_line:

@@ -20,6 +20,18 @@ if sys.stderr and sys.stderr.encoding and sys.stderr.encoding.lower() != 'utf-8'
     except Exception:
         pass
 
+# Force unbuffered/line-buffered stdout so real-time telemetry reaches WorkerService immediately across asyncio pipes
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(line_buffering=True)
+    except Exception:
+        pass
+
 from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
