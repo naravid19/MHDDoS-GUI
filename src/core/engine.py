@@ -768,10 +768,19 @@ def promote_target_for_waf(target_url: str, method: str, current_port: int = 80)
     method_upper = method.upper()
     tls_required_methods = {"CFB", "CFBUAM", "BYPASS", "TLS", "VSE", "NULL", "SLOW", "COOKIE", "STRESS", "DGB", "AVB"}
     if method_upper in tls_required_methods:
-        if target_url.lower().startswith("http://") or current_port == 80:
-            promoted_url = target_url.replace("http://", "https://", 1) if target_url.lower().startswith("http://") else f"https://{target_url}"
-            logger.info(f"[*] WAF Auto-Promotion: Upgraded target from HTTP/80 to HTTPS/443 for method {method_upper}")
-            return promoted_url, 443
+        try:
+            u = URL(target_url if "://" in target_url else f"http://{target_url}")
+            if u.scheme == "http" or u.port == 80 or current_port == 80:
+                new_port = 443 if u.port in (80, None) or current_port == 80 else u.port
+                promoted_url = str(u.with_scheme("https").with_port(new_port))
+                logger.info(f"[*] WAF Auto-Promotion: Upgraded target from HTTP/80 to HTTPS/443 for method {method_upper}")
+                return promoted_url, 443 if new_port == 443 else new_port
+        except Exception:
+            if target_url.lower().startswith("http://") or current_port == 80:
+                promoted_url = target_url.replace("http://", "https://", 1) if target_url.lower().startswith("http://") else f"https://{target_url}"
+                promoted_url = re.sub(r":80(?=/|$)", "", promoted_url)
+                logger.info(f"[*] WAF Auto-Promotion: Upgraded target from HTTP/80 to HTTPS/443 for method {method_upper}")
+                return promoted_url, 443
     return target_url, current_port
 
 
