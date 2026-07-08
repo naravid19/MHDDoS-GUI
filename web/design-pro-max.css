@@ -34,7 +34,7 @@ body {
     background-image: 
         radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
         radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
-    overflow: hidden;
+    overflow-y: auto;
     -webkit-font-smoothing: antialiased;
 }
 
