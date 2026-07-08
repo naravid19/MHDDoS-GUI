@@ -122,3 +122,15 @@ def test_proxy_silo_timeout_eviction():
     assert silo.is_quarantined("socks5://1.2.3.4:1080")
 
 
+def test_proxy_silo_composite_error_matching():
+    """Verify that composite error strings with punctuation (e.g. 'curl error 28:' or '[WinError 10061]') properly trigger quarantine."""
+    silo = ProxyPoolSilo()
+    silo.add_proxies(["socks5://5.5.5.5:1080"])
+    
+    silo.report_failure("socks5://5.5.5.5:1080", "curl error 28: Connection timed out")
+    silo.report_failure("socks5://5.5.5.5:1080", "[WinError 10061] Connection refused")
+    
+    assert silo.is_quarantined("socks5://5.5.5.5:1080") is True
+
+
+

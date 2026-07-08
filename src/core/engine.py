@@ -1339,7 +1339,7 @@ class TacticalProxyPool:
         self._last_weight_update = 0
         self._update_weights()
 
-    def report_failure(self, proxy_obj: Proxy, error_code: str = ""):
+    def report_failure(self, proxy_obj: Proxy, error_code: str = "") -> None:
         p_str = str(proxy_obj)
         with self._lock:
             self._failures[p_str] = self._failures.get(p_str, 0) + 1
