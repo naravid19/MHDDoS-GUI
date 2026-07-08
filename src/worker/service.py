@@ -76,6 +76,21 @@ class WorkerService:
         self._lock = asyncio.Lock()
         self._active_tasks: set[asyncio.Task[Any]] = set()
 
+    async def _check_tier0_readiness(self, method: str) -> bool:
+        """Verify Tier 0 FlareSolverr service (port 8191) is online before launching WAF bypass attacks."""
+        if method.upper() not in {"CFB", "CFBUAM", "BYPASS"}:
+            return True
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection("127.0.0.1", 8191),
+                timeout=1.5
+            )
+            writer.close()
+            await writer.wait_closed()
+            return True
+        except Exception:
+            return False
+
     async def start_attack(
         self,
         target: str,
@@ -91,6 +106,13 @@ class WorkerService:
         async with self._lock:
             if self._process is not None and self._process.returncode is None:
                 raise RuntimeError("An attack is already running.")
+
+            if not await self._check_tier0_readiness(method):
+                error_msg = "Tier 0 FlareSolverr unreachable on localhost:8191."
+                logger.error(error_msg)
+                await state_manager.update_status(AttackStatus.ERROR, error_msg)
+                await self._broadcast_state()
+                raise RuntimeError(error_msg)
 
             cmd = cmd_args if cmd_args is not None else [
                 sys.executable, "-m", "mhddos_gui.cli",
