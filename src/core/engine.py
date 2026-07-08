@@ -763,6 +763,18 @@ def get_optimal_ram_threshold(platform_name: str = sys.platform) -> float:
     return 60.0
 
 
+def promote_target_for_waf(target_url: str, method: str, current_port: int = 80) -> tuple[str, int]:
+    """Auto-promotes HTTP target and port 80 to HTTPS port 443 for TLS/CFB methods to prevent redirect hangs."""
+    method_upper = method.upper()
+    tls_required_methods = {"CFB", "CFBUAM", "BYPASS", "TLS", "VSE", "NULL", "SLOW", "COOKIE", "STRESS", "DGB", "AVB"}
+    if method_upper in tls_required_methods:
+        if target_url.lower().startswith("http://") or current_port == 80:
+            promoted_url = target_url.replace("http://", "https://", 1) if target_url.lower().startswith("http://") else f"https://{target_url}"
+            logger.info(f"[*] WAF Auto-Promotion: Upgraded target from HTTP/80 to HTTPS/443 for method {method_upper}")
+            return promoted_url, 443
+    return target_url, current_port
+
+
 class DynamicScaler(Thread):
     def __init__(self, target_host: str, interval: int = 5):
         Thread.__init__(self, daemon=True)
@@ -5657,6 +5669,7 @@ async def main_async():
         timer = 3600
 
         if method in Methods.LAYER7_METHODS:
+            urlraw, _port_tmp = promote_target_for_waf(urlraw, method, 80 if urlraw.lower().startswith("http://") else 443)
             url = URL(urlraw)
             target_host = url.host
             host = target_host
