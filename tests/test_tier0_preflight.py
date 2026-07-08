@@ -25,3 +25,38 @@ async def test_preflight_check_fails_when_flaresolverr_offline():
                 rpc=100
             )
         mock_status.assert_called_with(AttackStatus.ERROR, "Tier 0 FlareSolverr unreachable on localhost:8191.")
+
+
+@pytest.mark.asyncio
+async def test_check_tier0_readiness_non_tls_methods_return_true():
+    """Verify that non-CFB/BYPASS methods bypass the TCP readiness check immediately."""
+    service = WorkerService()
+    for method in ("GET", "SYN", "UDP", "HTTP", "POST"):
+        assert await service._check_tier0_readiness(method) is True
+
+
+@pytest.mark.asyncio
+async def test_check_tier0_readiness_offline_returns_false():
+    """Verify that _check_tier0_readiness returns False when connection fails or times out."""
+    service = WorkerService()
+    
+    with patch("asyncio.open_connection", side_effect=ConnectionRefusedError()):
+        assert await service._check_tier0_readiness("CFB") is False
+    
+    with patch("asyncio.open_connection", side_effect=TimeoutError()):
+        assert await service._check_tier0_readiness("BYPASS") is False
+
+
+@pytest.mark.asyncio
+async def test_check_tier0_readiness_online_returns_true():
+    """Verify that _check_tier0_readiness returns True and cleanly closes the writer when connection succeeds."""
+    service = WorkerService()
+    
+    mock_reader = AsyncMock()
+    mock_writer = AsyncMock()
+    
+    with patch("asyncio.open_connection", return_value=(mock_reader, mock_writer)):
+        assert await service._check_tier0_readiness("CFB") is True
+        mock_writer.close.assert_called_once()
+        mock_writer.wait_closed.assert_awaited_once()
+
