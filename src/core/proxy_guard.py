@@ -138,8 +138,8 @@ class ProxyPoolSilo:
 
     def report_failure(self, proxy: str, error_code: str) -> None:
         """Records a failure on a proxy if the error indicates a connection/protocol level failure."""
-        critical_errors = {"CURLE_COULDNT_CONNECT", "0x01", "97", "35", "SOCKS_FAILURE"}
-        if error_code in critical_errors:
+        critical_errors = {"CURLE_COULDNT_CONNECT", "0x01", "97", "35", "SOCKS_FAILURE", "28", "10061", "TIMEOUT", "CURLE_OPERATION_TIMEDOUT"}
+        if error_code in critical_errors or any(code in error_code.split() for code in critical_errors):
             self.circuit_breaker.record_failure(proxy)
 
     def is_quarantined(self, proxy: str) -> bool:

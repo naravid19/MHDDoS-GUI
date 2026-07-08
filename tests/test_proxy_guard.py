@@ -110,3 +110,15 @@ async def test_quarantine_cleanup_memory_growth():
     # Under current code, proxy2 is still in quarantined_until, but under the new cleanup it should be removed.
     assert proxy2 not in cb.quarantined_until
 
+
+def test_proxy_silo_timeout_eviction():
+    """Verify that timeout (28) and winerror 10061 trigger circuit breaker failure counts."""
+    silo = ProxyPoolSilo()
+    silo.add_proxies(["socks5://1.2.3.4:1080"])
+    
+    silo.report_failure("socks5://1.2.3.4:1080", "28")
+    silo.report_failure("socks5://1.2.3.4:1080", "10061")
+    
+    assert silo.is_quarantined("socks5://1.2.3.4:1080")
+
+
