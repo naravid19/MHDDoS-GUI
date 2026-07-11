@@ -214,4 +214,16 @@ state_manager = StateManager()
 
 bypass_ready_event: asyncio.Event = asyncio.Event()
 current_cf_token: str | None = None
+main_loop: asyncio.AbstractEventLoop | None = None
+
+
+def set_bypass_ready() -> None:
+    """Thread-safe setter for bypass_ready_event."""
+    try:
+        loop = asyncio.get_running_loop()
+        bypass_ready_event.set()
+    except RuntimeError:
+        if main_loop:
+            main_loop.call_soon_threadsafe(bypass_ready_event.set)
+
 

