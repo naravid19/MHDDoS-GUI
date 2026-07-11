@@ -69,11 +69,11 @@ export async function handleMainAction() {
     const reflector = document.getElementById('reflector')?.value || '';
     
     // Boolean Flags
-    const auto_harvest = document.getElementById('auto_harvest')?.checked || false;
+    const auto_harvest = false; // handled by proxy_list === 'AUTO'
     const smart_rpc = document.getElementById('smart_rpc')?.checked || false;
     const autoscale = document.getElementById('autoscale')?.checked || false;
     const evasion = document.getElementById('evasion')?.checked || false;
-    const distribute_to_workers = document.getElementById('distribute_to_workers')?.checked || false;
+    const distribute_to_workers = false; // not exposed in current UI
     const debug_mode = document.getElementById('debug_mode')?.checked || false;
 
     if (!rawTarget) return showToast("Target vector required.", "warning");

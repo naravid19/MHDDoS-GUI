@@ -140,11 +140,17 @@ def start_flaresolverr_backend():
                 stderr=subprocess.DEVNULL,
                 creationflags=0x08000000 if sys.platform == "win32" else 0
             )
-            time.sleep(1.5)  # Give it a moment to initialize
-            if is_port_listening(8191):
-                print("[*] FlareSolverr: ONLINE (Port 8191)")
-            else:
-                print("[!] FlareSolverr: FAILED TO BIND to port 8191")
+            # Poll for up to 15s (FlareSolverr boots Chromium internally, takes 5-15s on Windows)
+            max_wait = 15.0
+            poll_interval = 0.5
+            elapsed = 0.0
+            while elapsed < max_wait:
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+                if is_port_listening(8191):
+                    print(f"[*] FlareSolverr: ONLINE (Port 8191) — ready in {elapsed:.1f}s")
+                    return
+            print("[!] FlareSolverr: FAILED TO BIND to port 8191 after 15s — will use Tier 1-4 fallback")
         else:
             print("[*] FlareSolverr: NOT FOUND in bin/flaresolverr/ (Optional for bypass methods)")
     except Exception as e:

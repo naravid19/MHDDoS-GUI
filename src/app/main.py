@@ -414,6 +414,7 @@ class AttackParams(BaseModel):
     smart_rpc: bool = False
     autoscale: bool = False
     evasion: bool = False
+    debug_mode: bool = False
     behavioral_intensity: int = Field(default=15, ge=0, le=50)
     distribute_to_workers: bool = False
     # New Bypass Settings
@@ -1425,6 +1426,23 @@ async def start_attack(params: AttackParams) -> StatusResponse:
         "duration": params.duration,
         "start_time": time.time()
     }
+    
+    # Persist full params to state_manager for GUI state_reconcile on reconnect
+    asyncio.create_task(state_manager.set_attack_params(
+        target=params.target,
+        method=params.method,
+        threads=params.threads,
+        duration=params.duration,
+        rpc=params.rpc,
+        proxy_type=params.proxy_type,
+        proxy_refresh=params.proxy_refresh,
+        proxy_list=params.proxy_list,
+        reflector=params.reflector,
+        smart_rpc=params.smart_rpc,
+        autoscale=params.autoscale,
+        evasion=params.evasion,
+        debug_mode=params.debug_mode,
+    ))
     
     if params.distribute_to_workers:
         params_dict = params.model_dump()

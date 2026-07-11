@@ -1724,6 +1724,8 @@ const term = document.getElementById('terminal-content');
             }
             }
 
+            window.memoryFields = ['target', 'method', 'threads', 'duration', 'proxy_type', 'proxy_list', 'rpc', 'reflector', 'auto_refresh', 'proxy_refresh', 'auto_harvest', 'smart_rpc', 'auto_scale', 'advanced_evasion', 'distribute_to_workers', 'behavioral_intensity', 'humanize_delays'];
+            
             function saveToMemory() {
             window.memoryFields.forEach(id => {
                 const el = document.getElementById(id);

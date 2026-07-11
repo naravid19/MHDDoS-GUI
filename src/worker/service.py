@@ -77,7 +77,8 @@ class WorkerService:
         self._active_tasks: set[asyncio.Task[Any]] = set()
 
     async def _check_tier0_readiness(self, method: str) -> bool:
-        """Verify Tier 0 FlareSolverr service (port 8191) is online before launching WAF bypass attacks."""
+        """Check if FlareSolverr (port 8191) is reachable. Returns False if not, but this is non-fatal —
+        the engine will automatically fall back to Tier 1-4 bypass methods."""
         if method.upper() not in {"CFB", "CFBUAM", "BYPASS"}:
             return True
         try:
@@ -107,12 +108,12 @@ class WorkerService:
             if self._process is not None and self._process.returncode is None:
                 raise RuntimeError("An attack is already running.")
 
+            # Non-fatal FlareSolverr check: warn but allow engine's Tier 1-4 fallback to handle it
             if not await self._check_tier0_readiness(method):
-                error_msg = "Tier 0 FlareSolverr unreachable on localhost:8191."
-                logger.error(error_msg)
-                await state_manager.update_status(AttackStatus.ERROR, error_msg)
-                await self._broadcast_state()
-                raise RuntimeError(error_msg)
+                logger.warning(
+                    "Tier 0 FlareSolverr unreachable on localhost:8191. "
+                    "Engine will use Tier 1-4 bypass fallback cascade."
+                )
 
             cmd = cmd_args if cmd_args is not None else [
                 sys.executable, "-m", "mhddos_gui.cli",

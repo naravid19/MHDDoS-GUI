@@ -225,6 +225,33 @@ const handleSocketData = (data) => {
             const rpcEl = document.getElementById('rpc');
             if (rpcEl && (forceSync || !rpcEl.value)) rpcEl.value = state.rpc;
         }
+        // Restore proxy & advanced settings on reconcile
+        if (forceSync) {
+            if (state.proxy_type != null) {
+                const el = document.getElementById('proxy_type');
+                if (el) el.value = state.proxy_type;
+            }
+            if (state.proxy_refresh != null) {
+                const el = document.getElementById('proxy_refresh');
+                if (el) el.value = state.proxy_refresh;
+            }
+            if (state.proxy_list != null) {
+                const el = document.getElementById('proxy_list');
+                if (el) el.value = state.proxy_list;
+            }
+            if (state.reflector != null) {
+                const el = document.getElementById('reflector');
+                if (el) el.value = state.reflector;
+            }
+            // Boolean flags (checkboxes)
+            const bools = ['smart_rpc', 'autoscale', 'evasion', 'debug_mode'];
+            for (const key of bools) {
+                if (state[key] != null) {
+                    const el = document.getElementById(key);
+                    if (el) el.checked = Boolean(state[key]);
+                }
+            }
+        }
     } else if (data.type === 'log') {
         terminal.append(data.msg, data.level, data.task_id);
     } else if (data.type === 'telemetry') {

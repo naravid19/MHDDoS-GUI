@@ -127,6 +127,7 @@ export async function refreshPresets() {
                             <span><span class="text-on-surface">M:</span> ${escapeHtml(p.method)}</span>
                             <span><span class="text-on-surface">T:</span> ${escapeHtml(p.threads)}</span>
                             <span><span class="text-on-surface">D:</span> ${escapeHtml(p.duration)}s</span>
+                            ${p.proxy_refresh > 0 ? `<span><span class="text-on-surface">R:</span> ${escapeHtml(p.proxy_refresh)}min</span>` : ''}
                         </div>
                         <div class="text-[9px] font-mono text-on-surface-variant mt-1 truncate" title="${escapeHtml(p.target || 'None')}">
                             <span class="text-on-surface">TARGET:</span> ${escapeHtml(p.target || 'None')}

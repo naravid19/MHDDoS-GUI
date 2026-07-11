@@ -29,6 +29,16 @@ class AttackStateSnapshot(BaseModel):
     elapsed_seconds: float = 0.0
     stats: dict[str, Any] = Field(default_factory=dict)
     error_detail: str | None = None
+    # Proxy & advanced params — persisted for GUI state reconciliation
+    proxy_type: str | None = None
+    proxy_refresh: int = 0
+    proxy_list: str | None = None
+    reflector: str | None = None
+    # Boolean flags
+    smart_rpc: bool = False
+    autoscale: bool = False
+    evasion: bool = False
+    debug_mode: bool = False
 
 
 class StateManager:
@@ -53,6 +63,14 @@ class StateManager:
         method: str | None = None,
         stats: dict[str, Any] | None = None,
         error_detail: str | None = None,
+        proxy_type: str | None = None,
+        proxy_refresh: int | None = None,
+        proxy_list: str | None = None,
+        reflector: str | None = None,
+        smart_rpc: bool | None = None,
+        autoscale: bool | None = None,
+        evasion: bool | None = None,
+        debug_mode: bool | None = None,
     ) -> AttackStateSnapshot:
         current_time = time.time()
         start_time = self._state.start_time
@@ -73,6 +91,14 @@ class StateManager:
             elapsed_seconds=elapsed,
             stats=stats if stats is not None else self._state.stats,
             error_detail=error_detail,
+            proxy_type=proxy_type if proxy_type is not None else self._state.proxy_type,
+            proxy_refresh=proxy_refresh if proxy_refresh is not None else self._state.proxy_refresh,
+            proxy_list=proxy_list if proxy_list is not None else self._state.proxy_list,
+            reflector=reflector if reflector is not None else self._state.reflector,
+            smart_rpc=smart_rpc if smart_rpc is not None else self._state.smart_rpc,
+            autoscale=autoscale if autoscale is not None else self._state.autoscale,
+            evasion=evasion if evasion is not None else self._state.evasion,
+            debug_mode=debug_mode if debug_mode is not None else self._state.debug_mode,
         )
         return self._state
 
@@ -85,6 +111,14 @@ class StateManager:
         method: str | None = None,
         stats: dict[str, Any] | None = None,
         error_detail: str | None = None,
+        proxy_type: str | None = None,
+        proxy_refresh: int | None = None,
+        proxy_list: str | None = None,
+        reflector: str | None = None,
+        smart_rpc: bool | None = None,
+        autoscale: bool | None = None,
+        evasion: bool | None = None,
+        debug_mode: bool | None = None,
     ) -> AttackStateSnapshot:
         """Atomically transition state and notify all real-time subscribers."""
         async with self._lock:
@@ -95,6 +129,14 @@ class StateManager:
                 method=method,
                 stats=stats,
                 error_detail=error_detail,
+                proxy_type=proxy_type,
+                proxy_refresh=proxy_refresh,
+                proxy_list=proxy_list,
+                reflector=reflector,
+                smart_rpc=smart_rpc,
+                autoscale=autoscale,
+                evasion=evasion,
+                debug_mode=debug_mode,
             )
 
         await self._notify_subscribers(snapshot)
@@ -115,6 +157,14 @@ class StateManager:
         threads: int | None = None,
         method: str | None = None,
         rpc: int | None = None,
+        proxy_type: str | None = None,
+        proxy_refresh: int | None = None,
+        proxy_list: str | None = None,
+        reflector: str | None = None,
+        smart_rpc: bool | None = None,
+        autoscale: bool | None = None,
+        evasion: bool | None = None,
+        debug_mode: bool | None = None,
     ) -> AttackStateSnapshot:
         stats_update: dict[str, Any] = {}
         if duration is not None:
@@ -131,6 +181,14 @@ class StateManager:
                 target=target,
                 method=method,
                 stats=current_stats,
+                proxy_type=proxy_type,
+                proxy_refresh=proxy_refresh,
+                proxy_list=proxy_list,
+                reflector=reflector,
+                smart_rpc=smart_rpc,
+                autoscale=autoscale,
+                evasion=evasion,
+                debug_mode=debug_mode,
             )
         await self._notify_subscribers(snapshot)
         return snapshot

