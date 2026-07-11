@@ -11,6 +11,7 @@ class CurlProxyValidator:
     async def validate_curl_socks5(
         self, proxy: str, target_url: str = _PROBE_URL, timeout: int = 10
     ) -> bool:
+        target_url = target_url or _PROBE_URL
         try:
             async with AsyncSession() as s:
                 r = await s.get(
@@ -29,6 +30,7 @@ async def score_proxies_for_curl(
     timeout: int = 10,
     validator: Optional[CurlProxyValidator] = None,
 ) -> List[str]:
+    target = target or _PROBE_URL
     if validator is None:
         validator = CurlProxyValidator()
     sem = asyncio.Semaphore(concurrency)
