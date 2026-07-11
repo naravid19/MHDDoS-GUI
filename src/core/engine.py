@@ -154,6 +154,50 @@ try:
 except ImportError:
     UNDETECTED_CHROMEDRIVER_INSTALLED = False
 
+
+def _get_installed_chrome_version() -> int:
+    """Read installed Chrome major version from OS registry or binary."""
+    import subprocess, re
+    if sys.platform == "win32":
+        import winreg
+        for path in [
+            r"SOFTWARE\Google\Chrome\BLBeacon",
+            r"SOFTWARE\WOW6432Node\Google\Chrome\BLBeacon",
+        ]:
+            try:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path) as k:
+                    ver, _ = winreg.QueryValueEx(k, "version")
+                    return int(ver.split(".")[0])
+            except OSError:
+                continue
+    for binary in ("google-chrome", "chromium-browser", "chrome"):
+        try:
+            out = subprocess.check_output(
+                [binary, "--version"], stderr=subprocess.DEVNULL, timeout=5
+            ).decode()
+            m = re.search(r"(\d+)\.\d+\.\d+", out)
+            if m:
+                return int(m.group(1))
+        except Exception:
+            pass
+    return 120  # Conservative fallback
+
+
+def _launch_uc_chrome(headless: bool = True, proxy: Optional[str] = None):
+    """Launch undetected Chrome pinned to the installed browser version."""
+    import undetected_chromedriver as uc
+    version = _get_installed_chrome_version()
+    opts = uc.ChromeOptions()
+    if headless:
+        opts.add_argument("--headless=new")
+    opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
+    if proxy:
+        p_url = f"http://{proxy}" if "://" not in proxy else proxy
+        opts.add_argument(f'--proxy-server={p_url}')
+    return uc.Chrome(options=opts, version_main=version, use_subprocess=True)
+
+
 # --- Windows asyncio Proactor OSError 10057 Workaround ---
 if sys.platform.lower().startswith("win") and sys.version_info >= (3, 8):
     try:
@@ -2059,13 +2103,7 @@ class BrowserEngine:
         # 3c. Undetected Chromedriver
         if UNDETECTED_CHROMEDRIVER_INSTALLED:
             try:
-                import undetected_chromedriver as uc
-                options = uc.ChromeOptions()
-                options.add_argument('--headless')
-                if proxy:
-                    p_url = f"http://{proxy}" if "://" not in proxy else proxy
-                    options.add_argument(f'--proxy-server={p_url}')
-                driver = uc.Chrome(options=options)
+                driver = _launch_uc_chrome(headless=True, proxy=proxy)
                 try:
                     driver.get(url)
                     from time import sleep
