@@ -33,13 +33,11 @@ async def score_proxies_for_curl(
         validator = CurlProxyValidator()
     sem = asyncio.Semaphore(concurrency)
     valid: List[str] = []
-    lock = asyncio.Lock()
 
     async def check(p: str) -> None:
         async with sem:
             if await validator.validate_curl_socks5(p, target, timeout):
-                async with lock:
-                    valid.append(p)
+                valid.append(p)
 
     await asyncio.gather(*[check(p) for p in proxies])
     logger.info("[CurlValidator] %d/%d proxies passed curl SOCKS5 check", len(valid), len(proxies))

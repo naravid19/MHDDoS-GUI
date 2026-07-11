@@ -5870,13 +5870,27 @@ async def main_async():
                 # After PyRoxy validation, gate curl_cffi proxy pool:
                 if CURL_CFFI_INSTALLED and method in ("CFB", "CFBUAM"):
                     from src.core.proxy_validator import score_proxies_for_curl
-                    target = target_host
+                    proxy_urls = []
+                    proxy_to_url = {}
+                    for p in proxies:
+                        try:
+                            px_req = p.asRequest()
+                            p_url = px_req.get("http")
+                            if p_url:
+                                if p_url.startswith("socks5://"):
+                                    p_url = p_url.replace("socks5://", "socks5h://")
+                                proxy_urls.append(p_url)
+                                proxy_to_url[p_url] = p
+                        except Exception:
+                            pass
+
                     curl_ok = await score_proxies_for_curl(
-                        [str(p) for p in proxies], f"https://{target}"
+                        proxy_urls, str(url) if url else ""
                     )
                     if curl_ok:
-                        proxies = [p for p in proxies if str(p) in set(curl_ok)]
-                        tactical_proxies = [p for p in tactical_proxies if str(p.base) in set(curl_ok)]
+                        ok_set = {proxy_to_url[u] for u in curl_ok if u in proxy_to_url}
+                        proxies = [p for p in proxies if p in ok_set]
+                        tactical_proxies = [p for p in tactical_proxies if p.base in ok_set]
                     else:
                         proxies = []
                         tactical_proxies = []

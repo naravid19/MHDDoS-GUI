@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, patch, MagicMock
 async def test_valid_proxy_returns_true():
     from src.core.proxy_validator import CurlProxyValidator
     v = CurlProxyValidator()
-    mock_resp = MagicMock(); mock_resp.status_code = 200
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
     with patch("src.core.proxy_validator.AsyncSession") as M:
         inst = AsyncMock()
         inst.get = AsyncMock(return_value=mock_resp)
@@ -35,6 +36,7 @@ async def test_score_filters_bad_proxies():
     async def fake_val(proxy, target_url, timeout=10):
         return proxy == good
 
-    v = CurlProxyValidator(); v.validate_curl_socks5 = fake_val
+    v = CurlProxyValidator()
+    v.validate_curl_socks5 = fake_val
     result = await score_proxies_for_curl([good, bad], "https://example.com", validator=v)
     assert result == [good]
