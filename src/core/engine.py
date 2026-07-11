@@ -168,7 +168,7 @@ def _get_installed_chrome_version() -> int:
                 with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path) as k:
                     ver, _ = winreg.QueryValueEx(k, "version")
                     return int(ver.split(".")[0])
-            except OSError:
+            except (OSError, ValueError):
                 continue
     for binary in ("google-chrome", "chromium-browser", "chrome"):
         try:
