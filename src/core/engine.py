@@ -5867,6 +5867,20 @@ async def main_async():
             proxies = await asyncio.to_thread(handleProxyList, con, proxy_li, proxy_ty, url)
             if proxies:
                 tactical_proxies = await TacticalProxyValidator.validate_and_score(set(proxies), str(url) if url else None, is_layer7=True)
+                # After PyRoxy validation, gate curl_cffi proxy pool:
+                if CURL_CFFI_INSTALLED and method in ("CFB", "CFBUAM"):
+                    from src.core.proxy_validator import score_proxies_for_curl
+                    target = target_host
+                    curl_ok = await score_proxies_for_curl(
+                        [str(p) for p in proxies], f"https://{target}"
+                    )
+                    if curl_ok:
+                        proxies = [p for p in proxies if str(p) in set(curl_ok)]
+                        tactical_proxies = [p for p in tactical_proxies if str(p.base) in set(curl_ok)]
+                    else:
+                        proxies = []
+                        tactical_proxies = []
+                    logger.info("[Engine] curl-compatible proxies: %d", len(curl_ok))
                 await asyncio.to_thread(proxy_pool.update_pool, tactical_proxies, list(proxies))
             else:
                 await asyncio.to_thread(proxy_pool.update_pool, [], [])
