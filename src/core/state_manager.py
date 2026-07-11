@@ -211,3 +211,7 @@ class StateManager:
 
 
 state_manager = StateManager()
+
+bypass_ready_event: asyncio.Event = asyncio.Event()
+current_cf_token: str | None = None
+
