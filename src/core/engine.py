@@ -86,6 +86,7 @@ from dns import resolver
 from icmplib import ping
 from impacket.ImpactPacket import IP, TCP, UDP, Data, ICMP
 from psutil import cpu_percent, net_io_counters, process_iter, virtual_memory
+import psutil
 from requests import Response, Session, get, cookies
 from yarl import URL
 
@@ -154,6 +155,26 @@ try:
     UNDETECTED_CHROMEDRIVER_INSTALLED = True
 except ImportError:
     UNDETECTED_CHROMEDRIVER_INSTALLED = False
+
+
+_BROWSER_NAMES = frozenset({
+    "chrome", "chrome.exe", "chromium", "chromium-browser", "chromium.exe",
+    "msedge.exe", "undetected_chromedriver.exe", "chromedriver", "chromedriver.exe",
+})
+
+
+def _get_attack_cpu_percent() -> float:
+    """CPU of this Python process minus headless browser child processes."""
+    try:
+        proc = psutil.Process()
+        total = proc.cpu_percent(interval=0.05)
+        browser = sum(
+            c.cpu_percent() for c in proc.children(recursive=True)
+            if c.name().lower() in _BROWSER_NAMES
+        )
+        return max(0.0, total - browser)
+    except Exception:
+        return psutil.cpu_percent(interval=0.05)
 
 
 def _get_installed_chrome_version() -> int:
@@ -843,7 +864,7 @@ class DynamicScaler(Thread):
     def run(self):
         while True:
             sleep(self.interval)
-            cpu = cpu_percent(interval=1)
+            cpu = _get_attack_cpu_percent()
             mem = virtual_memory().percent
             lat = CURRENT_LATENCY.value
             current_target = ENGINE_STATE.active_threads_target.value
