@@ -6243,6 +6243,72 @@ async def main_async():
         import os
         os._exit(1)
 
+_CF_FINGERPRINT_SCRIPT = """
+(function() {
+    Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
+    Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
+    Object.defineProperty(navigator, 'platform', {get: () => 'Win32'});
+    Object.defineProperty(navigator, 'webdriver', {get: () => false});
+    Object.defineProperty(navigator, 'languages', {get: () => ['th', 'th-TH', 'en-US', 'en']});
+
+    const getParam = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function(p) {
+        if (p === 37445) return 'Intel Inc.';
+        if (p === 37446) return 'ANGLE (Intel, Intel(R) UHD Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)';
+        return getParam.call(this, p);
+    };
+
+    const fake = (n) => ({name: n, length: 1, item: () => null});
+    const plugins = [
+        fake('Chrome PDF Plugin'), fake('Chrome PDF Viewer'),
+        fake('Native Client'), fake('Widevine Content Decryption Module'),
+    ];
+    plugins.item = (i) => plugins[i];
+    Object.defineProperty(navigator, 'plugins', {get: () => plugins});
+})();
+"""
+
+
+def _inject_cf_fingerprint(page) -> None:
+    """Inject fingerprint init script before navigation to defeat CF Turnstile Managed."""
+    page.add_init_script(_CF_FINGERPRINT_SCRIPT)
+
+
+def _run_patchright_bypass(target_url: str, proxy: str = None, timeout_ms: int = 30000) -> dict:
+    """Tier 3 Patchright bypass: inject fingerprint then wait for CF challenge to auto-solve."""
+    if not PLAYWRIGHT_INSTALLED:
+        raise RuntimeError("patchright not installed")
+    from patchright.sync_api import sync_playwright
+
+    result = {"cookies": [], "token": None}
+    with sync_playwright() as pw:
+        opts = {"headless": True, "args": ["--no-sandbox", "--disable-dev-shm-usage"]}
+        if proxy:
+            opts["proxy"] = {"server": proxy}
+        browser = pw.chromium.launch(**opts)
+        ctx = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+            locale="th-TH",
+            viewport={"width": 1280, "height": 720},
+        )
+        page = ctx.new_page()
+        _inject_cf_fingerprint(page)  # ← inject BEFORE goto
+        page.goto(target_url, wait_until="domcontentloaded", timeout=timeout_ms)
+        try:
+            page.wait_for_function(
+                "() => !document.title.includes('Just a moment')", timeout=timeout_ms
+            )
+        except Exception:
+            pass
+        cookies = ctx.cookies()
+        cf = next((c for c in cookies if c["name"] == "cf_clearance"), None)
+        if cf:
+            result["cookies"] = cookies
+            result["token"] = cf["value"]
+        browser.close()
+    return result
+
 async def _cfb_send_request(target: str) -> None:
     """Send a single CFB request."""
     pass
