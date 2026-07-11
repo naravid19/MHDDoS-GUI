@@ -6278,7 +6278,7 @@ def _run_patchright_bypass(target_url: str, proxy: str = None, timeout_ms: int =
     """Tier 3 Patchright bypass: inject fingerprint then wait for CF challenge to auto-solve."""
     if not PLAYWRIGHT_INSTALLED:
         raise RuntimeError("patchright not installed")
-    from patchright.sync_api import sync_playwright
+    from patchright.sync_api import sync_playwright, TimeoutError as PatchrightTimeoutError, Error as PatchrightError
 
     result = {"cookies": [], "token": None}
     with sync_playwright() as pw:
@@ -6294,12 +6294,12 @@ def _run_patchright_bypass(target_url: str, proxy: str = None, timeout_ms: int =
         )
         page = ctx.new_page()
         _inject_cf_fingerprint(page)  # ← inject BEFORE goto
-        page.goto(target_url, wait_until="domcontentloaded", timeout=timeout_ms)
         try:
+            page.goto(target_url, wait_until="domcontentloaded", timeout=timeout_ms)
             page.wait_for_function(
                 "() => !document.title.includes('Just a moment')", timeout=timeout_ms
             )
-        except Exception:
+        except (PatchrightTimeoutError, PatchrightError):
             pass
         cookies = ctx.cookies()
         cf = next((c for c in cookies if c["name"] == "cf_clearance"), None)

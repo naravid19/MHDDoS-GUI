@@ -26,7 +26,7 @@ def test_inject_called_before_goto():
     ctx = MagicMock(); ctx.new_page.return_value = page; ctx.cookies.return_value = []
     browser = MagicMock(); browser.new_context.return_value = ctx
     with patch("src.core.engine._inject_cf_fingerprint") as mock_inj, \
-         patch("src.core.engine.sync_playwright") as pw:
+         patch("patchright.sync_api.sync_playwright") as pw:
         pw.return_value.__enter__.return_value.chromium.launch.return_value = browser
         _run_patchright_bypass("https://readtoon.com")
     assert mock_inj.called
