@@ -161,7 +161,7 @@ _ML_SWITCH_STATS: dict = {}
 _ML_LOG_INTERVAL: int = 100  # Log summary every N switches
 
 
-def _ml_switch_fingerprint(name: str, weight: float, intensity: float) -> None:
+def _ml_switch_fingerprint(name: str, _weight: float, _intensity: float) -> None:
     """Switch active fingerprint and emit aggregated stats every _ML_LOG_INTERVAL calls."""
     global _ML_SWITCH_COUNT, _ML_SWITCH_STATS
     _ML_SWITCH_COUNT += 1
