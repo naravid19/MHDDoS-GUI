@@ -1998,8 +1998,23 @@ class BrowserEngine:
                     browser = await uc.start()
                     try:
                         page = await browser.get(url)
-                        await asyncio.sleep(3)
-                        cookies = await page.get_cookies()
+                        for pulse in range(20):
+                            await asyncio.sleep(2.5)
+                            cookies = await browser.cookies.get_all()
+                            cookie_str = "; ".join([f"{c.name}={c.value}" for c in cookies])
+                            if "cf_clearance" in cookie_str:
+                                break
+                            try:
+                                iframes = await page.select_all("iframe")
+                                for iframe in iframes:
+                                    src = getattr(iframe, "src", "").lower()
+                                    if "cloudflare" in src or "turnstile" in src:
+                                        await iframe.mouse_click()
+                                        break
+                            except Exception:
+                                pass
+                        
+                        cookies = await browser.cookies.get_all()
                         cookie_str = "; ".join([f"{c.name}={c.value}" for c in cookies])
                         ua = await page.evaluate("navigator.userAgent")
                         if "cf_clearance" in cookie_str:
@@ -2008,8 +2023,12 @@ class BrowserEngine:
                     except Exception as e:
                         BypassDebugger.capture_failure("Tier 2 (Nodriver)", url, error_msg=str(e))
                     finally:
-                        browser.stop()
+                        try:
+                            browser.stop()
+                        except Exception:
+                            pass
                     return None, None
+                
                 cookie, ua = asyncio.run(_nd_solve())
                 if cookie: return cookie, ua
             except Exception:
@@ -2019,23 +2038,58 @@ class BrowserEngine:
         if DRISSION_INSTALLED:
             try:
                 from DrissionPage import ChromiumPage, ChromiumOptions
+                from random import randint
+                from time import sleep
                 co = ChromiumOptions()
                 co.auto_port()
                 co.set_argument('--headless=new')
+                co.set_argument('--disable-blink-features=AutomationControlled')
                 if proxy:
                     p_url = f"http://{proxy}" if "://" not in proxy else proxy
                     co.set_argument(f'--proxy-server={p_url}')
                 page = ChromiumPage(co)
                 try:
                     page.get(url, timeout=timeout)
-                    from time import sleep
-                    for _ in range(5):
-                        sleep(1)
+                    for pulse in range(15):
+                        sleep(1.5)
                         cookies = page.cookies()
                         cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
                         if "cf_clearance" in cookie_str:
-                            ua = page.run_js("return navigator.userAgent")
-                            return cookie_str, ua
+                            break
+                        
+                        page.actions.move(randint(50, 950), randint(50, 750))
+                        try:
+                            found = False
+                            for sel in ["input[type='checkbox']", "#challenge-stage", ".ctp-checkbox-container"]:
+                                ele = page.ele(sel, timeout=0.1)
+                                if ele:
+                                    ele.click(by_js=True)
+                                    found = True
+                                    break
+                            
+                            if not found:
+                                all_inputs = page.eles("tag:input")
+                                for input_elem in all_inputs:
+                                    name = input_elem.attr("name")
+                                    if name and "turnstile" in name.lower():
+                                        parent = input_elem.parent()
+                                        if parent and parent.shadow_root:
+                                            for child in parent.shadow_root.children():
+                                                if child.tag == "iframe":
+                                                    iframe_body = child("tag:body")
+                                                    if iframe_body and iframe_body.shadow_root:
+                                                        checkbox = iframe_body.shadow_root("tag:input")
+                                                        if checkbox:
+                                                            checkbox.click(by_js=True)
+                                                            break
+                        except Exception:
+                            pass
+                        
+                    cookies = page.cookies()
+                    cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
+                    if "cf_clearance" in cookie_str:
+                        ua = page.run_js("return navigator.userAgent")
+                        return cookie_str, ua
                     BypassDebugger.capture_failure("Tier 2 (DrissionPage)", url, page_obj=page, error_msg="Challenge not solved")
                 except Exception as e:
                     BypassDebugger.capture_failure("Tier 2 (DrissionPage)", url, page_obj=page, error_msg=str(e))
