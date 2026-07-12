@@ -4768,8 +4768,8 @@ class HttpFlood:
                                         page_title = title_match.group(1).strip() if title_match else "N/A"
                                         cookies_dict = dict(res.cookies)
                                         logger.debug(f"{bcolors.OKCYAN}[*] CFBUAM Probe | Target: {self._target.host} | Status: {code} | Title: '{page_title[:40]}' | Cookies: {list(cookies_dict.keys())[:3]}{bcolors.RESET}")
+                                        from src.core.token_manager import get_token_manager
                                         if get_token_manager().is_stale_response(int(code), page_title):
-                                            from src.core.token_manager import get_token_manager
                                             task = asyncio.create_task(get_token_manager().invalidate_and_resolve(f"https://{self._target.host}"))
                                             _bg_tasks.add(task)
                                             task.add_done_callback(_bg_tasks.discard)
@@ -5123,8 +5123,8 @@ class HttpFlood:
                                             page_title = title_match.group(1).strip() if title_match else "N/A"
                                             cookies_dict = dict(res.cookies)
                                             logger.debug(f"{bcolors.OKCYAN}[*] IMPERSONATE Probe | Target: {self._target.host} | Status: {code} | Title: '{page_title[:40]}' | Cookies: {list(cookies_dict.keys())[:3]}{bcolors.RESET}")
+                                            from src.core.token_manager import get_token_manager
                                             if get_token_manager().is_stale_response(int(code), page_title):
-                                                from src.core.token_manager import get_token_manager
                                                 task = asyncio.create_task(get_token_manager().invalidate_and_resolve(f"https://{self._target.host}"))
                                                 _bg_tasks.add(task)
                                                 task.add_done_callback(_bg_tasks.discard)
