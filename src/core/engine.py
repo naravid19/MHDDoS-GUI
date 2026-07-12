@@ -5740,6 +5740,35 @@ def handleProxyList(con, proxy_arg, proxy_ty, url=None):
     return proxies
 
 
+def _apply_curl_gate(
+    curl_ok: list,
+    proxy_urls: list,
+    proxy_to_url: dict,
+    proxies: list,
+    tactical_proxies: list,
+) -> tuple:
+    """Apply the curl-compatibility gate to the proxy pool.
+
+    If curl_ok is non-empty: filter both pools to only curl-compatible proxies.
+    If curl_ok is empty: LOG a warning but PRESERVE both pools as-is.
+
+    Returns:
+        (filtered_proxies, filtered_tactical_proxies)
+    """
+    if curl_ok:
+        ok_set = {proxy_to_url[u] for u in curl_ok if u in proxy_to_url}
+        filtered_proxies = [p for p in proxies if p in ok_set]
+        filtered_tactical = [p for p in tactical_proxies if p.base in ok_set]
+        logger.info("[Engine] curl-compatible proxies: %d / %d", len(ok_set), len(proxies))
+        return filtered_proxies, filtered_tactical
+    else:
+        logger.warning(
+            "[Engine] curl SOCKS5 probe returned 0 passing proxies. "
+            "Retaining %d PyRoxy-validated proxies from Stage 1.",
+            len(tactical_proxies),
+        )
+        return proxies, tactical_proxies
+
 
 async def main_async():
     import src.core.state_manager as _sm
@@ -5940,14 +5969,13 @@ async def main_async():
                     curl_ok = await score_proxies_for_curl(
                         proxy_urls, str(url) if url else ""
                     )
-                    if curl_ok:
-                        ok_set = {proxy_to_url[u] for u in curl_ok if u in proxy_to_url}
-                        proxies = [p for p in proxies if p in ok_set]
-                        tactical_proxies = [p for p in tactical_proxies if p.base in ok_set]
-                    else:
-                        proxies = []
-                        tactical_proxies = []
-                    logger.info("[Engine] curl-compatible proxies: %d", len(curl_ok))
+                    proxies, tactical_proxies = _apply_curl_gate(
+                        curl_ok=curl_ok,
+                        proxy_urls=proxy_urls,
+                        proxy_to_url=proxy_to_url,
+                        proxies=proxies,
+                        tactical_proxies=tactical_proxies,
+                    )
                 await asyncio.to_thread(proxy_pool.update_pool, tactical_proxies, list(proxies))
             else:
                 await asyncio.to_thread(proxy_pool.update_pool, [], [])
