@@ -1291,12 +1291,12 @@ class TacticalProxyValidator:
     @staticmethod
     def get_platform_semaphore_limit() -> int:
         import sys
-        return 64 if sys.platform == "win32" else 128
+        return 256 if sys.platform == "win32" else 512
 
     @staticmethod
     def count_elite_proxies(proxies: list) -> int:
         valid_cf_statuses = {200, 301, 302, 403, 503}
-        return len([p for p in proxies if getattr(p, "latency_ms", 9999) < 3000 and getattr(p, "http_status", 0) in valid_cf_statuses])
+        return len([p for p in proxies if getattr(p, "latency", 9999) < 3000 and getattr(p, "http_status", 0) in valid_cf_statuses])
 
     @staticmethod
     async def validate_and_score(raw_proxies: Set[Proxy], target_url: str = None, is_layer7: bool = True, is_udp: bool = False) -> List[TacticalProxy]:
@@ -1404,7 +1404,7 @@ class TacticalProxyValidator:
 
         try:
             tasks = [asyncio.create_task(_check(p)) for p in raw_proxies]
-            dynamic_timeout = min(600, max(180, (total_raw // sem_limit + 1) * 8))
+            dynamic_timeout = min(900, max(240, (total_raw // sem_limit + 1) * 12))
             results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=dynamic_timeout)
             tactical_proxies = [r for r in results if r is not None and r.is_protocol_verified]
         except asyncio.TimeoutError:
