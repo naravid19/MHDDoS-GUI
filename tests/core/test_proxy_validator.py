@@ -56,11 +56,13 @@ async def test_validate_curl_socks5_fallback():
         
         # Test with empty target_url
         await v.validate_curl_socks5("socks5://1.2.3.4:1080", "")
-        inst.get.assert_called_with(_PROBE_URL, proxy="socks5://1.2.3.4:1080", impersonate="chrome", timeout=10)
+        M.assert_called_with(proxies={"http": "socks5://1.2.3.4:1080", "https": "socks5://1.2.3.4:1080"}, verify=False, timeout=8)
+        inst.get.assert_called_with(_PROBE_URL, impersonate="chrome")
         
         # Test with None target_url
         await v.validate_curl_socks5("socks5://1.2.3.4:1080", None)
-        inst.get.assert_called_with(_PROBE_URL, proxy="socks5://1.2.3.4:1080", impersonate="chrome", timeout=10)
+        M.assert_called_with(proxies={"http": "socks5://1.2.3.4:1080", "https": "socks5://1.2.3.4:1080"}, verify=False, timeout=8)
+        inst.get.assert_called_with(_PROBE_URL, impersonate="chrome")
 
 
 @pytest.mark.asyncio
