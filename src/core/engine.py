@@ -1369,17 +1369,16 @@ class TacticalProxyValidator:
                             except Exception:
                                 pass # Verification failed
                         
-                        if not is_verified and not CURL_CFFI_INSTALLED:
-                            # Only fallback to TCP if we don't have curl_cffi to do real HTTP checks
+                        if not is_verified:
+                            # curl_cffi HTTP probe failed (1.1.1.1 blocked, timeout, or SSL error).
+                            # Fall back to a raw TCP connection test — a proxy may still relay
+                            # SOCKS5 traffic even when it cannot reach 1.1.1.1 directly.
                             tp = await _check_proxy_async(target_host, proxy, timeout=3.0)
                             if tp.is_protocol_verified:
                                 is_verified = True
                                 http_status = tp.http_status
                             else:
                                 return tp
-                        elif not is_verified:
-                            # For L7 with curl_cffi, if it failed the HTTP check, it's a dead proxy
-                            return TacticalProxy(proxy, 5000.0, False, 0)
                     
                     elif is_udp and proxy.type == ProxyType.SOCKS5:
                         tp = await _check_proxy_async(target_host, proxy, timeout=5.0)
