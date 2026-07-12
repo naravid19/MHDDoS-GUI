@@ -156,6 +156,24 @@ try:
 except ImportError:
     UNDETECTED_CHROMEDRIVER_INSTALLED = False
 
+_ML_SWITCH_COUNT: int = 0
+_ML_SWITCH_STATS: dict = {}
+_ML_LOG_INTERVAL: int = 100  # Log summary every N switches
+
+
+def _ml_switch_fingerprint(name: str, weight: float, intensity: float) -> None:
+    """Switch active fingerprint and emit aggregated stats every _ML_LOG_INTERVAL calls."""
+    global _ML_SWITCH_COUNT, _ML_SWITCH_STATS
+    _ML_SWITCH_COUNT += 1
+    _ML_SWITCH_STATS[name] = _ML_SWITCH_STATS.get(name, 0) + 1
+    if _ML_SWITCH_COUNT % _ML_LOG_INTERVAL == 0:
+        top = sorted(_ML_SWITCH_STATS.items(), key=lambda x: -x[1])[:3]
+        top_str = ", ".join(f"{n}:{c}" for n, c in top)
+        logger.debug(
+            "[*] ML_ENGINE: %d total switches | Top: %s", _ML_SWITCH_COUNT, top_str
+        )
+
+
 _bg_tasks = set()
 
 _BROWSER_NAMES = frozenset({
@@ -1838,7 +1856,7 @@ class MLSmartBypassEngine:
                     scaled_f["delay"] = f["delay"] * (self.intensity / 15.0)
                     
                     if self.current_best["id"] != f["id"]:
-                        logger.debug(f"[*] ML_ENGINE: Switching active fingerprint to {f['id']} (Weight: {f['weight']:.1f}, Intensity: {self.intensity}%)")
+                        _ml_switch_fingerprint(f['id'], f['weight'], self.intensity)
                         self.current_best = f
                     return scaled_f
             return self.fingerprints[0]
