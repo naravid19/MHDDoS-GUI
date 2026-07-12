@@ -58,11 +58,11 @@ class BypassDebugger:
                     with open(os.path.join(folder, "dom.html"), "w", encoding="utf-8") as f:
                         f.write(page_obj.content())
                 
-                # Selenium / UC
+                # Selenium / UC / Botasaurus
                 elif hasattr(page_obj, 'save_screenshot'):
                     page_obj.save_screenshot(screenshot_path)
                     with open(os.path.join(folder, "dom.html"), "w", encoding="utf-8") as f:
-                        f.write(page_obj.page_source)
+                        f.write(getattr(page_obj, 'page_source', getattr(page_obj, 'page_html', '')))
                         
                 # Browser Console Logs (if supported)
                 if hasattr(page_obj, 'evaluate'):
