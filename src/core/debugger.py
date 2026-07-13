@@ -7,6 +7,23 @@ class BypassDebugger:
     
     @classmethod
     def capture_failure(cls, tier_name, url, browser_obj=None, page_obj=None, error_msg="", response_obj=None):
+        error_lower = str(error_msg).lower()
+        network_keywords = [
+            "connectionpool", "proxyerror", "connecttimeout", "network unreachable",
+            "failed to establish a new connection", "sockshttpsconnection", "sockshttpconnection",
+            "max retries exceeded", "connection refused", "timeout exceeded while waiting for event"
+        ]
+        if any(kw in error_lower for kw in network_keywords):
+            try:
+                os.makedirs(cls.DEBUG_DIR, exist_ok=True)
+                log_path = os.path.join(cls.DEBUG_DIR, "proxy_network_errors.log")
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(f"[{timestamp}] [{tier_name}] URL: {url} | Error: {error_msg}\n")
+            except Exception:
+                pass
+            return None
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         folder = os.path.join(cls.DEBUG_DIR, f"{timestamp}_{tier_name}")
         os.makedirs(folder, exist_ok=True)
