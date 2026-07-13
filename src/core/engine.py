@@ -1970,7 +1970,9 @@ class BrowserEngine:
                 from botasaurus.browser import browser, Driver
                 def get_proxy(data): return data.get("proxy")
                 
-                @browser(proxy=get_proxy, block_images_and_css=True, headless=True, close_on_crash=True)
+                # Using block_images=True instead of block_images_and_css so Cloudflare/Turnstile
+                # shadow root challenge elements retain CSS height styling (preventing 'no height' errors)
+                @browser(proxy=get_proxy, block_images=True, headless=True, close_on_crash=True)
                 def bot_solve(driver: Driver, data):
                     try:
                         driver.google_get(data["url"], bypass_cloudflare=True)
