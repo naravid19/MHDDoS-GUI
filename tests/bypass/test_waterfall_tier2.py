@@ -30,13 +30,12 @@ class TestWaterfallTier2(unittest.TestCase):
         mock_chromium_page.return_value = mock_page
         
         # Mocking the import by putting it in sys.modules
-        import sys
         mock_drission = MagicMock()
         mock_drission.ChromiumPage = mock_chromium_page
         mock_drission.ChromiumOptions = mock_options
-        sys.modules['DrissionPage'] = mock_drission
 
-        cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://test.com", None, "test_ua", 15)
+        with patch.dict('sys.modules', {'DrissionPage': mock_drission}):
+            cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://test.com", None, "test_ua", 15)
         
         # Check if the result is correct
         self.assertIsNotNone(cookie)

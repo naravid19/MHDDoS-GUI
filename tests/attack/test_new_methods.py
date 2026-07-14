@@ -7,38 +7,35 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 logger = logging.getLogger("MethodTester")
 
-# Mocking
-m = MagicMock()
-sys.modules["PyRoxy"] = m
-sys.modules["certifi"] = m
-sys.modules["cloudscraper"] = m
-sys.modules["dns"] = m
-sys.modules["dns.resolver"] = m
-sys.modules["icmplib"] = m
-sys.modules["impacket"] = m
-sys.modules["impacket.ImpactPacket"] = m
-sys.modules["psutil"] = m
-sys.modules["yarl"] = m
-sys.modules["curl_cffi"] = m
-sys.modules["curl_cffi.requests"] = m
-sys.modules["playwright"] = m
-sys.modules["playwright.sync_api"] = m
-sys.modules["playwright_stealth"] = m
-sys.modules["nodriver"] = m
-sys.modules["undetected_chromedriver"] = m
-sys.modules["botasaurus"] = m
-sys.modules["patchright"] = m
-sys.modules["DrissionPage"] = m
-sys.modules["zendriver"] = m
-sys.modules["hrequests"] = m
-sys.modules["cloudflare_bypass_for_scraping"] = m
-sys.modules["httpx"] = m
+# Mock missing imports gracefully without overwriting globally installed libraries
+def _mock_if_missing(mod_name):
+    # Unconditionally mock packages that trigger network checks or setup operations on import
+    if mod_name in {"hrequests", "zendriver", "cloudflare_bypass_for_scraping"}:
+        sys.modules[mod_name] = MagicMock()
+        return
+    try:
+        __import__(mod_name)
+    except ImportError:
+        sys.modules[mod_name] = MagicMock()
+
+for _m in [
+    "PyRoxy", "certifi", "cloudscraper", "dns", "dns.resolver", "icmplib", "impacket",
+    "impacket.ImpactPacket", "psutil", "yarl", "curl_cffi", "curl_cffi.requests",
+    "playwright", "playwright.sync_api", "playwright_stealth", "nodriver",
+    "undetected_chromedriver", "botasaurus", "patchright", "DrissionPage",
+    "zendriver", "hrequests", "cloudflare_bypass_for_scraping", "httpx"
+]:
+    _mock_if_missing(_m)
+
+if isinstance(sys.modules.get("PyRoxy"), MagicMock):
+    pyroxy_mock = sys.modules["PyRoxy"]
+    tools_mock = MagicMock()
+    tools_mock.Random.rand_ipv4.return_value = "1.1.1.1"
+    pyroxy_mock.Tools = tools_mock
 
 import ssl
-ssl.create_default_context = MagicMock()
-pyroxy_mock = MagicMock()
-pyroxy_mock.Tools.Random.rand_ipv4.return_value = "1.1.1.1"
-sys.modules["PyRoxy"] = pyroxy_mock
+if not hasattr(ssl, "create_default_context") or isinstance(ssl.create_default_context, MagicMock):
+    ssl.create_default_context = MagicMock()
 
 sys.path.append(str(Path(__file__).parent))
 from src.core.engine import HttpFlood, BrowserEngine

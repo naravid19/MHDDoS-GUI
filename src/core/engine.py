@@ -5511,6 +5511,24 @@ async def main_async():
             if bypass_solver != "None":
                 logger.info(f"{bcolors.OKCYAN}[*] Bypass: {bypass_info}{bcolors.RESET}")
 
+            # Emit telemetry to GUI
+            try:
+                print(json.dumps({
+                    "type": "telemetry",
+                    "task_id": _session_id if _session_id else "global",
+                    "rps": _current_pps,
+                    "bps": _current_bps,
+                    "lat": _current_lat,
+                    "threads": len(proxy_pool) if proxy_pool else 0,
+                    "cpu": _current_cpu,
+                    "ram": _current_ram,
+                    "target": target_host,
+                    "method": method
+                }))
+                sys.stdout.flush()
+            except Exception:
+                pass
+
             # Persist metric to Attack History DB (non-blocking)
             if _session_id:
                 # Store extra impact data in message for now or extend schema (v1.2.1 simplicity: use message)

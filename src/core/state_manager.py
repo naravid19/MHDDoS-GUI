@@ -223,7 +223,10 @@ def set_bypass_ready() -> None:
         loop = asyncio.get_running_loop()
         bypass_ready_event.set()
     except RuntimeError:
-        if main_loop:
-            main_loop.call_soon_threadsafe(bypass_ready_event.set)
+        if main_loop and not main_loop.is_closed():
+            try:
+                main_loop.call_soon_threadsafe(bypass_ready_event.set)
+            except RuntimeError:
+                pass
 
 

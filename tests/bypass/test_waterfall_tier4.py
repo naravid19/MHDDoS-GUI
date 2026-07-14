@@ -14,8 +14,6 @@ class TestWaterfallTier4(unittest.TestCase):
         mock_camoufox_module = MagicMock()
         mock_camoufox_class = MagicMock()
         mock_camoufox_module.Camoufox = mock_camoufox_class
-        sys.modules['camoufox'] = MagicMock()
-        sys.modules['camoufox.sync_api'] = mock_camoufox_module
 
         mock_browser = MagicMock()
         mock_context = MagicMock()
@@ -29,7 +27,11 @@ class TestWaterfallTier4(unittest.TestCase):
         # Mock context manager
         mock_camoufox_class.return_value.__enter__.return_value = mock_browser
 
-        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://test.com", "1.1.1.1:80", "ua_test", 45)
+        with patch.dict('sys.modules', {
+            'camoufox': MagicMock(),
+            'camoufox.sync_api': mock_camoufox_module
+        }):
+            cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://test.com", "1.1.1.1:80", "ua_test", 45)
         
         self.assertIsNotNone(cookie)
         self.assertIn("cf_clearance=token_camoufox", cookie)

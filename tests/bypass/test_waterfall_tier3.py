@@ -9,7 +9,7 @@ class TestWaterfallTier3(unittest.TestCase):
     @patch('src.core.engine.PATCHRIGHT_INSTALLED', False)
     @patch('src.core.engine.UNDETECTED_CHROMEDRIVER_INSTALLED', False)
     @patch('src.core.engine.CLOAKBROWSER_INSTALLED', True)
-    @patch('src.core.engine.cloakbrowser_launch')
+    @patch('src.core.engine.cloakbrowser_launch', create=True)
     def test_solve_tier3_cloakbrowser_humanized(self, mock_launch):
         mock_browser = MagicMock()
         mock_page = MagicMock()

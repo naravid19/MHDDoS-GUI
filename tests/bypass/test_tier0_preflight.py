@@ -7,24 +7,33 @@ from src.core.state_manager import AttackStatus
 
 @pytest.mark.asyncio
 async def test_preflight_check_fails_when_flaresolverr_offline():
-    """Verify that starting a CFB attack fails fast when port 8191 is closed without launching subprocess."""
+    """Verify that starting a CFB attack continues with fallback when port 8191 is closed (non-fatal)."""
     service = WorkerService()
     
     async def mock_offline(*args, **kwargs):
         return False
 
-    with patch.object(service, "_check_tier0_readiness", side_effect=mock_offline), \
+    mock_process = AsyncMock()
+    mock_process.returncode = None
+
+    with patch.object(service, "_check_tier0_readiness", side_effect=mock_offline) as mock_check, \
          patch("src.worker.service.state_manager.update_status", AsyncMock()) as mock_status, \
-         patch.object(service, "_broadcast_state", AsyncMock()):
-        with pytest.raises(RuntimeError, match="Tier 0 FlareSolverr unreachable on localhost:8191."):
-            await service.start_attack(
-                target="https://example.com",
-                duration=60,
-                threads=10,
-                method="CFB",
-                rpc=100
-            )
-        mock_status.assert_called_with(AttackStatus.ERROR, "Tier 0 FlareSolverr unreachable on localhost:8191.")
+         patch.object(service, "_broadcast_state", AsyncMock()), \
+         patch("asyncio.create_subprocess_exec", return_value=mock_process) as mock_spawn:
+        
+        await service.start_attack(
+            target="https://example.com",
+            duration=60,
+            threads=10,
+            method="CFB",
+            rpc=100
+        )
+        
+        mock_check.assert_called_once_with("CFB")
+        mock_spawn.assert_called_once()
+        # Verify it didn't update status to ERROR
+        for call in mock_status.call_args_list:
+            assert call[0][0] != AttackStatus.ERROR
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,7 @@
 import os
 import pytest
 
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def test_terminal_js_non_destructive_filtering() -> None:

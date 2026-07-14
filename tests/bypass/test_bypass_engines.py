@@ -3,35 +3,25 @@ import sys
 from pathlib import Path
 import os
 
-# Mock problematic imports BEFORE importing start
-m = MagicMock()
-sys.modules["PyRoxy"] = m
-m.where.return_value = None # certifi.where()
-sys.modules["certifi"] = m
-sys.modules["cloudscraper"] = m
-sys.modules["dns"] = m
-sys.modules["dns.resolver"] = m
-sys.modules["icmplib"] = m
-sys.modules["impacket"] = m
-sys.modules["impacket.ImpactPacket"] = m
-sys.modules["psutil"] = m
-sys.modules["yarl"] = m
-sys.modules["curl_cffi"] = m
-sys.modules["curl_cffi.requests"] = m
-sys.modules["playwright"] = m
-sys.modules["playwright.sync_api"] = m
-sys.modules["playwright_stealth"] = m
-sys.modules["nodriver"] = m
+# Mock missing imports gracefully without overwriting globally installed libraries
+def _mock_if_missing(mod_name):
+    try:
+        __import__(mod_name)
+    except ImportError:
+        sys.modules[mod_name] = MagicMock()
 
-# Correctly mock PyRoxy and its Tools attribute
-pyroxy_mock = MagicMock()
-tools_mock = MagicMock()
-tools_mock.Random.rand_ipv4.return_value = "1.1.1.1"
-pyroxy_mock.Tools = tools_mock
-sys.modules["PyRoxy"] = pyroxy_mock
+for _m in [
+    "PyRoxy", "cloudscraper", "dns", "dns.resolver", "icmplib", "impacket",
+    "impacket.ImpactPacket", "psutil", "yarl", "curl_cffi", "curl_cffi.requests",
+    "playwright", "playwright.sync_api", "playwright_stealth", "nodriver"
+]:
+    _mock_if_missing(_m)
 
-import ssl
-ssl.create_default_context = MagicMock()
+if isinstance(sys.modules.get("PyRoxy"), MagicMock):
+    pyroxy_mock = sys.modules["PyRoxy"]
+    tools_mock = MagicMock()
+    tools_mock.Random.rand_ipv4.return_value = "1.1.1.1"
+    pyroxy_mock.Tools = tools_mock
 
 import asyncio
 import pytest
@@ -41,6 +31,9 @@ import time
 sys.path.append(str(Path(__file__).parent))
 
 from src.core.engine import BrowserEngine, HttpFlood, URL
+
+
+
 @pytest.fixture
 def mock_solvers():
     """Fixture to mock all solver methods in BrowserEngine."""

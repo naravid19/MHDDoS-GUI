@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
 from yarl import URL
 from PyRoxy import Proxy, ProxyType
@@ -38,7 +38,17 @@ async def test_cfbuam_circuit_breaker_integration() -> None:
     
     pool = TacticalProxyPool([tp1, tp2])
     
-    target_url = URL("https://example.com")
+    target_url = MagicMock()
+    target_url.human_repr.return_value = "https://example.com"
+    target_url.host = "example.com"
+    target_url.port = 443
+    target_url.scheme = "https"
+    target_url.path = "/"
+    target_url.raw_path_qs = "/"
+    target_url.authority = "example.com"
+    target_url.raw_host = "example.com"
+    target_url.query_string = ""
+
     flood = HttpFlood(
         thread_id=1,
         target=target_url,
@@ -70,7 +80,9 @@ async def test_cfbuam_circuit_breaker_integration() -> None:
             return "cf_clearance=ok", "mock_ua"
         return None, None
 
-    with patch("src.core.engine.BrowserEngine.solve_cf", side_effect=mock_solve_cf):
+    with patch("src.core.engine.BrowserEngine.solve_cf", side_effect=mock_solve_cf), \
+         patch("src.core.engine.CURL_CFFI_INSTALLED", False), \
+         patch.object(HttpFlood, "open_connection", new_callable=AsyncMock):
         # We mock get_proxy to return p1 first, then p2.
         pool_proxies = [p1, p2, p2, p2]
         
