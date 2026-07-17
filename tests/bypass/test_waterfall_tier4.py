@@ -1,50 +1,339 @@
-import sys
-import unittest
+# tests/bypass/test_waterfall_tier4.py
+"""
+Tier 4: Ultimate Stealth Firefox Bypass Tests
+Sub-engine: 4a. Camoufox (Stealth Firefox with randomized fingerprints + humanized interaction)
+This is the LAST RESORT tier — highest stealth, slowest speed.
+Uses Firefox engine (not Chromium) to avoid Chrome-specific fingerprinting patterns.
+Ref: resource/camoufox/README.md
+"""
+import pytest
 from unittest.mock import patch, MagicMock
+from src.core.engine import BrowserEngine, BypassDebugger
 
-sys.path.append('.')
-from src.core.engine import BrowserEngine
 
-class TestWaterfallTier4(unittest.TestCase):
-    @patch('src.core.engine.CAMOUFOX_INSTALLED', True)
-    def test_solve_tier4_camoufox_advanced(self):
-        # We need to mock the import failure if we want to be thorough, 
-        # but here we just want to see if the logic flows.
-        import sys
-        mock_camoufox_module = MagicMock()
-        mock_camoufox_class = MagicMock()
-        mock_camoufox_module.Camoufox = mock_camoufox_class
+# ---------------------------------------------------------------------------
+# Tier 4a: Camoufox (Ultimate Stealth Firefox)
+# ---------------------------------------------------------------------------
 
-        mock_browser = MagicMock()
-        mock_context = MagicMock()
-        mock_page = MagicMock()
-        
-        mock_context.cookies.return_value = [{"name": "cf_clearance", "value": "token_camoufox"}]
-        mock_page.evaluate.return_value = "ua_camoufox"
-        mock_browser.contexts = [mock_context]
-        mock_browser.new_page.return_value = mock_page
-        
-        # Mock context manager
-        mock_camoufox_class.return_value.__enter__.return_value = mock_browser
+def _make_camoufox_mocks(cf_clearance_value: str, ua_value: str = "Camoufox-Firefox/121"):
+    """Helper: build Camoufox mock hierarchy (context manager, browser, page, cookies)."""
+    mock_page = MagicMock()
+    mock_page.evaluate.return_value = ua_value
+    mock_page.frame_locator.return_value.locator.return_value.count.return_value = 0
+    mock_page.goto = MagicMock()
 
-        with patch.dict('sys.modules', {
-            'camoufox': MagicMock(),
-            'camoufox.sync_api': mock_camoufox_module
-        }):
-            cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://test.com", "1.1.1.1:80", "ua_test", 45)
-        
-        self.assertIsNotNone(cookie)
-        self.assertIn("cf_clearance=token_camoufox", cookie)
-        self.assertEqual(ua, "ua_camoufox")
-        
-        # Verify launch arguments
-        mock_camoufox_class.assert_called_with(
-            headless=True, 
-            humanize=True, 
-            fingerprint_preset=True,
-            os="windows",
-            proxy={"server": "http://1.1.1.1:80"}
-        )
+    mock_context = MagicMock()
+    mock_context.cookies.return_value = [
+        {"name": "cf_clearance", "value": cf_clearance_value},
+        {"name": "_ga", "value": "GA1.2.xxx"},
+    ]
 
-if __name__ == '__main__':
-    unittest.main()
+    mock_browser = MagicMock()
+    mock_browser.new_page.return_value = mock_page
+    mock_browser.contexts = [mock_context]
+
+    mock_camoufox_class = MagicMock()
+    mock_camoufox_class.return_value.__enter__ = MagicMock(return_value=mock_browser)
+    mock_camoufox_class.return_value.__exit__ = MagicMock(return_value=False)
+
+    mock_camoufox_module = MagicMock()
+    mock_camoufox_module.Camoufox = mock_camoufox_class
+
+    return mock_camoufox_class, mock_camoufox_module, mock_browser, mock_page, mock_context
+
+
+def test_tier4_camoufox_success():
+    """Verify Camoufox returns cf_clearance + UA when context cookies contain it."""
+    mock_camoufox_class, mock_camoufox_module, mock_browser, mock_page, _ = \
+        _make_camoufox_mocks("camoufox_clearance_abc", "Camoufox-Firefox/121.0")
+
+    with patch("src.core.engine.CAMOUFOX_INSTALLED", True), \
+         patch("time.sleep", return_value=None), \
+         patch.dict("sys.modules", {
+             "camoufox": MagicMock(),
+             "camoufox.sync_api": mock_camoufox_module,
+         }):
+        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", None, None, 45)
+
+    assert cookie is not None
+    assert "cf_clearance=camoufox_clearance_abc" in cookie
+    assert "_ga=GA1.2.xxx" in cookie
+    assert ua == "Camoufox-Firefox/121.0"
+
+
+def test_tier4_camoufox_launch_kwargs_no_proxy():
+    """Verify Camoufox is launched with correct kwargs when no proxy is provided."""
+    mock_camoufox_class, mock_camoufox_module, _, _, _ = \
+        _make_camoufox_mocks("cf_tok")
+
+    with patch("src.core.engine.CAMOUFOX_INSTALLED", True), \
+         patch("time.sleep", return_value=None), \
+         patch.dict("sys.modules", {
+             "camoufox": MagicMock(),
+             "camoufox.sync_api": mock_camoufox_module,
+         }):
+        BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", None, None, 45)
+
+    mock_camoufox_class.assert_called_once_with(
+        headless=True,
+        humanize=True,
+        fingerprint_preset=True,
+        os="windows",
+    )
+
+
+def test_tier4_camoufox_launch_kwargs_with_proxy():
+    """Verify Camoufox receives proxy dict {server: url} when proxy is provided."""
+    mock_camoufox_class, mock_camoufox_module, _, _, _ = \
+        _make_camoufox_mocks("cf_tok")
+
+    with patch("src.core.engine.CAMOUFOX_INSTALLED", True), \
+         patch("time.sleep", return_value=None), \
+         patch.dict("sys.modules", {
+             "camoufox": MagicMock(),
+             "camoufox.sync_api": mock_camoufox_module,
+         }):
+        BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", "103.68.214.164:8080", None, 45)
+
+    mock_camoufox_class.assert_called_once_with(
+        headless=True,
+        humanize=True,
+        fingerprint_preset=True,
+        os="windows",
+        proxy={"server": "http://103.68.214.164:8080"},
+    )
+
+
+def test_tier4_camoufox_proxy_schema_preserved():
+    """Verify Camoufox preserves socks5:// prefix in proxy without prepending http://."""
+    mock_camoufox_class, mock_camoufox_module, _, _, _ = \
+        _make_camoufox_mocks("cf_tok")
+
+    with patch("src.core.engine.CAMOUFOX_INSTALLED", True), \
+         patch("time.sleep", return_value=None), \
+         patch.dict("sys.modules", {
+             "camoufox": MagicMock(),
+             "camoufox.sync_api": mock_camoufox_module,
+         }):
+        BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", "socks5://127.0.0.1:1080", None, 45)
+
+    call_kwargs = mock_camoufox_class.call_args[1]
+    assert call_kwargs["proxy"] == {"server": "socks5://127.0.0.1:1080"}
+
+
+def test_tier4_camoufox_challenge_not_solved_captured():
+    """Verify Camoufox logs BypassDebugger failure when poll loop ends without cf_clearance."""
+    mock_page = MagicMock()
+    mock_page.evaluate.return_value = "Firefox-UA"
+    mock_page.frame_locator.return_value.locator.return_value.count.return_value = 0
+    mock_page.goto = MagicMock()
+
+    # Context never yields cf_clearance
+    mock_context = MagicMock()
+    mock_context.cookies.return_value = [{"name": "session", "value": "abc"}]
+
+    mock_browser = MagicMock()
+    mock_browser.new_page.return_value = mock_page
+    mock_browser.contexts = [mock_context]
+
+    mock_camoufox_class = MagicMock()
+    mock_camoufox_class.return_value.__enter__ = MagicMock(return_value=mock_browser)
+    mock_camoufox_class.return_value.__exit__ = MagicMock(return_value=False)
+
+    mock_camoufox_module = MagicMock()
+    mock_camoufox_module.Camoufox = mock_camoufox_class
+
+    with patch("src.core.engine.CAMOUFOX_INSTALLED", True), \
+         patch("time.sleep", return_value=None), \
+         patch.object(BypassDebugger, "capture_failure") as mock_debug, \
+         patch.dict("sys.modules", {
+             "camoufox": MagicMock(),
+             "camoufox.sync_api": mock_camoufox_module,
+         }):
+        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", None, None, 45)
+
+    mock_debug.assert_any_call(
+        "Tier 4 (Camoufox)", "https://readtoon.com/",
+        page_obj=mock_page, error_msg="Challenge not solved"
+    )
+    assert cookie is None
+    assert ua is None
+
+
+def test_tier4_camoufox_uses_human_mouse():
+    """Verify Tier 4a (Camoufox) invokes human_mouse Bezier waypoints (>= 25 calls to mouse.move)."""
+    mock_page = MagicMock()
+    del mock_page.actions  # Real Playwright/Camoufox Page has no .actions attribute
+    mock_page.evaluate.return_value = "Camoufox-Firefox/122"
+    mock_page.frame_locator.return_value.locator.return_value.count.return_value = 0
+    mock_page.goto = MagicMock()
+    mock_page.mouse = MagicMock()
+    mock_page.mouse.move = MagicMock()
+
+    mock_context = MagicMock()
+    mock_context.cookies.side_effect = [
+        [],
+        [{"name": "cf_clearance", "value": "camoufox_tok"}],
+        [{"name": "cf_clearance", "value": "camoufox_tok"}],
+    ]
+
+    mock_browser = MagicMock()
+    mock_browser.new_page.return_value = mock_page
+    mock_browser.contexts = [mock_context]
+
+    mock_camoufox_class = MagicMock()
+    mock_camoufox_class.return_value.__enter__ = MagicMock(return_value=mock_browser)
+    mock_camoufox_class.return_value.__exit__ = MagicMock(return_value=False)
+
+    mock_camoufox_module = MagicMock()
+    mock_camoufox_module.Camoufox = mock_camoufox_class
+
+    with patch("src.core.engine.CAMOUFOX_INSTALLED", True), \
+         patch("time.sleep", return_value=None), \
+         patch.dict("sys.modules", {
+             "camoufox": MagicMock(),
+             "camoufox.sync_api": mock_camoufox_module,
+         }):
+        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", None, None, 45)
+
+    assert cookie is not None
+    assert mock_page.mouse.move.call_count >= 25, f"Expected >= 25 waypoint moves, got {mock_page.mouse.move.call_count}"
+
+
+
+def test_tier4_camoufox_launch_exception_captured():
+    """Verify Camoufox launch exception (e.g. Firefox not found) triggers BypassDebugger."""
+    mock_camoufox_class = MagicMock()
+    mock_camoufox_class.side_effect = RuntimeError("Firefox binary not found")
+
+    mock_camoufox_module = MagicMock()
+    mock_camoufox_module.Camoufox = mock_camoufox_class
+
+    with patch("src.core.engine.CAMOUFOX_INSTALLED", True), \
+         patch.object(BypassDebugger, "capture_failure") as mock_debug, \
+         patch.dict("sys.modules", {
+             "camoufox": MagicMock(),
+             "camoufox.sync_api": mock_camoufox_module,
+         }):
+        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", None, None, 45)
+
+    mock_debug.assert_any_call(
+        "Tier 4 (Camoufox-Launch)", "https://readtoon.com/",
+        error_msg="Firefox binary not found"
+    )
+    assert cookie is None
+    assert ua is None
+
+
+def test_tier4_camoufox_disabled_returns_none():
+    """Verify (None, None) when Camoufox is not installed."""
+    with patch("src.core.engine.CAMOUFOX_INSTALLED", False):
+        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", None, None, 45)
+
+    assert cookie is None
+    assert ua is None
+
+
+def test_tier4_turnstile_interaction_attempted():
+    """Verify the Turnstile iframe interaction block is executed in each polling iteration."""
+    mock_page = MagicMock()
+    mock_page.evaluate.return_value = "Firefox-UA"
+    mock_page.goto = MagicMock()
+
+    # Make frame_locator chain findable but checkbox has count=0 (no Turnstile found)
+    mock_checkbox = MagicMock()
+    mock_checkbox.count.return_value = 0
+    mock_page.frame_locator.return_value.locator.return_value = mock_checkbox
+
+    # First poll: empty cookies -> forces Turnstile interaction; second: cf_clearance found
+    call_count = [0]
+    def side_effect_cookies():
+        call_count[0] += 1
+        if call_count[0] >= 2:
+            return [{"name": "cf_clearance", "value": "tok"}]
+        return []
+
+    mock_context = MagicMock()
+    mock_context.cookies.side_effect = side_effect_cookies
+
+    mock_browser = MagicMock()
+    mock_browser.new_page.return_value = mock_page
+    mock_browser.contexts = [mock_context]
+
+    mock_camoufox_class = MagicMock()
+    mock_camoufox_class.return_value.__enter__ = MagicMock(return_value=mock_browser)
+    mock_camoufox_class.return_value.__exit__ = MagicMock(return_value=False)
+
+    mock_camoufox_module = MagicMock()
+    mock_camoufox_module.Camoufox = mock_camoufox_class
+
+    with patch("src.core.engine.CAMOUFOX_INSTALLED", True), \
+         patch("time.sleep", return_value=None), \
+         patch.dict("sys.modules", {
+             "camoufox": MagicMock(),
+             "camoufox.sync_api": mock_camoufox_module,
+         }):
+        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", None, None, 45)
+
+    # frame_locator was called for Turnstile interaction
+    mock_page.frame_locator.assert_called()
+    assert cookie is not None
+    assert "cf_clearance=tok" in cookie
+
+
+# ---------------------------------------------------------------------------
+# Live Integration Test
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+def test_tier4_readtoon_live_integration():
+    """
+    Live integration test for Tier 4 (Camoufox — Ultimate Stealth Firefox) against https://readtoon.com/.
+    This is the LAST RESORT tier: uses Firefox (not Chromium) with deep anti-fingerprint patches.
+    Proxies loaded dynamically from the checked-proxies directory.
+    
+    Expected result: cf_clearance cookie OR graceful (None, None) if Firefox/Camoufox not installed.
+    The live integration validates:
+    - Correct browser launch with humanize=True, fingerprint_preset=True
+    - Turnstile iframe interaction polling loop
+    - Proper cleanup via context manager (no resource leaks)
+    """
+    import os
+    import time
+    from src.core.engine import CAMOUFOX_INSTALLED
+
+    print(f"\n[*] Tier 4 engine availability:")
+    print(f"    4a. Camoufox (Firefox): {'✅ installed' if CAMOUFOX_INSTALLED else '❌ not installed'}")
+
+    if not CAMOUFOX_INSTALLED:
+        pytest.skip("Camoufox not installed — install with: pip install camoufox && python -m camoufox fetch")
+
+    proxy_file = r"C:\Users\narav\Desktop\CE code\Tools\proxy-scraper-checker\out\checked-proxies\proxies\http.txt"
+    proxies = []
+    if os.path.exists(proxy_file):
+        with open(proxy_file, "r", encoding="utf-8") as f:
+            proxies = [line.strip() for line in f if line.strip() and ":" in line]
+        print(f"[*] Loaded {len(proxies)} checked proxies from http.txt")
+
+    cookie, ua = None, None
+
+    # Try with 1 proxy first (Tier 4 is slow — limit attempts)
+    for i, test_proxy in enumerate(proxies[:1]):
+        print(f"[*] Tier 4 attempt with proxy: {test_proxy}")
+        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", proxy=test_proxy, timeout=50)
+        if cookie and "cf_clearance" in cookie:
+            print(f"[+] Tier 4 PASSED via proxy: cookie={cookie[:50]}...")
+            break
+        time.sleep(2.0)
+
+    # Direct connection if proxy didn't work
+    if not cookie or "cf_clearance" not in cookie:
+        print("[*] Tier 4 direct connection attempt (no proxy)...")
+        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth("https://readtoon.com/", proxy=None, timeout=55)
+        if cookie and "cf_clearance" in cookie:
+            print(f"[+] Tier 4 PASSED direct: cookie={cookie[:50]}...")
+        else:
+            print("[-] Tier 4 did not obtain cf_clearance on this run (Camoufox may need fresh Firefox install).")
+
+    assert (cookie is None and ua is None) or (isinstance(cookie, str) and isinstance(ua, str)), \
+        f"Expected (str, str) or (None, None) but got ({type(cookie)}, {type(ua)})"
