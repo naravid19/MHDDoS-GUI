@@ -832,6 +832,10 @@ class EngineState:
         self.max_threads = 0
         self.flaresolverr_url: str | None = None
         self.flaresolverr_tabs: int | None = None
+        self.debug_mode: bool = False
+        self.smart_mode: bool = False
+        self.adaptive_mode: bool = False
+        self.engines: list[str] = []
 
 ENGINE_STATE = EngineState()
 
@@ -1784,6 +1788,8 @@ class MLSmartBypassEngine:
     def __init__(self):
         self.lock = Lock()
         self.intensity = 15 # Default intensity (0-50%)
+        self.smart_rpc_enabled = False
+        self.enabled = False
         self.fingerprints = [
             {
                 "id": "chrome_win_133",
@@ -1841,6 +1847,8 @@ class MLSmartBypassEngine:
 
     def get_fingerprint(self):
         with self.lock:
+            if not getattr(self, 'smart_rpc_enabled', False) and not getattr(self, 'enabled', False):
+                return self.fingerprints[0]
             # Roulette wheel selection based on weight
             total_weight = sum(f["weight"] for f in self.fingerprints)
             if total_weight <= 0:
@@ -1864,6 +1872,8 @@ class MLSmartBypassEngine:
 
     def report_result(self, fp_id: str, success: bool):
         with self.lock:
+            if not getattr(self, 'smart_rpc_enabled', False) and not getattr(self, 'enabled', False):
+                return
             for f in self.fingerprints:
                 if f["id"] == fp_id:
                     if success:
@@ -5046,6 +5056,70 @@ def _apply_curl_gate(
         return proxies, tactical_proxies
 
 
+def parse_global_flags(argv: list[str]) -> tuple[list[str], dict[str, Any]]:
+    """Extract all optional flags (--flag value or --flag) and return cleaned positional arguments."""
+    clean_pos = []
+    flags = {
+        "smart": False,
+        "adaptive": None,
+        "engines": None,
+        "intensity": None,
+        "autoscale": False,
+        "flaresolverr": None,
+        "flaresolverr_tabs": None,
+        "shared_cookie": None,
+        "shared_ua": None,
+        "debug": False,
+        "evasion": False,
+        "go": False,
+    }
+    args_iter = iter(argv)
+    for arg in args_iter:
+        if arg == "--smart":
+            flags["smart"] = True
+        elif arg == "--debug":
+            flags["debug"] = True
+        elif arg == "--go":
+            flags["go"] = True
+        elif arg == "--evasion":
+            flags["evasion"] = True
+        elif arg == "--autoscale":
+            flags["autoscale"] = True
+        elif arg == "--adaptive":
+            try:
+                next_arg = next(args_iter)
+                if next_arg.lower() in ("true", "1", "yes"):
+                    flags["adaptive"] = True
+                elif next_arg.lower() in ("false", "0", "no"):
+                    flags["adaptive"] = False
+                else:
+                    flags["adaptive"] = True
+                    clean_pos.append(next_arg)
+            except StopIteration:
+                flags["adaptive"] = True
+        elif arg == "--engines":
+            try: flags["engines"] = next(args_iter)
+            except StopIteration: pass
+        elif arg == "--intensity":
+            try: flags["intensity"] = max(0, min(50, int(next(args_iter))))
+            except (StopIteration, ValueError): pass
+        elif arg == "--flaresolverr":
+            try: flags["flaresolverr"] = next(args_iter)
+            except StopIteration: pass
+        elif arg == "--flaresolverr-tabs":
+            try: flags["flaresolverr_tabs"] = int(next(args_iter))
+            except (StopIteration, ValueError): pass
+        elif arg == "--shared-cookie":
+            try: flags["shared_cookie"] = next(args_iter)
+            except StopIteration: pass
+        elif arg == "--shared-ua":
+            try: flags["shared_ua"] = next(args_iter)
+            except StopIteration: pass
+        else:
+            clean_pos.append(arg)
+    return clean_pos, flags
+
+
 async def main_async():
     import src.core.state_manager as _sm
     _sm.main_loop = asyncio.get_running_loop()
@@ -5091,10 +5165,23 @@ async def main_async():
         # --- Global Flags ---
         go_core_enabled = "--go" in argv
         _session_id = None
+        if "--debug" in argv or "--verbose" in argv:
+            ENGINE_STATE.debug_mode = True
+            logger.setLevel(logging.DEBUG)
+        if "--smart" in argv:
+            ENGINE_STATE.smart_mode = True
+            ML_ENGINE.smart_rpc_enabled = True
+            ML_ENGINE.enabled = True
+            logger.info("[*] ML_ENGINE: Smart Adaptive WAF Bypass ACTIVE.")
+        if "--adaptive" in argv:
+            ENGINE_STATE.adaptive_mode = True
+            logger.info("[*] ADAPTIVE_ENGINE: Real-time traffic adaptation ACTIVE.")
         for i, arg in enumerate(argv):
             if arg == "--session-id" and i + 1 < len(argv):
                 _session_id = argv[i + 1]
-                break
+            elif arg == "--engines" and i + 1 < len(argv):
+                ENGINE_STATE.engines = [e.strip().upper() for e in argv[i + 1].split(",") if e.strip()]
+                logger.info(f"[*] ENGINES: Multi-engine routing ACTIVE: {ENGINE_STATE.engines}")
 
         if go_core_enabled:
             logger.info(f"{bcolors.OKGREEN}[*] Hybrid Core: High-performance Go Engine active.{bcolors.RESET}")
