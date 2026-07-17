@@ -5064,6 +5064,20 @@ async def main_async():
         
         method, event, proxy_pool, refresh_mins = one, asyncio.Event(), TacticalProxyPool(), 0
         event.clear()
+
+        def resolve_proxy_path(arg):
+            if str(arg).startswith("http"): return arg
+            p_direct = Path(arg)
+            if p_direct.exists(): return p_direct
+            # 1. Check Assets (User)
+            p_assets = get_assets_path() / "proxies" / arg
+            if p_assets.exists(): return p_assets
+            # 2. Check Resource (System)
+            p_res = get_project_root() / "resource" / "files" / "proxies" / arg
+            if p_res.exists(): return p_res
+            # Default to assets path for creation (harvest)
+            return p_assets
+
         urlraw = argv[2].strip()
         if not urlraw.startswith("http"):
             # Cloudflare-specific methods should default to HTTPS
@@ -5187,17 +5201,6 @@ async def main_async():
                         logger.info(f"{bcolors.OKGREEN}[*] Intelligence: Loaded persisted bypass tokens for {target_host}.{bcolors.RESET}")
                 except Exception as e:
                     logger.debug(f"[!] Intelligence load error: {e}")
-
-            def resolve_proxy_path(arg):
-                if arg.startswith("http"): return arg
-                # 1. Check Assets (User)
-                p_assets = get_assets_path() / "proxies" / arg
-                if p_assets.exists(): return p_assets
-                # 2. Check Resource (System)
-                p_res = get_project_root() / "resource" / "files" / "proxies" / arg
-                if p_res.exists(): return p_res
-                # Default to assets path for creation (harvest)
-                return p_assets
 
             proxy_li = resolve_proxy_path(proxy_arg)
             useragent_li, referers_li, bombardier_path = (
@@ -5367,11 +5370,7 @@ async def main_async():
                         proxy_ty, proxy_arg = int(argfive), argv[6].strip()
                         if len(argv) >= 8 and argv[7].isdigit():
                             refresh_mins = int(argv[7])
-                        proxy_li = (
-                            proxy_arg
-                            if proxy_arg.startswith("http")
-                            else Path(__dir__ / "files/proxies" / proxy_arg)
-                        )
+                        proxy_li = resolve_proxy_path(proxy_arg)
                         proxies = await asyncio.to_thread(handleProxyList, con, proxy_li, proxy_ty)
                         if proxies:
                             tactical_proxies = await TacticalProxyValidator.validate_and_score(set(proxies), is_layer7=False)
