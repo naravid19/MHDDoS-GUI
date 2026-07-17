@@ -206,7 +206,10 @@ def move(
 def _send(page: "Any", waypoints: list[tuple], step_delay_ms: float) -> None:
     for x, y in waypoints:
         try:
-            page.mouse.move(x, y)
+            if hasattr(page, "actions") and hasattr(page.actions, "move"):
+                page.actions.move(x, y)
+            elif hasattr(page, "mouse") and hasattr(page.mouse, "move"):
+                page.mouse.move(x, y)
         except Exception:
             return
         if step_delay_ms > 0:

