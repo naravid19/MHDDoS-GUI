@@ -6,8 +6,8 @@ import time
 
 # Monkey patch
 import nodriver.cdp.network as network
-if hasattr(network, 'Cookie'):
-    original_from_json = network.Cookie.from_json
+if hasattr(network, 'Cookie') and not hasattr(network.Cookie, '_is_patched_by_mhddos'):
+    original_from_json = network.Cookie.__dict__.get('from_json', getattr(network.Cookie, 'from_json', None))
     @classmethod
     def patched_from_json(cls, json_obj):
         for k, v in [
@@ -20,8 +20,17 @@ if hasattr(network, 'Cookie'):
         ]:
             if k not in json_obj:
                 json_obj[k] = v
-        return original_from_json.__func__(cls, json_obj)
+        if isinstance(original_from_json, classmethod):
+            return original_from_json.__func__(cls, json_obj)
+        elif hasattr(original_from_json, '__func__'):
+            return original_from_json.__func__(cls, json_obj)
+        elif callable(original_from_json):
+            return original_from_json(json_obj)
+        else:
+            return cls(**json_obj)
+    patched_from_json._is_patched_by_mhddos = True
     network.Cookie.from_json = patched_from_json
+    network.Cookie._is_patched_by_mhddos = True
 
 async def main():
     browser = await uc.start(browser_args=[
