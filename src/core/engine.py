@@ -2137,7 +2137,7 @@ class BrowserEngine:
                             # Adaptive Interaction: Move mouse slightly to trigger human behavior
                             if i % 3 == 0:
                                 try:
-                                    page.mouse.move(random.randint(100, 500), random.randint(100, 500))
+                                    human_mouse_move(page, random.randint(100, 500), random.randint(100, 500))
                                     page.mouse.wheel(0, random.randint(100, 300))
                                 except: pass
                         BypassDebugger.capture_failure("Tier 3 (CloakBrowser)", url, page_obj=page, error_msg="Challenge not solved")
@@ -2187,7 +2187,7 @@ class BrowserEngine:
                                 
                             if i % 3 == 0:
                                 try:
-                                    page.mouse.move(random.randint(100, 500), random.randint(100, 500))
+                                    human_mouse_move(page, random.randint(100, 500), random.randint(100, 500))
                                 except: pass
                         BypassDebugger.capture_failure("Tier 3 (Patchright)", url, page_obj=page, error_msg="Challenge not solved")
                     except Exception as e:

@@ -48,7 +48,7 @@
 
 - [x] Task 1: Create `human_mouse.py` (ghost-cursor Bezier path generation + Fitts step count + Overshoot) (commit 63702c6, review clean)
 - [x] Task 2: Integrate into Tier 2c (DrissionPage) in `engine.py` (`page.actions.move(x, y)`)
-- [ ] Task 3: Integrate into Tier 3a (CloakBrowser) in `engine.py` (`page.mouse.move(x, y)`)
-- [ ] Task 4: Integrate into Tier 3b (Patchright) in `engine.py` (`page.mouse.move(x, y)`)
+- [x] Task 3: Integrate into Tier 3a (CloakBrowser) in `engine.py` (`page.mouse.move(x, y)`)
+- [x] Task 4: Integrate into Tier 3b (Patchright) in `engine.py` (`page.mouse.move(x, y)`)
 - [ ] Task 5: Integrate into Tier 4a (Camoufox) in `engine.py` (`page.mouse.move(x, y)`)
 
