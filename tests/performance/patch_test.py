@@ -10,12 +10,16 @@ if hasattr(network, 'Cookie'):
     original_from_json = network.Cookie.from_json
     @classmethod
     def patched_from_json(cls, json_obj):
-        if 'sameParty' not in json_obj:
-            json_obj['sameParty'] = False
-        if 'partitionKey' not in json_obj:
-            json_obj['partitionKey'] = None
-        if 'partitionKeyOpaque' not in json_obj:
-            json_obj['partitionKeyOpaque'] = False
+        for k, v in [
+            ('sameParty', False),
+            ('partitionKey', None),
+            ('partitionKeyOpaque', False),
+            ('sourceScheme', 'NonSecure'),
+            ('sourcePort', 80),
+            ('priority', 'Medium')
+        ]:
+            if k not in json_obj:
+                json_obj[k] = v
         return original_from_json.__func__(cls, json_obj)
     network.Cookie.from_json = patched_from_json
 
@@ -62,9 +66,28 @@ async def main():
         
     try:
         res = browser.stop()
-        if asyncio.iscoroutine(res):
+        if asyncio.iscoroutine(res) and not hasattr(res, '_mock_return_value'):
             await res
     except Exception:
         pass
 
-asyncio.run(main())
+def test_patched_cookie_from_json():
+    """Verify that network.Cookie.from_json injects missing fields."""
+    raw = {
+        "name": "test_cookie",
+        "value": "123",
+        "domain": "example.com",
+        "path": "/",
+        "expires": 0,
+        "size": 14,
+        "httpOnly": False,
+        "secure": True,
+        "session": True,
+        "priority": "Medium",
+    }
+    cookie = network.Cookie.from_json(raw)
+    assert cookie.name == "test_cookie"
+    assert cookie.value == "123"
+
+if __name__ == '__main__':
+    asyncio.run(main())
