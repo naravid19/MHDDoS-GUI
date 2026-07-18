@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.core.state_manager import state_manager, AttackStatus, AttackStateSnapshot
 from src.api.ws_manager import ws_manager, WSMessage
 from src.worker.service import worker_service
+from src.core.db_telemetry import init_telemetry_db, get_telemetry_history, insert_telemetry_batch
 
 # --- Logging Configuration ---
 if sys.platform.lower().startswith("win"):
@@ -112,6 +113,14 @@ def format_terminal_log(level: str, msg: str) -> str:
     return f"{bcolors.RESET}[{timestamp}] {color}[{level.upper()}] {clean_msg}{bcolors.RESET}"
 
 # --- Global State ---
+class TelemetryDBBuffer:
+    last_insert = time.time()
+    task_latest_rps: dict[str, float] = {}
+    task_latest_bps: dict[str, float] = {}
+    bg_tasks = set()
+
+db_buffer = TelemetryDBBuffer()
+
 class EngineState:
     active_tasks: dict[str, asyncio.subprocess.Process] = {}
     task_info: dict[str, dict] = {}
@@ -354,6 +363,7 @@ C2 = C2State()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_telemetry_db()
     # Initialize Redis for telemetry
     try:
         redis_url = os.getenv("REDIS_URL", "redis://localhost")
@@ -396,6 +406,11 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
+
+@app.get("/api/telemetry/history")
+async def api_telemetry_history(timeframe: int = 86400):
+    data = await asyncio.to_thread(get_telemetry_history, timeframe)
+    return {"status": "success", "data": data}
 
 # --- Pydantic Models ---
 class AttackParams(BaseModel):
@@ -651,6 +666,33 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
                 
                 if m_pps and m_bps:
                     lat_raw = m_lat.group(1).strip() if m_lat else "0"
+                    
+                    # DB Aggregation
+                    try:
+                        rps_val = float(_parse_numeric(m_pps.group(1)))
+                        bps_val = float(_parse_numeric(m_bps.group(1)))
+                        db_buffer.task_latest_rps[task_id] = rps_val
+                        db_buffer.task_latest_bps[task_id] = bps_val
+                        
+                        now_ts = time.time()
+                        if now_ts - db_buffer.last_insert >= 60:
+                            # Prune inactive tasks
+                            active_tids = set(state.active_tasks.keys())
+                            for tid in list(db_buffer.task_latest_rps.keys()):
+                                if tid not in active_tids:
+                                    db_buffer.task_latest_rps.pop(tid, None)
+                                    db_buffer.task_latest_bps.pop(tid, None)
+                            
+                            total_rps = sum(db_buffer.task_latest_rps.values())
+                            total_bps = sum(db_buffer.task_latest_bps.values())
+                            db_buffer.last_insert = now_ts
+                            
+                            t = asyncio.create_task(asyncio.to_thread(insert_telemetry_batch, total_rps, total_bps))
+                            db_buffer.bg_tasks.add(t)
+                            t.add_done_callback(db_buffer.bg_tasks.discard)
+                    except Exception as e:
+                        logging.warning(f"Telemetry DB error: {e}")
+
                     await broadcast_log({
                         "task_id": task_id,
                         "type": "telemetry",
