@@ -169,6 +169,31 @@ const term = document.getElementById('terminal-content');
 
         // --- Time-Series Analytics & Charts ---
         let historyBuffer = [];
+        
+        async function loadTelemetryHistory() {
+            try {
+                const res = await fetch('/api/telemetry/history?timeframe=86400');
+                const json = await res.json();
+                if (json.status === 'success' && json.data.length > 0) {
+                    historyBuffer = json.data.map(d => ({
+                        time: d.time,
+                        rps: d.rps,
+                        bps: d.bps,
+                        s:0, w:0, e:0, t:0
+                    }));
+                    // Trigger a re-render
+                    if (typeof renderCharts === 'function') renderCharts();
+                }
+            } catch (e) {
+                console.error("Failed to load telemetry from DB", e);
+            }
+        }
+        
+        // Ensure it runs after load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTelemetryHistory();
+        });
+
         try {
             const stored = localStorage.getItem('mhddos_telemetry');
             if (stored) {

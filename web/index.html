@@ -249,7 +249,13 @@
 
                     <div class="glass-card p-8 rounded-2xl shadow-xl">
                         <h3 class="font-headline font-black text-on-surface-variant uppercase tracking-widest text-[11px] mb-6 flex items-center justify-between">
-                            Network Velocity Tracking
+                            <div class="flex items-center gap-4">
+                                Network Velocity Tracking
+                                <div class="flex gap-2">
+                                    <button id="tf-1H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-xs transition-colors" onclick="setTimeframe('1H')">1H</button>
+                                    <button id="tf-1D" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-xs transition-colors" onclick="setTimeframe('1D')">24H</button>
+                                </div>
+                            </div>
                             <span class="text-primary font-mono"><span id="current-rps">0</span> RPS / <span id="peak-rps">0</span> MAX</span>
                         </h3>
                         <div class="h-72 relative">
