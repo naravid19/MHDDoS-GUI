@@ -251,15 +251,23 @@
                         <h3 class="font-headline font-black text-on-surface-variant uppercase tracking-widest text-[11px] mb-6 flex items-center justify-between">
                             <div class="flex items-center gap-4">
                                 Network Velocity Tracking
-                                <div class="flex gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
-                                    <button id="tf-1M" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('1M')">1M</button>
-                                    <button id="tf-5M" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('5M')">5M</button>
-                                    <button id="tf-30M" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('30M')">30M</button>
-                                    <button id="tf-1H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('1H')">1H</button>
-                                    <button id="tf-3H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('3H')">3H</button>
-                                    <button id="tf-6H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('6H')">6H</button>
-                                    <button id="tf-12H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('12H')">12H</button>
-                                    <button id="tf-1D" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('1D')">24H</button>
+                                <div class="relative">
+                                    <button class="tf-dropdown-trigger bg-gray-800/50 hover:bg-gray-700/80 text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700/50 flex items-center gap-2 text-xs font-mono transition-all" onclick="toggleTimeframeDropdown('tf-dropdown-index')">
+                                        <span id="tf-label-index">1H</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                    <div id="tf-dropdown-index" class="tf-dropdown-menu hidden absolute right-0 mt-2 w-24 bg-gray-900/95 border border-gray-800 rounded-lg shadow-2xl backdrop-blur-xl z-50 overflow-hidden flex flex-col py-1">
+                                        <button class="text-left px-4 py-2 text-xs font-mono text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors" onclick="selectTimeframeDropdown('1M', 'tf-label-index', 'tf-dropdown-index')">1M</button>
+                                        <button class="text-left px-4 py-2 text-xs font-mono text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors" onclick="selectTimeframeDropdown('5M', 'tf-label-index', 'tf-dropdown-index')">5M</button>
+                                        <button class="text-left px-4 py-2 text-xs font-mono text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors" onclick="selectTimeframeDropdown('30M', 'tf-label-index', 'tf-dropdown-index')">30M</button>
+                                        <button class="text-left px-4 py-2 text-xs font-mono text-white hover:bg-gray-800/50 transition-colors" onclick="selectTimeframeDropdown('1H', 'tf-label-index', 'tf-dropdown-index')">1H</button>
+                                        <button class="text-left px-4 py-2 text-xs font-mono text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors" onclick="selectTimeframeDropdown('3H', 'tf-label-index', 'tf-dropdown-index')">3H</button>
+                                        <button class="text-left px-4 py-2 text-xs font-mono text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors" onclick="selectTimeframeDropdown('6H', 'tf-label-index', 'tf-dropdown-index')">6H</button>
+                                        <button class="text-left px-4 py-2 text-xs font-mono text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors" onclick="selectTimeframeDropdown('12H', 'tf-label-index', 'tf-dropdown-index')">12H</button>
+                                        <button class="text-left px-4 py-2 text-xs font-mono text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors" onclick="selectTimeframeDropdown('1D', 'tf-label-index', 'tf-dropdown-index')">24H</button>
+                                    </div>
                                 </div>
                             </div>
                             <span class="text-primary font-mono"><span id="current-rps">0</span> RPS / <span id="peak-rps">0</span> MAX</span>
