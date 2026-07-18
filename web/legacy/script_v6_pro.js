@@ -113,10 +113,6 @@ const term = document.getElementById('terminal-content');
                     bpsChart.data.labels = labels;
                     bpsChart.data.datasets[0].data = sampled.map(d => d.bps);
                     bpsChart.update('none');
-
-                    latChart.data.labels = labels;
-                    latChart.data.datasets[0].data = sampled.map(d => d.lat);
-                    latChart.update('none');
                 } else if (e.data.type === 'serialize_result') {
                     try {
                         localStorage.setItem('mhddos_telemetry', e.data.serialized);
@@ -613,7 +609,6 @@ const term = document.getElementById('terminal-content');
 
         const ppsChart = new Chart(document.getElementById('networkVelocityChart'), chartConfig('#6366f1', 'Network Velocity', 'pps'));
         const bpsChart = new Chart(document.getElementById('dataThroughputChart'), chartConfig('#06b6d4', 'Data Throughput', 'bytes'));
-        const latChart = new Chart(document.getElementById('latencyChart'), chartConfig('#f59e0b', 'Target Latency', 'ms'));
 
         // Impact Distribution Chart (Doughnut)
         const impactChart = new Chart(document.getElementById('impactChart'), {
@@ -761,10 +756,6 @@ const term = document.getElementById('terminal-content');
                 bpsChart.data.labels = labels;
                 bpsChart.data.datasets[0].data = sampled.map(d => d.bps);
                 bpsChart.update('none');
-
-                latChart.data.labels = labels;
-                latChart.data.datasets[0].data = sampled.map(d => d.lat);
-                latChart.update('none');
             }
             
             // Impact Chart: Respect task isolation
@@ -1199,13 +1190,12 @@ const term = document.getElementById('terminal-content');
             const bpsMatch = msg.match(/BPS:\s*([^,]+)/i);
             
             if (rpsMatch || bpsMatch) {
-                const latMatch = msg.match(/Latency:\s*([^,]+)/i);
                 const poolMatch = msg.match(/Pool:\s*(\d+)\/(\d+)/i);
                 updateMetrics(
                     logData.task_id || taskId,
                     rpsMatch ? rpsMatch[1] : null, 
                     bpsMatch ? bpsMatch[1].split(',')[0].trim() : null, 
-                    latMatch ? latMatch[1] : null,
+                    null,
                     poolMatch ? poolMatch[1] : null,
                     poolMatch ? poolMatch[2] : null
                 );

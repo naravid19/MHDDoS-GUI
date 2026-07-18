@@ -310,7 +310,6 @@ const term = document.getElementById('terminal-content');
 
         const ppsChart = new Chart(document.getElementById('networkVelocityChart'), chartConfig('#10b981', 'Network Velocity', 'pps'));
         const bpsChart = new Chart(document.getElementById('dataThroughputChart'), chartConfig('#3b82f6', 'Data Throughput', 'bytes'));
-        const latChart = new Chart(document.getElementById('latencyChart'), chartConfig('#f59e0b', 'Target Latency', 'ms'));
 
         // Impact Distribution Chart (Doughnut)
         const impactChart = new Chart(document.getElementById('impactChart'), {
@@ -429,10 +428,6 @@ const term = document.getElementById('terminal-content');
             bpsChart.data.labels = labels;
             bpsChart.data.datasets[0].data = sampled.map(d => d.bps);
             bpsChart.update('none');
-
-            latChart.data.labels = labels;
-            latChart.data.datasets[0].data = sampled.map(d => d.lat);
-            latChart.update('none');
 
             // Update Impact Chart with latest aggregate
             const last = visibleData[visibleData.length - 1];
@@ -648,7 +643,6 @@ const term = document.getElementById('terminal-content');
 
             const rpsMatch = cleanMsg.match(/PPS:\s*([^,]+)/i);
             const bpsMatch = cleanMsg.match(/BPS:\s*([^,]+)/i);
-            const latMatch = cleanMsg.match(/Latency:\s*([^,]+)/i);
             const poolMatch = cleanMsg.match(/Pool:\s*(\d+)\/(\d+)/i);
             
             if (rpsMatch || bpsMatch) {
@@ -656,7 +650,7 @@ const term = document.getElementById('terminal-content');
                     taskId,
                     rpsMatch ? rpsMatch[1] : "0", 
                     bpsMatch ? bpsMatch[1].split(',')[0].trim() : "0 B", 
-                    latMatch ? latMatch[1] : "0 ms",
+                    "0 ms",
                     poolMatch ? poolMatch[1] : "0",
                     poolMatch ? poolMatch[2] : "0"
                 );
