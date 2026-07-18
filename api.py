@@ -32,6 +32,11 @@ class StartAttackRequest(BaseModel):
     threads: int = Field(..., gt=0, le=10000, description="Number of threads")
     method: str = Field(default="GET", description="Attack method")
     rpc: int = Field(default=100, gt=0, le=10000, description="Requests per connection")
+    task_id: str | None = Field(default=None, description="Optional Task ID (generated if not provided)")
+
+
+class StopAttackRequest(BaseModel):
+    task_id: str | None = Field(default=None, description="Task ID to stop, stops all if omitted")
 
 
 class ApiResponse(BaseModel):
@@ -97,18 +102,19 @@ async def _api_log_handler(line: str) -> None:
 async def start_attack(request: StartAttackRequest) -> ApiResponse:
     """Triggers worker service to spawn background MHDDoS process."""
     try:
-        await worker_service.start_attack(
+        task_id = await worker_service.start_attack(
             target=request.target,
             duration=request.duration,
             threads=request.threads,
             method=request.method,
             rpc=request.rpc,
             log_callback=_api_log_handler,
+            attack_id=request.task_id,
         )
         current_state = await state_manager.get_state()
         return ApiResponse(
             status="success",
-            message="Attack started successfully.",
+            message=f"Attack {task_id} started successfully.",
             data=current_state,
         )
     except RuntimeError as exc:
@@ -119,14 +125,16 @@ async def start_attack(request: StartAttackRequest) -> ApiResponse:
 
 
 @app.post("/api/attack/stop", response_model=ApiResponse)
-async def stop_attack(request: dict[str, Any] | None = None) -> ApiResponse:
+async def stop_attack(request: StopAttackRequest | None = None) -> ApiResponse:
     """Terminates running attack process tree via worker service."""
     try:
-        await worker_service.stop_attack()
+        task_id = request.task_id if request else None
+        await worker_service.stop_attack(task_id)
         current_state = await state_manager.get_state()
+        message = f"Attack {task_id} stopped successfully." if task_id else "All attacks stopped successfully."
         return ApiResponse(
             status="success",
-            message="Attack stopped successfully.",
+            message=message,
             data=current_state,
         )
     except Exception as exc:
@@ -138,17 +146,9 @@ async def stop_attack(request: dict[str, Any] | None = None) -> ApiResponse:
 @app.post("/api/attack/status")
 async def get_attack_status() -> dict[str, Any]:
     """Returns the current attack status and active tasks."""
-    snapshot = await state_manager.get_state()
     return {
         "status": "success",
-        "active_tasks": [
-            {
-                "task_id": "global",
-                "target": snapshot.target or "Unknown",
-                "method": snapshot.method or "GET",
-                "threads": snapshot.threads,
-            }
-        ] if snapshot.status.value in ("running", "starting") else []
+        "active_tasks": worker_service.get_active_tasks()
     }
 
 
