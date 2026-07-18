@@ -10,43 +10,35 @@ logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(m
 logger = logging.getLogger("MethodTester")
 
 # Mock problematic imports BEFORE importing start.py
-m = MagicMock()
-sys.modules["PyRoxy"] = m
-sys.modules["certifi"] = m
-sys.modules["cloudscraper"] = m
-sys.modules["dns"] = m
-sys.modules["dns.resolver"] = m
-sys.modules["icmplib"] = m
-sys.modules["impacket"] = m
-sys.modules["impacket.ImpactPacket"] = m
-sys.modules["psutil"] = m
-sys.modules["yarl"] = m
-sys.modules["curl_cffi"] = m
-sys.modules["curl_cffi.requests"] = m
-sys.modules["playwright"] = m
-sys.modules["playwright.sync_api"] = m
-sys.modules["playwright_stealth"] = m
-sys.modules["nodriver"] = m
-sys.modules["undetected_chromedriver"] = m
-sys.modules["botasaurus"] = m
-sys.modules["botasaurus.browser"] = m
-sys.modules["patchright"] = m
-sys.modules["patchright.sync_api"] = m
-sys.modules["DrissionPage"] = m
-sys.modules["zendriver"] = m
-sys.modules["hrequests"] = m
-sys.modules["cloudflare_bypass_for_scraping"] = m
-sys.modules["httpx"] = m
+def _mock_if_missing(mod_name):
+    if mod_name in {"hrequests", "zendriver", "cloudflare_bypass_for_scraping"}:
+        sys.modules[mod_name] = MagicMock()
+        return
+    try:
+        __import__(mod_name)
+    except ImportError:
+        sys.modules[mod_name] = MagicMock()
+
+for _m in [
+    "PyRoxy", "certifi", "cloudscraper", "dns", "dns.resolver", "icmplib", "impacket",
+    "impacket.ImpactPacket", "psutil", "yarl", "curl_cffi", "curl_cffi.requests",
+    "playwright", "playwright.sync_api", "playwright_stealth", "nodriver",
+    "undetected_chromedriver", "botasaurus", "botasaurus.browser", "patchright",
+    "patchright.sync_api", "DrissionPage", "zendriver", "hrequests",
+    "cloudflare_bypass_for_scraping", "httpx"
+]:
+    _mock_if_missing(_m)
 
 # Mock SSL and ProxyTools
 import ssl
 ssl.create_default_context = MagicMock()
-pyroxy_mock = MagicMock()
-tools_mock = MagicMock()
-tools_mock.Random.rand_ipv4.return_value = "1.1.1.1"
-tools_mock.Random.rand_str.return_value = "test_string"
-pyroxy_mock.Tools = tools_mock
-sys.modules["PyRoxy"] = pyroxy_mock
+if isinstance(sys.modules.get("PyRoxy"), MagicMock):
+    pyroxy_mock = sys.modules["PyRoxy"]
+    tools_mock = MagicMock()
+    tools_mock.Random.rand_ipv4.return_value = "1.1.1.1"
+    tools_mock.Random.rand_str.return_value = "test_string"
+    pyroxy_mock.Tools = tools_mock
+    sys.modules["PyRoxy"] = pyroxy_mock
 
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import subprocess
 import sys
 import time
@@ -215,16 +216,19 @@ class WorkerService:
                         break
                     if not chunk or not isinstance(chunk, bytes):
                         if buffer:
-                            decoded = buffer.decode("utf-8", errors="replace").strip()
-                            if decoded:
-                                await queue.put(decoded)
+                            for line in re.split(b"[\r\n]+", buffer):
+                                decoded = line.decode("utf-8", errors="replace").strip()
+                                if decoded:
+                                    await queue.put(decoded)
                         break
                     buffer += chunk
-                    while b"\n" in buffer:
-                        line, buffer = buffer.split(b"\n", 1)
-                        decoded = line.decode("utf-8", errors="replace").strip()
-                        if decoded:
-                            await queue.put(decoded)
+                    if b"\n" in buffer or b"\r" in buffer:
+                        parts = re.split(b"[\r\n]+", buffer)
+                        for line in parts[:-1]:
+                            decoded = line.decode("utf-8", errors="replace").strip()
+                            if decoded:
+                                await queue.put(decoded)
+                        buffer = parts[-1]
 
             # Ensure all log items are consumed before finishing
             await queue.join()

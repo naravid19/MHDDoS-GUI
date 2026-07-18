@@ -17,7 +17,11 @@ async def test_solver_proxy_compatibility_gating():
     
     mock_drission = AsyncMock(return_value=("cookie", "ua"))
     
-    with patch("src.core.engine.BrowserEngine._solve_drissionpage", mock_drission, create=True):
+    with patch("src.core.engine.BrowserEngine._solve_drissionpage", mock_drission, create=True), \
+         patch("src.core.engine.BrowserEngine._solve_tier1_lightweight", return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier2_fast_cdp", return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier3_heavy_stealth", return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier4_ultimate_stealth", return_value=(None, None)):
         engine = BrowserEngine()
         engine._solver_scores = {url: {"DrissionPage": 100}}
         engine.preferred_engines = ["DrissionPage"]
@@ -29,18 +33,20 @@ async def test_solver_proxy_compatibility_gating():
         assert cookie is None
         assert ua is None
 
-@pytest.mark.asyncio
-async def test_nodriver_teardown_suppresses_pending_tasks():
+def test_nodriver_teardown_suppresses_pending_tasks():
     # Simulate a crash in nodriver start to verify it doesn't leak exceptions or hang
     # Since nodriver is imported locally, we mock sys.modules to simulate it
     mock_nodriver = MagicMock()
     mock_nodriver.start = AsyncMock(side_effect=Exception("Simulated Nodriver Crash"))
     
-    with patch.dict('sys.modules', {'nodriver': mock_nodriver}):
+    with patch.dict('sys.modules', {'nodriver': mock_nodriver}), \
+         patch('src.core.engine.BOTASAURUS_INSTALLED', False), \
+         patch('src.core.engine.NODRIVER_INSTALLED', True), \
+         patch('src.core.engine.DRISSION_INSTALLED', False):
         engine = BrowserEngine()
-        # Ensure it doesn't crash the thread
+        # Ensure it doesn't crash the thread or leak tasks when _solve_tier2_fast_cdp runs
         try:
-            cookie, ua = engine.solve_cf("https://example.com", None, None, 1)
+            cookie, ua = engine._solve_tier2_fast_cdp("https://example.com", None, None, 1)
             # It should gracefully fail and return None, None
             assert cookie is None
             assert ua is None
@@ -49,5 +55,5 @@ async def test_nodriver_teardown_suppresses_pending_tasks():
 
 if __name__ == "__main__":
     asyncio.run(test_solver_proxy_compatibility_gating())
-    asyncio.run(test_nodriver_teardown_suppresses_pending_tasks())
+    test_nodriver_teardown_suppresses_pending_tasks()
     print("Runtime stability tests PASSED.")

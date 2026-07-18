@@ -140,27 +140,55 @@ To get a local copy up and running, follow these simple steps.
 ### Prerequisites
 
 Ensure you have Python 3.11+ installed on your system.
-*   Python 3
-    ```sh
-    python --version
-    ```
+* **Windows / Linux / macOS:** Python 3.11 or higher.
+  ```sh
+  python --version  # or python3 --version
+  ```
 
 ### Installation
 
-1.  Clone the repo
-    ```sh
-    git clone https://github.com/naravid19/MHDDoS-GUI.git
-    ```
-2.  Install required Python packages
-    ```sh
-    pip install -r requirements.txt
-    ```
-3.  Install advanced browser engines
-    ```sh
-    pip install camoufox[geoip] patchright
-    python -m camoufox fetch
-    playwright install chromium
-    ```
+We provide automated installation scripts that handle Python Virtual Environment (venv) creation, package updates, and browser binary configuration out-of-the-box.
+
+#### 💻 Windows Installation
+Double-click `install.bat` or run:
+```cmd
+install.bat
+```
+*(This sets up `.venv`, activates it, installs dependencies, fetches the Camoufox anti-detect browser, and downloads Playwright Chromium).*
+
+#### 🐧 Linux & macOS Installation
+Run the installer script:
+```bash
+chmod +x install.sh
+./install.sh
+```
+*(This verifies Python 3.11+, creates `.venv`, activates it, installs dependencies, fetches the Camoufox browser, and configures Playwright).*
+
+#### 🛠️ Manual Installation (Advanced)
+If you prefer to configure the environment manually:
+1. **Clone the repo:**
+   ```bash
+   git clone https://github.com/naravid19/MHDDoS-GUI.git
+   cd MHDDoS-GUI
+   ```
+2. **Create and activate venv:**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # Windows: .venv\Scripts\activate
+   ```
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   pip install -e "resource/camoufox/pythonlib[geoip]"
+   ```
+4. **Fetch browser binaries:**
+   ```bash
+   python -m camoufox fetch
+   playwright install chromium
+   ```
+
+> [!IMPORTANT]
+> **Playwright Dependency Pin:** We strictly pin `playwright==1.59.0` to preserve compatibility with the Camoufox binary. Updating to newer Playwright versions (1.60.0+) will cause internal browser context and viewport parameter crashes.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

@@ -1,3 +1,8 @@
+# ==============================================================================
+# MHDDoS-GUI - Core Dependencies (v1.6.4)
+# ==============================================================================
+
+# Core Network & Scraping
 cloudscraper==1.2.71
 certifi==2024.7.4
 dnspython==2.6.1
@@ -10,7 +15,7 @@ PyRoxy @ git+https://github.com/MatrixTM/PyRoxy.git@ea0f88dbc0573292ba5672124f69
 yarl>=1.23.0
 PySocks==1.7.1
 
-# GUI & Connectivity Dependencies
+# GUI, REST APIs & Distributed Connectivity
 fastapi>=0.135.1
 uvicorn>=0.41.0
 pywebview>=6.1
@@ -20,27 +25,30 @@ python-multipart>=0.0.18
 pydantic>=2.0.0
 redis>=5.0.0
 
-
-# Advanced Browser Evasion
-playwright>=1.58.0
+# ==============================================================================
+# Advanced Browser Evasion & Fingerprinting
+# ==============================================================================
+# Playwright is strictly pinned to 1.59.0. Newer versions (1.60.0, 1.61.0+) break 
+# compatibility with Juggler (the Firefox bridge) in custom Camoufox binaries,
+# causing driver crashes (such as pageError location.url and isMobile scheme errors).
+playwright==1.59.0
 playwright-stealth>=2.0.2
+
+# Headless & Impersonation Libraries
 nodriver>=0.48.1
 curl-cffi>=0.14.0
 httpx[http2]>=0.28.1
 h3>=4.4.2
 DrissionPage>=4.0.0
-camoufox[geoip]>=0.4.0
-patchright>=1.46.0-beta.1
-cloakbrowser[geoip]
+camoufox[geoip]>=0.5.2
+patchright>=1.49.0
 undetected-chromedriver>=3.5.5
 botasaurus>=4.0.0
-patchright>=1.49.0
-DrissionPage>=4.0.0
 zendriver>=0.1.0
 hrequests>=0.8.0
 CloudflareBypassForScraping @ git+https://github.com/sarperavci/CloudflareBypassForScraping.git
 
-# Explicitly Pin Requests sub-dependencies to avoid Warnings
+# Sub-dependencies Pins to Suppress Warnings
 urllib3==2.2.1
 chardet==5.2.0
 charset-normalizer==3.3.2

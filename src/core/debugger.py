@@ -99,3 +99,67 @@ class BypassDebugger:
 
         print(f"[*] Superpower Debugger: Artifacts saved to {folder}")
         return folder
+
+    @classmethod
+    async def async_capture_failure(cls, tier_name, url, browser_obj=None, page_obj=None, error_msg="", response_obj=None):
+        error_lower = str(error_msg).lower()
+        network_keywords = [
+            "connectionpool", "proxyerror", "connecttimeout", "network unreachable",
+            "failed to establish a new connection", "sockshttpsconnection", "sockshttpconnection",
+            "max retries exceeded", "connection refused", "timeout exceeded while waiting for event"
+        ]
+        if any(kw in error_lower for kw in network_keywords):
+            try:
+                os.makedirs(cls.DEBUG_DIR, exist_ok=True)
+                log_path = os.path.join(cls.DEBUG_DIR, "proxy_network_errors.log")
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(f"[{timestamp}] [{tier_name}] URL: {url} | Error: {error_msg}\n")
+            except Exception:
+                pass
+            return None
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        folder = os.path.join(cls.DEBUG_DIR, f"{timestamp}_{tier_name}")
+        os.makedirs(folder, exist_ok=True)
+        
+        # 1. Save error metadata
+        try:
+            with open(os.path.join(folder, "error.log"), "w", encoding="utf-8") as f:
+                f.write(f"Timestamp: {timestamp}\n")
+                f.write(f"URL: {url}\n")
+                f.write(f"Tier: {tier_name}\n")
+                f.write(f"Error Message: {error_msg}\n")
+                if response_obj:
+                    f.write(f"HTTP Status: {getattr(response_obj, 'status_code', 'N/A')}\n")
+        except: pass
+            
+        # 2. Capture Browser State (Screenshots and DOM) specifically for async drivers like nodriver
+        if page_obj:
+            try:
+                screenshot_path = os.path.join(folder, "screenshot.png")
+                
+                # Check for nodriver (async)
+                if str(type(page_obj)).find('nodriver') != -1:
+                    try:
+                        await page_obj.save_screenshot(screenshot_path)
+                        with open(os.path.join(folder, "dom.html"), "w", encoding="utf-8") as f:
+                            f.write(await page_obj.get_content())
+                    except: pass
+                    
+                # Check for async Playwright
+                elif hasattr(page_obj, 'screenshot'):
+                    import asyncio
+                    if asyncio.iscoroutinefunction(page_obj.screenshot):
+                        try:
+                            await page_obj.screenshot(path=screenshot_path, full_page=True)
+                            with open(os.path.join(folder, "dom.html"), "w", encoding="utf-8") as f:
+                                f.write(await page_obj.content())
+                        except: pass
+                        
+            except Exception as e:
+                with open(os.path.join(folder, "debugger_error.log"), "w") as f:
+                    f.write(f"Debugger failed to capture async browser state: {str(e)}")
+
+        print(f"[*] Superpower Debugger (Async): Artifacts saved to {folder}")
+        return folder

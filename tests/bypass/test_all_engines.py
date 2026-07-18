@@ -106,8 +106,13 @@ def test_tier0_flaresolverr_api_success():
 
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_url:
         # Enable FlareSolverr in ENGINE_STATE
-        with patch("src.core.engine.ENGINE_STATE") as mock_state:
+        with patch("src.core.engine.ENGINE_STATE") as mock_state, \
+             patch("src.core.engine.BrowserEngine._solve_tier1_lightweight", return_value=(None, None)), \
+             patch("src.core.engine.BrowserEngine._solve_tier2_fast_cdp", return_value=(None, None)), \
+             patch("src.core.engine.BrowserEngine._solve_tier3_heavy_stealth", return_value=(None, None)), \
+             patch("src.core.engine.BrowserEngine._solve_tier4_ultimate_stealth", return_value=(None, None)):
             mock_state.flaresolverr_url = "http://localhost:8191/v1"
+            mock_state.flaresolverr_tabs = None
             cookie, ua = BrowserEngine.solve_cf("https://protected.com", timeout=10)
 
             assert cookie == "cf_clearance=flaresolverr_token_123"

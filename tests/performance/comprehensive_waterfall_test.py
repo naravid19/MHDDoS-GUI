@@ -33,6 +33,15 @@ class ComprehensiveWaterfallTest(unittest.TestCase):
 
         cls.target_url = "https://nowsecure.nl" # Known Cloudflare protected site
 
+    def setUp(self):
+        from src.core.engine import ENGINE_STATE
+        self._orig_flaresolverr = getattr(ENGINE_STATE, "flaresolverr_url", None)
+        ENGINE_STATE.flaresolverr_url = None
+
+    def tearDown(self):
+        from src.core.engine import ENGINE_STATE
+        ENGINE_STATE.flaresolverr_url = getattr(self, "_orig_flaresolverr", None)
+
     def log_test_header(self, name):
         print(f"\n{'='*20} TESTING: {name} {'='*20}")
 

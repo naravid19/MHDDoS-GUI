@@ -46,11 +46,11 @@ class DeepStressDebugTest(unittest.TestCase):
             print(f"[*] Scenario {idx+1} Result: {'BYPASS SUCCESS' if cookie else 'BYPASS FAILED (Waterfall completed)'}")
             
             # Verify if debug folder has content
-            debug_items = os.listdir(self.debug_dir)
-            print(f"[*] Debug folder items: {len(debug_items)}")
+            debug_dirs = [os.path.join(self.debug_dir, d) for d in os.listdir(self.debug_dir) if os.path.isdir(os.path.join(self.debug_dir, d))]
+            print(f"[*] Debug folder directories: {len(debug_dirs)}")
             
-            if debug_items:
-                latest_folder = sorted([os.path.join(self.debug_dir, d) for d in debug_items], key=os.path.getmtime)[-1]
+            if debug_dirs:
+                latest_folder = sorted(debug_dirs, key=os.path.getmtime)[-1]
                 print(f"[*] Latest debug artifact: {latest_folder}")
                 files = os.listdir(latest_folder)
                 print(f"[*] Artifact contents: {files}")

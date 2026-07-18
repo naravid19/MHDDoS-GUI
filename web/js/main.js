@@ -345,3 +345,46 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     showToast('MHDDoS PRO Operational', 'success');
 });
+
+// Dropdown toggle logic
+window.toggleTimeframeDropdown = function(dropdownId) {
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+        dropdown.classList.toggle('hidden');
+    }
+};
+
+// Update UI and call setTimeframe
+window.selectTimeframeDropdown = function(value, labelId, dropdownId) {
+    const label = document.getElementById(labelId);
+    if (label) {
+        label.innerText = value === '1D' ? '24H' : value;
+    }
+    window.toggleTimeframeDropdown(dropdownId);
+    
+    // Call existing function
+    if (typeof window.setTimeframe === 'function') {
+        window.setTimeframe(value);
+    }
+};
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdowns = document.querySelectorAll('.tf-dropdown-menu');
+    const triggers = document.querySelectorAll('.tf-dropdown-trigger');
+    
+    let isClickInside = false;
+    
+    triggers.forEach(trigger => {
+        if (trigger.contains(event.target)) isClickInside = true;
+    });
+    dropdowns.forEach(dropdown => {
+        if (dropdown.contains(event.target)) isClickInside = true;
+    });
+
+    if (!isClickInside) {
+        dropdowns.forEach(dropdown => {
+            dropdown.classList.add('hidden');
+        });
+    }
+});
