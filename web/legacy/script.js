@@ -1836,3 +1836,46 @@ const term = document.getElementById('terminal-content');
                 tooltipEl.classList.remove('active');
             }
         });
+// Dropdown toggle logic
+function toggleTimeframeDropdown(dropdownId) {
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+        dropdown.classList.toggle('hidden');
+    }
+}
+
+// Update UI and call setTimeframe
+function selectTimeframeDropdown(value, labelId, dropdownId) {
+    const label = document.getElementById(labelId);
+    if (label) {
+        label.innerText = value;
+    }
+    toggleTimeframeDropdown(dropdownId);
+    
+    // Call existing function
+    if (typeof setTimeframe === 'function') {
+        setTimeframe(value);
+    }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdowns = document.querySelectorAll('.tf-dropdown-menu');
+    const triggers = document.querySelectorAll('.tf-dropdown-trigger');
+    
+    let isClickInside = false;
+    
+    triggers.forEach(trigger => {
+        if (trigger.contains(event.target)) isClickInside = true;
+    });
+    dropdowns.forEach(dropdown => {
+        if (dropdown.contains(event.target)) isClickInside = true;
+    });
+
+    if (!isClickInside) {
+        dropdowns.forEach(dropdown => {
+            dropdown.classList.add('hidden');
+        });
+    }
+});
+
