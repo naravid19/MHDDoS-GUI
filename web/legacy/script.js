@@ -212,11 +212,12 @@ const term = document.getElementById('terminal-content');
         const tfMap = {
             '1M': 60,
             '5M': 300,
-            '15M': 900,
+            '30M': 1800,
             '1H': 3600,
-            '4H': 14400,
-            '1D': 86400,
-            '1W': 604800
+            '3H': 10800,
+            '6H': 21600,
+            '12H': 43200,
+            '1D': 86400
         };
 
         function setTimeframe(tfString) {

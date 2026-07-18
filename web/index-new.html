@@ -261,9 +261,15 @@
 <div class="flex space-x-2">
 <span class="text-[10px] font-['JetBrains_Mono'] text-primary flex items-center"><span class="w-2 h-2 rounded-full bg-primary mr-1"></span> PPS</span>
 <span class="text-[10px] font-['JetBrains_Mono'] text-secondary flex items-center"><span class="w-2 h-2 rounded-full bg-secondary mr-1"></span> Mbps</span>
-<div class="flex gap-2 ml-4">
-    <button id="tf-1H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-xs transition-colors" onclick="setTimeframe('1H')">1H</button>
-    <button id="tf-1D" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-xs transition-colors" onclick="setTimeframe('1D')">24H</button>
+<div class="flex gap-1 ml-4 overflow-x-auto whitespace-nowrap hide-scrollbar">
+    <button id="tf-1M" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('1M')">1M</button>
+    <button id="tf-5M" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('5M')">5M</button>
+    <button id="tf-30M" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('30M')">30M</button>
+    <button id="tf-1H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('1H')">1H</button>
+    <button id="tf-3H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('3H')">3H</button>
+    <button id="tf-6H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('6H')">6H</button>
+    <button id="tf-12H" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('12H')">12H</button>
+    <button id="tf-1D" class="tf-btn bg-gray-800 text-gray-400 hover:text-white px-2 py-1 rounded text-[10px] transition-colors" onclick="setTimeframe('1D')">24H</button>
 </div>
 </div>
 </div>
