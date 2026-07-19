@@ -2149,7 +2149,10 @@ class BrowserEngine:
                         BypassDebugger.capture_failure("Tier 2 (Nodriver)", url, error_msg=str(e))
                     finally:
                         try:
-                            browser.stop()
+                            import inspect
+                            stop_res = browser.stop()
+                            if inspect.isawaitable(stop_res):
+                                await stop_res
                         except Exception:
                             pass
                     return None, None
