@@ -147,6 +147,17 @@ class BypassDebugger:
                             f.write(await page_obj.get_content())
                     except: pass
                     
+                # Check for DrissionPage (sync)
+                elif hasattr(page_obj, 'get_screenshot'):
+                    try:
+                        import inspect
+                        screenshot_res = page_obj.get_screenshot(path=screenshot_path, full_page=True)
+                        if inspect.isawaitable(screenshot_res):
+                            await screenshot_res
+                        with open(os.path.join(folder, "dom.html"), "w", encoding="utf-8") as f:
+                            f.write(page_obj.html)
+                    except: pass
+                    
                 # Check for async Playwright
                 elif hasattr(page_obj, 'screenshot'):
                     import asyncio
