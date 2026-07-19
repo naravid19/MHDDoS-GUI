@@ -68,15 +68,83 @@ MHDDoS.wiki/
 config.json
 
 # 10. Test Artifacts & Personal Data
+# === MHDDoS-GUI Professional GitIgnore ===
+
+# 1. Environment & IDEs
+venv/
+.venv/
+.env
+.idea/
+.vscode/
+.DS_Store
+*.bak
+*.tmp
+*.log
+
+# 2. Python Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+
+# 3. Binaries & Compiled Files (Only keep source, ignore executables)
+bin/*.exe
+bin/*.bin
+bin/*.so
+bin/*.dylib
+mhddos_go.exe
+
+# 4. Project Data & Persistent State (SENSITIVE / LARGE)
+# Ignore everything in data/ except necessary assets
+data/output/
+data/assets/*.db
+data/assets/*.json
+data/assets/proxies/
+!data/assets/proxies/.gitkeep
+
+# 5. Application Logs
+logs/
+
+# 6. AI Agent Context & Local Memory (DO NOT UPLOAD)
+.agent/
+.superpowers/
+.cursorrules
+AGENTS.md
+GEMINI.md
+MEMORY.md
+/chat/
+/conductor/
+
+# 7. Internal Documentation & Planning
+docs/plans/
+docs/superpowers/
+tests/task_plan.md
+
+# 8. Obsolete / Development Directories
+/reference/
+/example_targer/
+/files/
+/cloudflare/
+/design-system/
+/image/
+/target/
+/temp/
+/debug/
+/output/
+MHDDoS.wiki/
+
+# 9. Configuration (Ignore local, keep template if exists)
+config.json
+
+# 10. Test Artifacts & Personal Data
 tests/__pycache__/
 tests/.pytest_cache/
 tests/*.txt
 /docs
 /.playwright-mcp
 /stitch_mhddos_gui
-. w o r k t r e e s / 
- 
- 
+.worktrees/
 /.agents
 task_fix.txt
 /error_logs

