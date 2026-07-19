@@ -88,7 +88,10 @@ class WorkerService:
                 asyncio.open_connection("127.0.0.1", 8191),
                 timeout=1.5
             )
-            writer.close()
+            close_res = writer.close()
+            import inspect
+            if inspect.isawaitable(close_res):
+                await close_res
             await writer.wait_closed()
             return True
         except Exception:
