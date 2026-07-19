@@ -16,7 +16,8 @@ from src.core.engine import BrowserEngine, BypassDebugger
 # Tier 2a: Botasaurus
 # ---------------------------------------------------------------------------
 
-def test_tier2_botasaurus_success():
+@pytest.mark.asyncio
+async def test_tier2_botasaurus_success():
     """Verify Tier 2a (Botasaurus) returns cf_clearance when bypass_cloudflare succeeds."""
     mock_driver = MagicMock()
     mock_driver.get_cookies_dict.return_value = {"cf_clearance": "bota_token_abc", "session": "xyz"}
@@ -49,14 +50,15 @@ def test_tier2_botasaurus_success():
             "botasaurus": MagicMock(),
             "botasaurus.browser": mock_browser_module,
         }):
-            cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
+            cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
 
     assert cookie is not None
     assert "cf_clearance=bota_token_abc" in cookie
     assert ua == "Botasaurus-Chrome/120"
 
 
-def test_tier2_botasaurus_failure_falls_to_nodriver():
+@pytest.mark.asyncio
+async def test_tier2_botasaurus_failure_falls_to_nodriver():
     """Verify Botasaurus returning (None, None) skips to Nodriver (2b)."""
     mock_bot_solve_result = [[None, None]]  # simulate bot failing
 
@@ -78,14 +80,15 @@ def test_tier2_botasaurus_failure_falls_to_nodriver():
             "botasaurus": MagicMock(),
             "botasaurus.browser": mock_browser_module,
         }):
-            cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
+            cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
 
     # Nodriver disabled -> DrissionPage disabled -> returns (None, None)
     assert cookie is None
     assert ua is None
 
 
-def test_tier2_botasaurus_exception_captured():
+@pytest.mark.asyncio
+async def test_tier2_botasaurus_exception_captured():
     """Verify Botasaurus launch exception triggers BypassDebugger.capture_failure."""
     with patch("src.core.engine.BOTASAURUS_INSTALLED", True), \
          patch("src.core.engine.NODRIVER_INSTALLED", False), \
@@ -106,7 +109,7 @@ def test_tier2_botasaurus_exception_captured():
             "botasaurus": MagicMock(),
             "botasaurus.browser": mock_browser_module,
         }):
-            cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
+            cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
 
     mock_debug.assert_any_call(
         "Tier 2 (Botasaurus-Launch)", "https://readtoon.com/", error_msg="Chrome not found on PATH"
@@ -118,7 +121,8 @@ def test_tier2_botasaurus_exception_captured():
 # Tier 2b: Nodriver (Async CDP)
 # ---------------------------------------------------------------------------
 
-def test_tier2_nodriver_success():
+@pytest.mark.asyncio
+async def test_tier2_nodriver_success():
     """Verify Tier 2b (Nodriver) returns cf_clearance when async solve succeeds."""
     # Build mock cookie objects
     mock_cf_cookie = MagicMock()
@@ -142,14 +146,15 @@ def test_tier2_nodriver_success():
          patch("src.core.engine.NODRIVER_INSTALLED", True), \
          patch("src.core.engine.DRISSION_INSTALLED", False), \
          patch.dict("sys.modules", {"nodriver": mock_nodriver_module}):
-        cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
+        cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
 
     assert cookie is not None
     assert "cf_clearance=nodriver_clearance_xyz" in cookie
     assert ua == "Nodriver-Chrome/120"
 
 
-def test_tier2_nodriver_challenge_not_solved_captured():
+@pytest.mark.asyncio
+async def test_tier2_nodriver_challenge_not_solved_captured():
     """Verify Nodriver logs failure when no cf_clearance is found after polling loop."""
     # Cookies never contain cf_clearance
     mock_page = MagicMock()
@@ -174,7 +179,7 @@ def test_tier2_nodriver_challenge_not_solved_captured():
         # Patch asyncio.sleep to avoid real sleep in unit test
         import asyncio as _asyncio
         with patch.object(_asyncio, "sleep", new_callable=AsyncMock):
-            cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
+            cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
 
     # Should have called capture_failure with "Challenge not solved"
     assert cookie is None
@@ -184,7 +189,8 @@ def test_tier2_nodriver_challenge_not_solved_captured():
 # Tier 2c: DrissionPage
 # ---------------------------------------------------------------------------
 
-def test_tier2_drissionpage_success():
+@pytest.mark.asyncio
+async def test_tier2_drissionpage_success():
     """Verify Tier 2c (DrissionPage) returns cf_clearance when ChromiumPage finds the cookie."""
     mock_page = MagicMock()
     mock_page.cookies.return_value = [
@@ -207,7 +213,7 @@ def test_tier2_drissionpage_success():
          patch("src.core.engine.DRISSION_INSTALLED", True), \
          patch("time.sleep", return_value=None), \
          patch.dict("sys.modules", {"DrissionPage": mock_drission_module}):
-        cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
+        cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
 
     assert cookie is not None
     assert "cf_clearance=drission_token_789" in cookie
@@ -216,7 +222,8 @@ def test_tier2_drissionpage_success():
     mock_page.quit.assert_called_once()
 
 
-def test_tier2_drissionpage_with_proxy():
+@pytest.mark.asyncio
+async def test_tier2_drissionpage_with_proxy():
     """Verify DrissionPage (2c) passes proxy to ChromiumOptions correctly."""
     mock_page = MagicMock()
     mock_page.cookies.return_value = [{"name": "cf_clearance", "value": "tok"}]
@@ -236,13 +243,14 @@ def test_tier2_drissionpage_with_proxy():
          patch("src.core.engine.CURL_CFFI_INSTALLED", False), \
          patch("time.sleep", return_value=None), \
          patch.dict("sys.modules", {"DrissionPage": mock_drission_module}):
-        BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", "103.68.214.164:8080", None, 15)
+        await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", "103.68.214.164:8080", None, 15)
 
     # Verify proxy was passed via set_argument
     mock_options_instance.set_argument.assert_any_call("--proxy-server=http://103.68.214.164:8080")
 
 
-def test_tier2_drissionpage_uses_human_mouse():
+@pytest.mark.asyncio
+async def test_tier2_drissionpage_uses_human_mouse():
     """Verify DrissionPage (2c) invokes human_mouse Bezier waypoints (>= 25 calls to actions.move) during pulse."""
     mock_page = MagicMock()
     mock_page.cookies.side_effect = [
@@ -268,14 +276,15 @@ def test_tier2_drissionpage_uses_human_mouse():
          patch("src.core.engine.DRISSION_INSTALLED", True), \
          patch("time.sleep", return_value=None), \
          patch.dict("sys.modules", {"DrissionPage": mock_drission_module}):
-        cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
+        cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
 
     assert cookie is not None
     # If using human_mouse, page.actions.move should have been called at least 25 times for the Bezier waypoints
     assert mock_page.actions.move.call_count >= 25, f"Expected >= 25 waypoint moves, got {mock_page.actions.move.call_count}"
 
 
-def test_tier2_drissionpage_failure_captured():
+@pytest.mark.asyncio
+async def test_tier2_drissionpage_failure_captured():
     """Verify DrissionPage challenge not solved triggers capture_failure and returns (None, None)."""
     mock_page = MagicMock()
     mock_page.cookies.return_value = []  # no cf_clearance ever
@@ -290,7 +299,7 @@ def test_tier2_drissionpage_failure_captured():
          patch("time.sleep", return_value=None), \
          patch.object(BypassDebugger, "capture_failure") as mock_debug, \
          patch.dict("sys.modules", {"DrissionPage": mock_drission_module}):
-        cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
+        cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
 
     mock_debug.assert_called_with(
         "Tier 2 (DrissionPage)", "https://readtoon.com/",
@@ -301,12 +310,13 @@ def test_tier2_drissionpage_failure_captured():
     assert ua is None
 
 
-def test_tier2_all_disabled_returns_none():
+@pytest.mark.asyncio
+async def test_tier2_all_disabled_returns_none():
     """Verify if all 3 Tier 2 sub-engines are disabled, returns (None, None) immediately."""
     with patch("src.core.engine.BOTASAURUS_INSTALLED", False), \
          patch("src.core.engine.NODRIVER_INSTALLED", False), \
          patch("src.core.engine.DRISSION_INSTALLED", False):
-        cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
+        cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", None, None, 15)
 
     assert cookie is None
     assert ua is None
@@ -317,7 +327,8 @@ def test_tier2_all_disabled_returns_none():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.integration
-def test_tier2_readtoon_live_integration():
+@pytest.mark.asyncio
+async def test_tier2_readtoon_live_integration():
     """
     Live integration test using installed Tier 2 sub-engines against https://readtoon.com/.
     Tier 2 is the FIRST tier expected to solve Cloudflare Turnstile via a real headless browser.
@@ -349,7 +360,7 @@ def test_tier2_readtoon_live_integration():
     # Try up to 2 proxies first
     for i, test_proxy in enumerate(proxies[:2]):
         print(f"[*] Tier 2 attempt ({i+1}/2) with proxy: {test_proxy}")
-        cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", proxy=test_proxy, timeout=20)
+        cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", proxy=test_proxy, timeout=20)
         if cookie and "cf_clearance" in cookie:
             print(f"[+] Tier 2 PASSED via proxy: cookie={cookie[:50]}...")
             break
@@ -358,7 +369,7 @@ def test_tier2_readtoon_live_integration():
     # Direct connection if proxy didn't work
     if not cookie or "cf_clearance" not in cookie:
         print("[*] Tier 2 direct connection attempt (no proxy)...")
-        cookie, ua = BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", proxy=None, timeout=25)
+        cookie, ua = await BrowserEngine._solve_tier2_fast_cdp("https://readtoon.com/", proxy=None, timeout=25)
         if cookie and "cf_clearance" in cookie:
             print(f"[+] Tier 2 PASSED direct: cookie={cookie[:50]}...")
         else:
