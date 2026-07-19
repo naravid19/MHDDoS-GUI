@@ -3,7 +3,7 @@ import pytest
 import sys
 import json
 from io import BytesIO
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from src.core.engine import ENGINE_STATE, BrowserEngine
 
 @pytest.fixture(autouse=True)
@@ -14,11 +14,13 @@ def clean_flaresolverr_state():
     finally:
         ENGINE_STATE.flaresolverr_url = orig
 
-def test_flaresolverr_url_state_default():
+@pytest.mark.asyncio
+async def test_flaresolverr_url_state_default():
     # Verify the attribute exists
     assert hasattr(ENGINE_STATE, "flaresolverr_url")
 
-def test_flaresolverr_cli_argument_parsing():
+@pytest.mark.asyncio
+async def test_flaresolverr_cli_argument_parsing():
     # Mock sys.argv to test CLI argument parsing block
     test_argv = ["engine.py", "GET", "https://readtoon.com/", "5", "10", "socks5.txt", "10", "60", "--flaresolverr", "http://test-flare:8191/v1"]
     
@@ -33,7 +35,8 @@ def test_flaresolverr_cli_argument_parsing():
             
     assert ENGINE_STATE.flaresolverr_url == "http://test-flare:8191/v1"
 
-def test_solve_cf_internal_uses_flaresolverr():
+@pytest.mark.asyncio
+async def test_solve_cf_internal_uses_flaresolverr():
     ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
     
     # Mock response from FlareSolverr
@@ -52,7 +55,7 @@ def test_solve_cf_internal_uses_flaresolverr():
     mock_resp.__enter__.return_value = mock_resp
     
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
-        cookie, ua = BrowserEngine._solve_cf_internal("https://readtoon.com/")
+        cookie, ua = await BrowserEngine._solve_cf_internal_async("https://readtoon.com/")
         
         # Check that urlopen was called with our configured flaresolverr_url
         mock_urlopen.assert_called_once()
@@ -63,7 +66,8 @@ def test_solve_cf_internal_uses_flaresolverr():
         assert cookie == "cf_clearance=mocked_clearance_cookie_value"
         assert ua == "MockUserAgent/1.0"
 
-def test_solve_cf_internal_with_proxy_and_full_cookies():
+@pytest.mark.asyncio
+async def test_solve_cf_internal_with_proxy_and_full_cookies():
     ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
     
     mock_response_data = {
@@ -81,7 +85,7 @@ def test_solve_cf_internal_with_proxy_and_full_cookies():
     mock_resp.__enter__.return_value = mock_resp
     
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
-        cookie, ua = BrowserEngine._solve_cf_internal("https://readtoon.com/", proxy="103.68.214.164:8080", timeout=30)
+        cookie, ua = await BrowserEngine._solve_cf_internal_async("https://readtoon.com/", proxy="103.68.214.164:8080", timeout=30)
         
         mock_urlopen.assert_called_once()
         call_args = mock_urlopen.call_args[0][0]
@@ -95,7 +99,8 @@ def test_solve_cf_internal_with_proxy_and_full_cookies():
         assert cookie == "cf_clearance=mock_cf_value; _ga=mock_ga_value"
         assert ua == "MockUserAgent/2.0"
 
-def test_solve_cf_internal_proxy_schema_formatting():
+@pytest.mark.asyncio
+async def test_solve_cf_internal_proxy_schema_formatting():
     ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
     
     mock_response_data = {
@@ -110,14 +115,15 @@ def test_solve_cf_internal_proxy_schema_formatting():
     mock_resp.__enter__.return_value = mock_resp
     
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
-        BrowserEngine._solve_cf_internal("https://readtoon.com/", proxy="socks5://127.0.0.1:1080", timeout=45000)
+        await BrowserEngine._solve_cf_internal_async("https://readtoon.com/", proxy="socks5://127.0.0.1:1080", timeout=45000)
         call_args = mock_urlopen.call_args[0][0]
         payload = json.loads(call_args.data.decode("utf-8"))
         assert payload.get("proxy") == {"url": "socks5://127.0.0.1:1080"}
         assert payload.get("maxTimeout") == 45000
 
 @pytest.mark.integration
-def test_flaresolverr_readtoon_live_integration_with_checked_proxy():
+@pytest.mark.asyncio
+async def test_flaresolverr_readtoon_live_integration_with_checked_proxy():
     import urllib.request
     import os
     
@@ -172,7 +178,7 @@ def test_flaresolverr_readtoon_live_integration_with_checked_proxy():
             
             import time
             with patch("src.core.engine.BrowserEngine._solve_cf_internal", side_effect=debug_solve):
-                cookie, ua = BrowserEngine._solve_cf_internal("https://readtoon.com/", proxy=test_proxy, timeout=35000)
+                cookie, ua = await BrowserEngine._solve_cf_internal_async("https://readtoon.com/", proxy=test_proxy, timeout=35000)
             if cookie:
                 break
             time.sleep(2.0)
@@ -181,13 +187,14 @@ def test_flaresolverr_readtoon_live_integration_with_checked_proxy():
             print("\n[*] Public proxies triggered Cloudflare Turnstile verification or timeouts. Testing direct tier 0 bypass...")
             import time
             time.sleep(2.0)
-            cookie, ua = BrowserEngine._solve_cf_internal("https://readtoon.com/", proxy=None, timeout=35000)
+            cookie, ua = await BrowserEngine._solve_cf_internal_async("https://readtoon.com/", proxy=None, timeout=35000)
 
         assert cookie is not None and len(cookie) > 5, "FlareSolverr Tier 0 failed to obtain cookies (both proxies and direct bypass timed out or errored)"
         assert ua is not None
 
 
-def test_solve_cf_internal_passes_tabs_till_verify():
+@pytest.mark.asyncio
+async def test_solve_cf_internal_passes_tabs_till_verify():
     ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
     
     mock_response_data = {
@@ -202,7 +209,7 @@ def test_solve_cf_internal_passes_tabs_till_verify():
     mock_resp.__enter__.return_value = mock_resp
     
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
-        BrowserEngine._solve_cf_internal("https://readtoon.com/", tabs_till_verify=3)
+        await BrowserEngine._solve_cf_internal_async("https://readtoon.com/", tabs_till_verify=3)
         
         mock_urlopen.assert_called_once()
         call_args = mock_urlopen.call_args[0][0]
@@ -211,7 +218,8 @@ def test_solve_cf_internal_passes_tabs_till_verify():
         assert payload.get("tabs_till_verify") == 3
 
 
-def test_tier0_http_500_retries_and_falls_to_tier1():
+@pytest.mark.asyncio
+async def test_tier0_http_500_retries_and_falls_to_tier1():
     """Verify Tier 0 retries exactly once on HTTP 500 (browser cleanup in progress), sleeps 2.5s, then falls to Tier 1."""
     import urllib.error
     ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
@@ -224,19 +232,21 @@ def test_tier0_http_500_retries_and_falls_to_tier1():
         raise urllib.error.URLError("simulated: second attempt fallback")
 
     with patch("urllib.request.urlopen", side_effect=fake_urlopen), \
-         patch("time.sleep") as mock_sleep, \
-         patch("src.core.engine.BrowserEngine._solve_tier1_lightweight", return_value=(None, None)), \
-         patch("src.core.engine.BrowserEngine._solve_tier2_fast_cdp", return_value=(None, None)), \
-         patch("src.core.engine.BrowserEngine._solve_tier3_heavy_stealth", return_value=(None, None)), \
-         patch("src.core.engine.BrowserEngine._solve_tier4_ultimate_stealth", return_value=(None, None)):
-        BrowserEngine._solve_cf_internal("https://readtoon.com")
+         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
+         patch("src.core.engine.BrowserEngine._solve_tier1_lightweight", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier1a_cloudscraper", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier2_fast_cdp", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier3_heavy_stealth", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier4_ultimate_stealth", new_callable=AsyncMock, return_value=(None, None)):
+        await BrowserEngine._solve_cf_internal_async("https://readtoon.com")
 
     assert call_count["n"] == 2, f"Expected 2 urlopen calls (initial + retry), got {call_count['n']}"
     sleep_calls = [c.args[0] for c in mock_sleep.call_args_list]
     assert 2.5 in sleep_calls, f"Expected sleep(2.5) for Tier 0 HTTP 500 retry, got sleeps: {sleep_calls}"
 
 
-def test_tier0_non_500_error_skips_retry_immediately():
+@pytest.mark.asyncio
+async def test_tier0_non_500_error_skips_retry_immediately():
     """Verify Tier 0 does NOT retry on non-500 errors, falling immediately to Tier 1."""
     import urllib.error
     ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
@@ -247,14 +257,14 @@ def test_tier0_non_500_error_skips_retry_immediately():
         raise urllib.error.URLError("connection refused")
 
     with patch("urllib.request.urlopen", side_effect=fake_urlopen), \
-         patch("time.sleep") as mock_sleep, \
-         patch("src.core.engine.BrowserEngine._solve_tier1_lightweight", return_value=(None, None)), \
-         patch("src.core.engine.BrowserEngine._solve_tier2_fast_cdp", return_value=(None, None)), \
-         patch("src.core.engine.BrowserEngine._solve_tier3_heavy_stealth", return_value=(None, None)), \
-         patch("src.core.engine.BrowserEngine._solve_tier4_ultimate_stealth", return_value=(None, None)):
-        BrowserEngine._solve_cf_internal("https://readtoon.com")
+         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
+         patch("src.core.engine.BrowserEngine._solve_tier1_lightweight", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier1a_cloudscraper", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier2_fast_cdp", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier3_heavy_stealth", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier4_ultimate_stealth", new_callable=AsyncMock, return_value=(None, None)):
+        await BrowserEngine._solve_cf_internal_async("https://readtoon.com")
 
     assert call_count["n"] == 1, f"Expected 1 urlopen call (no retry on non-500), got {call_count['n']}"
     sleep_calls = [c.args[0] for c in mock_sleep.call_args_list]
     assert 2.5 not in sleep_calls, f"Unexpected sleep(2.5) for non-500 error: {sleep_calls}"
-

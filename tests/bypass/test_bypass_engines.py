@@ -38,16 +38,16 @@ from src.core.engine import BrowserEngine, HttpFlood, URL
 def mock_solvers():
     """Fixture to mock all solver methods in BrowserEngine."""
     solvers = [
-        '_solve_cf_internal'
+        '_solve_cf_internal_async'
     ]
 
     mocks = {}
     patches = []
     for s in solvers:
         try:
-            # _solve_cf_internal might be sync or async. In start.py it seems sync if to_thread is used
+            # _solve_cf_internal_async might be sync or async. In start.py it seems sync if to_thread is used
             # Let's use MagicMock. If it returns a tuple directly, it's sync.
-            p = patch.object(BrowserEngine, s, new_callable=MagicMock)
+            p = patch.object(BrowserEngine, s, new_callable=AsyncMock)
             mocks[s] = p.start()
             mocks[s].return_value = (None, None)
             patches.append(p)
@@ -82,7 +82,7 @@ async def test_cfbuam_integration():
     flood._fp_headers_bytes = b"X-Test: 1\r\n"
     flood._referers = ["https://google.com/"]
 
-    with patch.object(BrowserEngine, 'solve_cf', new_callable=MagicMock) as m_solve:
+    with patch.object(BrowserEngine, 'solve_cf', new_callable=AsyncMock) as m_solve:
         m_solve.return_value = ("cf_clearance=synced", "ua_synced")
 
         # Trigger solve in CFBUAM
@@ -104,9 +104,9 @@ async def test_cfbuam_integration():
 @pytest.mark.asyncio
 async def test_url_normalization(url, expected, mock_solvers):
     """Test URL normalization in BrowserEngine."""
-    BrowserEngine.solve_cf(url)
+    await BrowserEngine.solve_cf(url)
     # Check first solver called with normalized URL
-    mock_solvers['_solve_cf_internal'].assert_called_with(expected, None, None, 45000)
+    mock_solvers['_solve_cf_internal_async'].assert_called_with(expected, None, None, 45000)
 
 @pytest.mark.asyncio
 async def test_browser_method_integration():
@@ -117,7 +117,7 @@ async def test_browser_method_integration():
 
     flood = HttpFlood(0, target_url, "target.com")
 
-    with patch.object(BrowserEngine, 'solve_cf', new_callable=MagicMock) as m_solve:
+    with patch.object(BrowserEngine, 'solve_cf', new_callable=AsyncMock) as m_solve:
         m_solve.return_value = ("cf_clearance=browser_test", "ua_browser")
         
         HttpFlood._cfbuam_cookie = None
