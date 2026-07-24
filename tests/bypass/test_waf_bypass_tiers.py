@@ -95,6 +95,7 @@ async def test_camoufox_automates_turnstile():
     mock_context.cookies.side_effect = [[], [], [], [{"name": "cf_clearance", "value": "test_token"}]]
 
     mock_page.evaluate.return_value = "ua_camoufox"
+    mock_page.title = AsyncMock(return_value="Just a moment...")
     mock_browser.contexts = [mock_context]
     mock_browser.new_page.return_value = mock_page
     mock_camoufox_class.return_value.__aenter__.return_value = mock_browser
@@ -113,7 +114,8 @@ async def test_camoufox_automates_turnstile():
     with patch.dict("sys.modules", modules_mock), \
          patch("src.core.engine.CAMOUFOX_INSTALLED", True), \
          patch("src.core.engine.CURL_CFFI_INSTALLED", False), \
-         patch("src.core.engine.BrowserEngine._click_turnstile_checkbox_precision_async") as mock_click:
+         patch("src.core.engine.human_mouse_async_move", new_callable=AsyncMock) as mock_mouse_move:
         cookie, ua = await BrowserEngine._solve_tier4_ultimate_stealth("https://example.com", timeout=10)
 
-    assert mock_click.called
+    assert mock_mouse_move.called
+    assert cookie == "cf_clearance=test_token"
