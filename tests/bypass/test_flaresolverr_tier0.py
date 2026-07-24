@@ -161,10 +161,10 @@ async def test_flaresolverr_readtoon_live_integration_with_checked_proxy():
             print(f"\n[*] Testing live FlareSolverr bypass on https://readtoon.com/ using proxy ({i+1}/3): {test_proxy}")
             
             # Temporary local patch to print detailed exceptions during execution
-            original_solve = BrowserEngine._solve_cf_internal
-            def debug_solve(*args, **kwargs):
+            original_solve = BrowserEngine._solve_cf_internal_async
+            async def debug_solve(*args, **kwargs):
                 try:
-                    res = original_solve(*args, **kwargs)
+                    res = await original_solve(*args, **kwargs)
                     if res and res[0] is not None:
                         print(f"[+] FlareSolverr Succeeded: cookie={res[0][:40]}... ua={res[1][:40]}...")
                     else:
@@ -177,7 +177,7 @@ async def test_flaresolverr_readtoon_live_integration_with_checked_proxy():
                     raise ex
             
             import time
-            with patch("src.core.engine.BrowserEngine._solve_cf_internal", side_effect=debug_solve):
+            with patch.object(BrowserEngine, "_solve_cf_internal_async", new=debug_solve):
                 cookie, ua = await BrowserEngine._solve_cf_internal_async("https://readtoon.com/", proxy=test_proxy, timeout=35000)
             if cookie:
                 break
@@ -236,6 +236,7 @@ async def test_tier0_http_500_retries_and_falls_to_tier1():
          patch("src.core.engine.BrowserEngine._solve_tier1_lightweight", new_callable=AsyncMock, return_value=(None, None)), \
          patch("src.core.engine.BrowserEngine._solve_tier1a_cloudscraper", new_callable=AsyncMock, return_value=(None, None)), \
          patch("src.core.engine.BrowserEngine._solve_tier2_fast_cdp", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier25_seleniumbase", new_callable=AsyncMock, return_value=(None, None)), \
          patch("src.core.engine.BrowserEngine._solve_tier3_heavy_stealth", new_callable=AsyncMock, return_value=(None, None)), \
          patch("src.core.engine.BrowserEngine._solve_tier4_ultimate_stealth", new_callable=AsyncMock, return_value=(None, None)):
         await BrowserEngine._solve_cf_internal_async("https://readtoon.com")
@@ -261,6 +262,7 @@ async def test_tier0_non_500_error_skips_retry_immediately():
          patch("src.core.engine.BrowserEngine._solve_tier1_lightweight", new_callable=AsyncMock, return_value=(None, None)), \
          patch("src.core.engine.BrowserEngine._solve_tier1a_cloudscraper", new_callable=AsyncMock, return_value=(None, None)), \
          patch("src.core.engine.BrowserEngine._solve_tier2_fast_cdp", new_callable=AsyncMock, return_value=(None, None)), \
+         patch("src.core.engine.BrowserEngine._solve_tier25_seleniumbase", new_callable=AsyncMock, return_value=(None, None)), \
          patch("src.core.engine.BrowserEngine._solve_tier3_heavy_stealth", new_callable=AsyncMock, return_value=(None, None)), \
          patch("src.core.engine.BrowserEngine._solve_tier4_ultimate_stealth", new_callable=AsyncMock, return_value=(None, None)):
         await BrowserEngine._solve_cf_internal_async("https://readtoon.com")
