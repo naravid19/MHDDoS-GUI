@@ -38,3 +38,13 @@ def test_worker_service_process_lookup() -> None:
 
     # Check .get(task_id) returns stored process object when present
     assert service._active_processes.get(task_id) is mock_process
+
+
+@pytest.mark.asyncio
+async def test_main_task_lookup_helper() -> None:
+    from src.worker.service import worker_service
+
+    test_id = "eval_task_999"
+    assert worker_service._active_processes.get(test_id) is None
+    assert worker_service._monitor_tasks.get(test_id) is None
+

@@ -768,8 +768,9 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
             cmd_args=command,
             log_callback=handle_log_line
         )
-        if worker_service._process:
-            state.active_tasks[task_id] = worker_service._process
+        proc = worker_service._active_processes.get(task_id)
+        if proc:
+            state.active_tasks[task_id] = proc
         
         await broadcast_log({
             "task_id": task_id, 
@@ -778,9 +779,10 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
             "msg": f"PROCESS_SPAWNED: Tactical engine process created for {params.target}"
         }, priority="high")
         
-        if worker_service._monitor_task:
+        monitor_task = worker_service._monitor_tasks.get(task_id)
+        if monitor_task:
             try:
-                await worker_service._monitor_task
+                await monitor_task
             except asyncio.CancelledError:
                 pass
                 
@@ -1587,7 +1589,7 @@ async def stop_attack(params: StopParams | None = None) -> StatusResponse:
         target = state.task_info[task_id].get("target", "Unknown")
         del state.task_info[task_id]
 
-    if task_id not in state.active_tasks and not worker_service._process:
+    if task_id not in state.active_tasks and task_id not in worker_service._active_processes:
         # Mark as aborted in DB if it was left running
         await HistoryDB.finalize_session(task_id, 'aborted')
         snapshot = await state_manager.get_state()
