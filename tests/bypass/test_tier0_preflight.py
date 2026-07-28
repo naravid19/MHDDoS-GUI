@@ -17,6 +17,7 @@ async def test_preflight_check_fails_when_flaresolverr_offline():
     mock_process.returncode = None
 
     with patch.object(service, "_check_tier0_readiness", side_effect=mock_offline) as mock_check, \
+         patch.object(service, "_prefetch_cf_cookie", AsyncMock(return_value=(None, None))), \
          patch("src.worker.service.state_manager.update_status", AsyncMock()) as mock_status, \
          patch.object(service, "_broadcast_state", AsyncMock()), \
          patch("asyncio.create_subprocess_exec", return_value=mock_process) as mock_spawn:
