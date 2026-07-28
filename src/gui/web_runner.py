@@ -110,12 +110,15 @@ def is_port_listening(port: int) -> bool:
     with socket(AF_INET, SOCK_STREAM) as s:
         return s.connect_ex(('127.0.0.1', port)) == 0
 
-def start_flaresolverr_backend():
+def start_flaresolverr_backend() -> bool:
     """Checks and starts portable FlareSolverr backend if port 8191 is inactive."""
     try:
+        from src.core.engine import ENGINE_STATE
+
         if is_port_listening(8191):
+            ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
             print("[*] FlareSolverr: ACTIVE (Listening on port 8191)")
-            return
+            return True
 
         bin_dir = Path(__file__).resolve().parent.parent.parent / "bin"
         candidates = [
@@ -148,13 +151,17 @@ def start_flaresolverr_backend():
                 time.sleep(poll_interval)
                 elapsed += poll_interval
                 if is_port_listening(8191):
+                    ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
                     print(f"[*] FlareSolverr: ONLINE (Port 8191) — ready in {elapsed:.1f}s")
-                    return
+                    return True
             print("[!] FlareSolverr: FAILED TO BIND to port 8191 after 15s — will use Tier 1-4 fallback")
+            return False
         else:
             print("[*] FlareSolverr: NOT FOUND in bin/flaresolverr/ (Optional for bypass methods)")
+            return False
     except Exception as e:
         print(f"[!] FlareSolverr Management Error: {e}")
+        return False
 
 def find_available_port(start_port: int, max_attempts: int = 100) -> int:
     """Finds the first available port starting from start_port."""
