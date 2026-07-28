@@ -533,7 +533,8 @@ def build_attack_command(params: AttackParams) -> list[str]:
     # New Bypass Parameters
     if params.adaptive_learning is not None:
         command.extend(["--adaptive", "true" if params.adaptive_learning else "false"])
-    if params.flaresolverr_url:
+    from src.gui.web_runner import is_port_listening as _fs_alive
+    if params.flaresolverr_url and _fs_alive(8191):
         command.extend(["--flaresolverr", params.flaresolverr_url])
     if params.engine_sequence:
         command.extend(["--engines", params.engine_sequence])
