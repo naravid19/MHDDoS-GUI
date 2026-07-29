@@ -25,7 +25,7 @@ def test_happy_path_fs_alive():
         start_flaresolverr_backend()
         cmd = build_attack_command(_params())
 
-    assert eng.ENGINE_STATE.flaresolverr_url == "http://localhost:8191/v1"
+    assert eng.ENGINE_STATE.flaresolverr_url == "http://localhost:8180/v1"
     assert "--flaresolverr" in cmd
     eng.ENGINE_STATE.flaresolverr_url = None
 

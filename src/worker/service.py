@@ -85,8 +85,9 @@ class WorkerService:
         if method.upper() not in {"CFB", "CFBUAM", "BYPASS"}:
             return True
         try:
+            target_port = int(os.getenv("PORT", "8180"))
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection("127.0.0.1", 8191),
+                asyncio.open_connection("127.0.0.1", target_port),
                 timeout=1.5
             )
             close_res = writer.close()

@@ -434,7 +434,7 @@ class AttackParams(BaseModel):
     distribute_to_workers: bool = False
     # New Bypass Settings
     adaptive_learning: bool = True
-    flaresolverr_url: str = "http://localhost:8191/v1"
+    flaresolverr_url: str = "http://localhost:8180/v1"
     engine_sequence: str = "" # Comma separated list of engines
 
 class ProxyProvider(BaseModel):
@@ -534,7 +534,14 @@ def build_attack_command(params: AttackParams) -> list[str]:
     if params.adaptive_learning is not None:
         command.extend(["--adaptive", "true" if params.adaptive_learning else "false"])
     from src.gui.web_runner import is_port_listening as _fs_alive
-    if params.flaresolverr_url and _fs_alive(8191):
+    from urllib.parse import urlparse
+    fs_port = 8180
+    if params.flaresolverr_url:
+        try:
+            fs_port = urlparse(params.flaresolverr_url).port or 8180
+        except Exception:
+            pass
+    if params.flaresolverr_url and _fs_alive(fs_port):
         command.extend(["--flaresolverr", params.flaresolverr_url])
     if params.engine_sequence:
         command.extend(["--engines", params.engine_sequence])

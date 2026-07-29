@@ -115,9 +115,10 @@ def start_flaresolverr_backend() -> bool:
     try:
         from src.core.engine import ENGINE_STATE
 
-        if is_port_listening(8191):
-            ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
-            print("[*] FlareSolverr: ACTIVE (Listening on port 8191)")
+        target_port = int(os.getenv("PORT", "8180"))
+        if is_port_listening(target_port):
+            ENGINE_STATE.flaresolverr_url = f"http://localhost:{target_port}/v1"
+            print(f"[*] FlareSolverr: ACTIVE (Listening on port {target_port})")
             return True
 
         bin_dir = Path(__file__).resolve().parent.parent.parent / "bin"
@@ -136,9 +137,19 @@ def start_flaresolverr_backend() -> bool:
 
         if fs_path:
             print("[*] FlareSolverr: STARTING...")
+            env = os.environ.copy()
+            # Ensure undetected_chromedriver uses pre-patched driver instead of downloading
+            driver_path = Path.home() / "AppData" / "Roaming" / "undetected_chromedriver" / "chromedriver.exe"
+            if driver_path.exists():
+                env["PATCHED_DRIVER_PATH"] = str(driver_path)
+            # Port 8191 is reserved by Windows Hyper-V/NAT range (8181-8280), use 8180
+            fs_port = int(env.get("PORT", 8180))
+            env["PORT"] = str(fs_port)
+
             subprocess.Popen(
                 [str(fs_path)],
                 cwd=str(fs_path.parent),
+                env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 creationflags=0x08000000 if sys.platform == "win32" else 0
@@ -150,11 +161,11 @@ def start_flaresolverr_backend() -> bool:
             while elapsed < max_wait:
                 time.sleep(poll_interval)
                 elapsed += poll_interval
-                if is_port_listening(8191):
-                    ENGINE_STATE.flaresolverr_url = "http://localhost:8191/v1"
-                    print(f"[*] FlareSolverr: ONLINE (Port 8191) — ready in {elapsed:.1f}s")
+                if is_port_listening(fs_port):
+                    ENGINE_STATE.flaresolverr_url = f"http://localhost:{fs_port}/v1"
+                    print(f"[*] FlareSolverr: ONLINE (Port {fs_port}) — ready in {elapsed:.1f}s")
                     return True
-            print("[!] FlareSolverr: FAILED TO BIND to port 8191 after 15s — will use Tier 1-4 fallback")
+            print(f"[!] FlareSolverr: FAILED TO BIND to port {fs_port} after 15s — will use Tier 1-4 fallback")
             return False
         else:
             print("[*] FlareSolverr: NOT FOUND in bin/flaresolverr/ (Optional for bypass methods)")

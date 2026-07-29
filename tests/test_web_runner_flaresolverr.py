@@ -19,7 +19,7 @@ def test_flaresolverr_port_already_listening():
     with patch("src.gui.web_runner.is_port_listening", return_value=True):
         result = start_flaresolverr_backend()
         assert result is True
-        assert ENGINE_STATE.flaresolverr_url == "http://localhost:8191/v1"
+        assert ENGINE_STATE.flaresolverr_url == "http://localhost:8180/v1"
 
 
 def test_flaresolverr_binary_not_found_port_dead():
@@ -40,5 +40,5 @@ def test_flaresolverr_binary_found_and_port_comes_alive():
          patch("time.sleep", return_value=None):
         result = start_flaresolverr_backend()
         assert result is True
-        assert ENGINE_STATE.flaresolverr_url == "http://localhost:8191/v1"
+        assert ENGINE_STATE.flaresolverr_url == "http://localhost:8180/v1"
         assert mock_popen.called
