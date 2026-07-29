@@ -1096,6 +1096,7 @@ async def list_internal_files():
         "reflectors": sorted(list(set(reflectors)))
     }
 
+@app.delete("/api/files/delete/{type}/{filename}")
 @app.delete("/api/assets/delete")
 async def delete_asset_file(type: str, filename: str):
     """Deletes a proxy or reflector file from the assets directory."""
@@ -1711,13 +1712,23 @@ async def update_proxy_config(data: UpdateProxyConfig) -> StatusResponse:
 
 # --- UX Enhancement Endpoints ---
 
-@app.post("/api/upload/proxy")
-async def upload_proxy_file(file: UploadFile = File(...)):
+@app.post("/api/files/upload/{file_type}")
+async def upload_asset_file(file_type: str, file: UploadFile = File(...)):
     try:
-        proxies_dir = get_assets_path() / "proxies"
-        proxies_dir.mkdir(parents=True, exist_ok=True)
-        file_path = proxies_dir / file.filename
+        if file_type == "proxy":
+            target_dir = get_assets_path() / "proxies"
+        elif file_type == "reflector":
+            target_dir = BASE_DIR / "resource" / "files" / "reflectors"
+        else:
+            return {"status": "error", "message": "Invalid file type"}
+            
+        target_dir.mkdir(parents=True, exist_ok=True)
+        file_path = target_dir / file.filename
         
+        # Security check
+        if not str(file_path.resolve()).startswith(str(BASE_DIR.resolve())):
+            return {"status": "error", "message": "Security violation: Invalid path"}
+            
         content = await file.read()
         await asyncio.to_thread(file_path.write_bytes, content)
             
