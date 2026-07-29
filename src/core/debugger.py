@@ -1,9 +1,10 @@
 import os
 import time
 from datetime import datetime
+from pathlib import Path
 
 class BypassDebugger:
-    DEBUG_DIR = r"C:\Users\narav\Desktop\CE code\Tools\MHDDoS-GUI\debug"
+    DEBUG_DIR = Path(__file__).resolve().parent.parent.parent / "debug"
     
     @classmethod
     def capture_failure(cls, tier_name, url, browser_obj=None, page_obj=None, error_msg="", response_obj=None):

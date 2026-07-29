@@ -31,17 +31,19 @@ class ProxyCircuitBreaker:
             )
 
     def cleanup_expired(self) -> None:
-        """Remove all expired quarantine entries from the circuit breaker to prevent memory leaks."""
-        if not self.quarantined_until:
-            return
+        """Remove expired quarantine entries and enforce a hard cap on failures dict size."""
         now = time.time()
         expired_proxies = [
-            proxy for proxy, until in self.quarantined_until.items()
+            proxy for proxy, until in list(self.quarantined_until.items())
             if now >= until
         ]
         for proxy in expired_proxies:
             self.quarantined_until.pop(proxy, None)
             self.failures.pop(proxy, None)
+        # Memory-leak guard: if failures dict grows beyond 5000 entries, clear it entirely
+        if len(self.failures) > 5000:
+            self.failures.clear()
+            self.quarantined_until.clear()
 
     def is_quarantined(self, proxy: str) -> bool:
         now = time.time()
@@ -97,20 +99,23 @@ class ProxyPoolSilo:
         }
 
     def add_proxies(self, proxy_list: List[str]) -> None:
-        """Parses and distributes raw proxy strings into their protocol silos."""
+        """Parses, normalises, and deduplicates raw proxy strings into their protocol silos."""
         for p in proxy_list:
             p = p.strip()
             if not p:
                 continue
             p_lower = p.lower()
             if p_lower.startswith("socks5://") or p_lower.startswith("socks5h://"):
-                self.silos["socks5"].append(p)
+                if p not in self.silos["socks5"]:
+                    self.silos["socks5"].append(p)
             elif p_lower.startswith("socks4://") or p_lower.startswith("socks4a://"):
-                self.silos["socks4"].append(p)
+                if p not in self.silos["socks4"]:
+                    self.silos["socks4"].append(p)
             else:
                 if not p_lower.startswith("http://") and not p_lower.startswith("https://"):
                     p = f"http://{p}"
-                self.silos["http"].append(p)
+                if p not in self.silos["http"]:
+                    self.silos["http"].append(p)
 
     def get_proxy(self, protocol: str) -> Optional[str]:
         """Returns a non-quarantined proxy for the specified protocol, rotating through available healthy proxies in a round-robin fashion."""
