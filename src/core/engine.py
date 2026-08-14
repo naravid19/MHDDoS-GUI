@@ -35,7 +35,11 @@ if hasattr(sys.stderr, "reconfigure"):
 from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
-from src.core.human_mouse import move as human_mouse_move, async_move as human_mouse_async_move
+try:
+    from src.core.human_mouse import move as human_mouse_move, async_move as human_mouse_async_move
+except ImportError:
+    from src.core.human_mouse import move as human_mouse_move
+    async def human_mouse_async_move(*args, **kwargs): pass
 from datetime import datetime, timedelta
 from itertools import cycle
 from json import load

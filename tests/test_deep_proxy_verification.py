@@ -99,7 +99,16 @@ async def test_check_proxy_async_connection_close_immediately():
 async def test_check_proxy_async_timeout():
     """Test proxy verification timing out on a hanging server."""
     async def handle_client(reader, writer):
-        await asyncio.sleep(2.0)
+        try:
+            await asyncio.sleep(2.0)
+        except (asyncio.CancelledError, Exception):
+            pass
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
 
     server = await asyncio.start_server(handle_client, "127.0.0.1", 0)
     host, port = server.sockets[0].getsockname()

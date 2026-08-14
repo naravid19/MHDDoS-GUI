@@ -16,10 +16,14 @@ class CurlProxyValidator:
     async def validate_curl_socks5(
         self, proxy: str, target_url: str = _PROBE_URL, timeout: int = 8
     ) -> bool:
+        if not _CURL_AVAILABLE or AsyncSession is None:
+            logger.debug("[CurlValidator] curl_cffi not available for proxy validation.")
+            return False
         proxy_map = {"http": proxy, "https": proxy}
+        check_url = target_url or _PROBE_URL
         try:
             async with AsyncSession(proxies=proxy_map, verify=False, timeout=timeout) as s:
-                r = await s.get(_PROBE_URL, impersonate="chrome")
+                r = await s.get(check_url, impersonate="chrome")
                 return r.status_code < 500
         except Exception as e:
             logger.debug("[CurlValidator] %s rejected: %s", proxy, e)
@@ -36,9 +40,10 @@ async def score_proxies_for_curl(
         validator = CurlProxyValidator()
     sem = asyncio.Semaphore(concurrency)
     valid: List[str] = []
+    target_url = target or _PROBE_URL
     async def check(p: str) -> None:
         async with sem:
-            if await validator.validate_curl_socks5(p, _PROBE_URL, timeout):
+            if await validator.validate_curl_socks5(p, target_url, timeout):
                 valid.append(p)
     await asyncio.gather(*[check(p) for p in proxies])
     logger.info("[CurlValidator] %d/%d proxies passed curl check", len(valid), len(proxies))

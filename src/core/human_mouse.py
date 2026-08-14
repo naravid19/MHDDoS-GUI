@@ -204,13 +204,83 @@ def move(
 
 
 def _send(page: "Any", waypoints: list[tuple], step_delay_ms: float) -> None:
+    import inspect
     for x, y in waypoints:
         try:
             if hasattr(page, "actions") and hasattr(page.actions, "move"):
-                page.actions.move(x, y)
+                res = page.actions.move(x, y)
+                if inspect.isawaitable(res):
+                    import asyncio
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(res)
+                    except RuntimeError:
+                        asyncio.run(res)
             elif hasattr(page, "mouse") and hasattr(page.mouse, "move"):
-                page.mouse.move(x, y)
+                res = page.mouse.move(x, y)
+                if inspect.isawaitable(res):
+                    import asyncio
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(res)
+                    except RuntimeError:
+                        asyncio.run(res)
         except Exception:
             return
         if step_delay_ms > 0:
             time.sleep(step_delay_ms / 1000.0)
+
+
+async def async_move(
+    page: "Any",
+    dest_x: float,
+    dest_y: float,
+    *,
+    current_x: float | None = None,
+    current_y: float | None = None,
+    move_speed: float | None = None,
+    step_delay_ms: float = 0.0,
+) -> None:
+    """Move the page mouse asynchronously along a human-like Bezier path without blocking the event loop.
+
+    Args:
+        page:          Playwright/Camoufox/Patchright async page.
+        dest_x:        Target X in pixels.
+        dest_y:        Target Y in pixels.
+        current_x:     Current cursor X (random default if None).
+        current_y:     Current cursor Y (random default if None).
+        move_speed:    Speed scalar (None = random each call).
+        step_delay_ms: Extra sleep between waypoints in ms (0 = fastest).
+    """
+    sx = current_x if current_x is not None else random.uniform(100, 500)
+    sy = current_y if current_y is not None else random.uniform(100, 400)
+
+    start    = (float(sx), float(sy))
+    end      = (float(dest_x), float(dest_y))
+    distance = _magnitude(_sub(end, start))
+
+    if distance > _OVERSHOOT_THRESHOLD:
+        shoot = overshoot(end, _OVERSHOOT_RADIUS)
+        await _async_send(page, generate_bezier_path(start, shoot, _OVERSHOOT_SPREAD), step_delay_ms)
+        await _async_send(page, generate_bezier_path(shoot, end, _OVERSHOOT_SPREAD / 2), step_delay_ms)
+    else:
+        await _async_send(page, generate_bezier_path(start, end), step_delay_ms)
+
+
+async def _async_send(page: "Any", waypoints: list[tuple], step_delay_ms: float) -> None:
+    import asyncio
+    import inspect
+    for x, y in waypoints:
+        try:
+            if hasattr(page, "actions") and hasattr(page.actions, "move"):
+                res = page.actions.move(x, y)
+                if inspect.isawaitable(res):
+                    await res
+            elif hasattr(page, "mouse") and hasattr(page.mouse, "move"):
+                res = page.mouse.move(x, y)
+                if inspect.isawaitable(res):
+                    await res
+        except Exception:
+            return
+        if step_delay_ms > 0:
+            await asyncio.sleep(step_delay_ms / 1000.0)

@@ -1,6 +1,6 @@
 # tests/test_tier0_preflight.py
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 from src.worker.service import WorkerService
 from src.core.state_manager import AttackStatus
 
@@ -64,8 +64,10 @@ async def test_check_tier0_readiness_online_returns_true():
     
     mock_reader = AsyncMock()
     mock_writer = AsyncMock()
+    mock_writer.close = MagicMock()
+    mock_writer.wait_closed = AsyncMock()
     
-    with patch("asyncio.open_connection", return_value=(mock_reader, mock_writer)):
+    with patch("asyncio.open_connection", AsyncMock(return_value=(mock_reader, mock_writer))):
         assert await service._check_tier0_readiness("CFB") is True
         mock_writer.close.assert_called_once()
         mock_writer.wait_closed.assert_awaited_once()

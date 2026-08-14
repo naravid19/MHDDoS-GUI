@@ -2,7 +2,15 @@ export function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
+    // Queue limit: max 3 toasts at once, remove oldest
+    const currentToasts = container.querySelectorAll('.glass-panel-v2');
+    if (currentToasts.length >= 3) {
+        currentToasts[0].remove();
+    }
+
     const toast = document.createElement('div');
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
     toast.className = `glass-panel-v2 p-4 rounded-lg border-l-4 flex items-center gap-4 min-w-[320px] shadow-2xl animate-reveal relative group overflow-hidden ${getTypeClass(type)}`;
     
     // Add holographic scanline to toast
@@ -18,7 +26,7 @@ export function showToast(message, type = 'info') {
             <div class="text-[10px] font-display font-black uppercase tracking-[0.2em] opacity-60">${type}</div>
             <div class="text-sm font-body font-semibold tracking-tight">${message}</div>
         </div>
-        <button class="ml-auto opacity-40 hover:opacity-100 transition-opacity" onclick="this.parentElement.remove()">
+        <button class="ml-auto opacity-40 hover:opacity-100 transition-opacity" aria-label="Dismiss notification" onclick="this.parentElement.remove()">
             <span class="material-symbols-rounded">close</span>
         </button>
     `;

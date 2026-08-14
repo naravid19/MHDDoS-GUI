@@ -5,10 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.6] - 2026-07-07
+## [1.6.6] - 2026-08-13
+### Added
+- **Centralized Layer Constants**: Created `src/core/constants.py` as a single source of truth for `LAYER7`, `LAYER4_AMP`, `LAYER4_NORMAL`, and `PROXY_TYPES` constants, replacing scattered hardcoded lists.
+
+### Changed
+- **Debugger Consolidation**: Refactored `src/core/debugger.py` to merge sync and async failure capture logic into a single unified `async_capture_failure` method, massively reducing code duplication.
+- **Frontend Layer Synchronization**: Synced the `LAYER7` UI dropdown array perfectly with the new backend constants.
+
 ### Fixed
 - **Attack Process Tree Termination (Critical)**: Fixed an issue where clicking "Stop Attack" failed to terminate grandchild processes (such as `bombardier`, Go core binaries, or browser workers). Implemented multi-layer process tree termination in `WorkerService._terminate_process_tree` utilizing recursive `psutil` child termination, Windows `taskkill /F /T /PID`, POSIX process groups (`SIGTERM`/`SIGKILL`), and direct process handle termination.
 - **Active Task Cleanup**: Updated `/api/attack/stop` in `src/app/main.py` to explicitly iterate through `state.active_tasks` and invoke `terminate_process_tree` on each tracked process handle before removing it from state.
+- **Monitor Process Thread NameError**: Fixed an `Undefined Variable` `NameError` for `C2.node_id` in the monitor process thread in `worker.py`.
+- **Worker Action Scope Bug**: Fixed the scope and indentation of the `action_type == "restart"` logic in `worker.py` to correctly trigger restarts.
+- **Service Teardown Deadlock**: Eliminated a major deadlock risk in `stop_attack()` in `src/worker/service.py` where an `asyncio.Lock` was held across a 5-second `proc.wait()` timeout, blocking all other attack operations.
+
+### Optimized
+- **Proxy Loading Performance**: Replaced an O(n²) array containment check with an O(1) `seen_proxies` `set()` in `ProxyPoolSilo.add_proxies()`, massively speeding up large proxy list ingestion.
+- **WebSocket Logging Overhead**: Extracted ANSI escape sequence regex compilation and log level detection out of the hot-path in `api.py` to save CPU cycles on every emitted log line.
+- **URL Domain Extraction**: Upgraded domain extraction logic in `src/core/sb_session_store.py` (`_domain()`) to utilize `urllib.parse.urlparse` instead of fragile string splitting.
+- **Frontend Stop Sequence Latency**: Optimized the "Stop All Tasks" sequence in `web/js/core/engine.js` by replacing sequential API requests with parallelized `Promise.all()` termination.
+- **WebSocket Reconnection Resilience**: Replaced the hard-capped 5-retry WebSocket limit in `web/js/core/socket.js` with infinite retries using exponential backoff capped at 30 seconds and a 0–20% random jitter, preventing UI disconnection states.
 
 ## [1.6.5] - 2026-07-05
 ### Added

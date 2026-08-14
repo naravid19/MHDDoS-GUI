@@ -85,8 +85,8 @@ async def test_playwright_version_pinned_for_camoufox():
     try:
         import importlib.metadata
         version = importlib.metadata.version("playwright")
-        assert version == "1.60.0", (
-            f"Playwright version {version} detected! Must be exactly 1.60.0 to maintain "
+        assert version == "1.59.0", (
+            f"Playwright version {version} detected! Must be exactly 1.59.0 to maintain "
             f"compatibility with Camoufox/Firefox Juggler."
         )
     except importlib.metadata.PackageNotFoundError:

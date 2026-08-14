@@ -11,73 +11,53 @@ venv/
 *.tmp
 *.log
 
-# 2. Python Artifacts
+# 2. Python Artifacts & Testing Caches
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
-# 3. Binaries & Compiled Files (Only keep source, ignore executables)
+# 3. Binaries & Compiled Executables
 bin/*.exe
 bin/*.bin
 bin/*.so
 bin/*.dylib
 mhddos_go.exe
 
-# 4. Project Data & Persistent State (SENSITIVE / LARGE)
-# Ignore everything in data/ except necessary assets
+# 4. Runtime Logs, Telemetry & Temp Profiles
+logs/
+error_logs/
+temp/
+debug/
+debug_temp_test/
+scratch/
+output/
 data/output/
-data/assets/*.db
-data/assets/*.json
-data/assets/proxies/
+data/sb_profiles/
+data/*.db
+files/*.db
+!data/assets/
 !data/assets/proxies/.gitkeep
 
-# 5. Application Logs
-logs/
-
-# 6. AI Agent Context & Local Memory (DO NOT UPLOAD)
+# 5. AI Agent Metadata & Scratch Workspaces
 .agent/
+.agents/
 .superpowers/
-.cursorrules
-AGENTS.md
-GEMINI.md
-MEMORY.md
-/chat/
-/conductor/
-
-# 7. Internal Documentation & Planning
-docs/plans/
-docs/superpowers/
-tests/task_plan.md
-
-# 8. Obsolete / Development Directories
-/reference/
-/example_targer/
-/files/
-/cloudflare/
-/design-system/
-/image/
-/target/
-/temp/
-/debug/
-/output/
-MHDDoS.wiki/
-
-# 9. Configuration (Ignore local, keep template if exists)
-config.json
-
-# 10. Test Artifacts & Personal Data
-tests/__pycache__/
-tests/.pytest_cache/
-tests/*.txt
-/docs
-/.playwright-mcp
-/stitch_mhddos_gui
 .worktrees/
-/.agents
+.playwright-mcp/
+chat/
+conductor/
+graphify-out/
+stitch_mhddos_gui/
+MHDDoS.wiki/
+think.txt
 task_fix.txt
-/error_logs
-/data/assets
-log.txt
+/docs
+AGENTS.md
 /tests
+GEMINI.md
+/data
+.cursorrules

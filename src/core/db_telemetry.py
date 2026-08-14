@@ -3,7 +3,12 @@ import time
 import logging
 from pathlib import Path
 
-DB_PATH = Path("data/telemetry.db")
+try:
+    from src.core.paths import get_data_path
+    DB_PATH = get_data_path() / "telemetry.db"
+except ImportError:
+    DB_PATH = Path("data/telemetry.db")
+
 logger = logging.getLogger(__name__)
 
 _conn = None
@@ -38,6 +43,12 @@ def insert_telemetry_batch(rps: float, bps: float):
             conn.execute(
                 'INSERT INTO network_velocity (timestamp, rps, bps) VALUES (?, ?, ?)',
                 (now, rps, bps)
+            )
+            # Prune records older than 48 hours to cap database size
+            retention_cutoff = now - 172800
+            conn.execute(
+                'DELETE FROM network_velocity WHERE timestamp < ?',
+                (retention_cutoff,)
             )
     except sqlite3.Error as e:
         logger.error(f"Telemetry DB Insert Error: {e}")

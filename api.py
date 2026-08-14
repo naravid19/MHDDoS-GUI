@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+import json
+import re
 from typing import Any
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +16,18 @@ from src.worker.service import worker_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mhddos_gui.api")
+
+ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
+def _detect_log_level(line: str) -> str:
+    line_upper = line.upper()
+    if any(err in line_upper for err in ["ERROR", "FAIL", "EXCEPTION"]):
+        return "ERROR"
+    elif any(warn in line_upper for warn in ["WARNING", "WARN"]):
+        return "WARNING"
+    elif any(succ in line_upper for succ in ["SUCCESS", "SOLVED"]):
+        return "SUCCESS"
+    return "INFO"
 
 app = FastAPI(title="MHDDoS-GUI API", version="2.0.0")
 
@@ -54,12 +68,9 @@ async def get_status() -> AttackStateSnapshot:
 async def _api_log_handler(line: str) -> None:
     """Broadcasts CLI log lines to connected WebSocket clients."""
     from src.api.ws_manager import ws_manager, WSMessage
-    import json
-    import re
     
     # Strip ANSI escape codes
-    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-    line = ansi_escape.sub("", line).strip()
+    line = ANSI_ESCAPE.sub("", line).strip()
     if not line:
         return
 
@@ -68,14 +79,7 @@ async def _api_log_handler(line: str) -> None:
             data = json.loads(line)
             msg_type = data.get("type", "log")
             if "level" not in data:
-                log_level = "INFO"
-                if any(err in line.upper() for err in ["ERROR", "FAIL", "EXCEPTION"]):
-                    log_level = "ERROR"
-                elif any(warn in line.upper() for warn in ["WARNING", "WARN"]):
-                    log_level = "WARNING"
-                elif any(succ in line.upper() for succ in ["SUCCESS", "SOLVED"]):
-                    log_level = "SUCCESS"
-                data["level"] = log_level
+                data["level"] = _detect_log_level(line)
             await ws_manager.broadcast(WSMessage(
                 type=msg_type,
                 payload=data
@@ -84,13 +88,7 @@ async def _api_log_handler(line: str) -> None:
         except json.JSONDecodeError:
             pass
 
-    log_level = "INFO"
-    if any(err in line.upper() for err in ["ERROR", "FAIL", "EXCEPTION"]):
-        log_level = "ERROR"
-    elif any(warn in line.upper() for warn in ["WARNING", "WARN"]):
-        log_level = "WARNING"
-    elif any(succ in line.upper() for succ in ["SUCCESS", "SOLVED"]):
-        log_level = "SUCCESS"
+    log_level = _detect_log_level(line)
 
     await ws_manager.broadcast(WSMessage(
         type="log",

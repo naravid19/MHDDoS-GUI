@@ -434,7 +434,7 @@ async def test_tier3_readtoon_live_integration():
     if not any([CLOAKBROWSER_INSTALLED, PATCHRIGHT_INSTALLED, UNDETECTED_CHROMEDRIVER_INSTALLED]):
         pytest.skip("No Tier 3 sub-engines installed (cloakbrowser / patchright / undetected-chromedriver)")
 
-    proxy_file = r"C:\Users\narav\Desktop\CE code\Tools\proxy-scraper-checker\out\checked-proxies\proxies\http.txt"
+    proxy_file = os.getenv("CHECKED_PROXIES_PATH", "proxies.txt")
     proxies = []
     if os.path.exists(proxy_file):
         with open(proxy_file, "r", encoding="utf-8") as f:

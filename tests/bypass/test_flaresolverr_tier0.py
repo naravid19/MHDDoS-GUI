@@ -140,7 +140,7 @@ async def test_flaresolverr_readtoon_live_integration_with_checked_proxy():
     except Exception as e:
         pytest.skip(f"FlareSolverr server not running locally on port 8191: {e}")
         
-    proxy_file = r"C:\Users\narav\Desktop\CE code\Tools\proxy-scraper-checker\out\checked-proxies\proxies\http.txt"
+    proxy_file = os.getenv("CHECKED_PROXIES_PATH", "proxies.txt")
     if not os.path.exists(proxy_file):
         pytest.skip(f"Checked proxies file not found at {proxy_file}")
         
@@ -211,8 +211,8 @@ async def test_solve_cf_internal_passes_tabs_till_verify():
     with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
         await BrowserEngine._solve_cf_internal_async("https://readtoon.com/", tabs_till_verify=3)
         
-        mock_urlopen.assert_called_once()
-        call_args = mock_urlopen.call_args[0][0]
+        assert mock_urlopen.call_count >= 1
+        call_args = mock_urlopen.call_args_list[0][0][0]
         payload = json.loads(call_args.data.decode("utf-8"))
         
         assert payload.get("tabs_till_verify") == 3

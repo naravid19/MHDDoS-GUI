@@ -20,10 +20,11 @@ def is_port_listening(port: int) -> bool:
         return s.connect_ex(('127.0.0.1', port)) == 0
 
 def start_flaresolverr_backend():
-    """Checks and starts portable FlareSolverr backend if port 8191 is inactive."""
+    """Checks and starts portable FlareSolverr backend if target port is inactive."""
     try:
-        if is_port_listening(8191):
-            print("[*] FlareSolverr: ACTIVE (Listening on port 8191)")
+        target_port = int(os.getenv("FLARESOLVERR_PORT", os.getenv("PORT", "8180")))
+        if is_port_listening(target_port):
+            print(f"[*] FlareSolverr: ACTIVE (Listening on port {target_port})")
             return
 
         bin_dir = Path(__file__).resolve().parent.parent.parent / "bin"
@@ -42,9 +43,12 @@ def start_flaresolverr_backend():
 
         if fs_path:
             print("[*] FlareSolverr: STARTING...")
+            env = os.environ.copy()
+            env["PORT"] = str(target_port)
             subprocess.Popen(
                 [str(fs_path)],
                 cwd=str(fs_path.parent),
+                env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 creationflags=0x08000000 if sys.platform == "win32" else 0
@@ -56,10 +60,10 @@ def start_flaresolverr_backend():
             while elapsed < max_wait:
                 time.sleep(poll_interval)
                 elapsed += poll_interval
-                if is_port_listening(8191):
-                    print(f"[*] FlareSolverr: ONLINE (Port 8191) — ready in {elapsed:.1f}s")
+                if is_port_listening(target_port):
+                    print(f"[*] FlareSolverr: ONLINE (Port {target_port}) — ready in {elapsed:.1f}s")
                     return
-            print("[!] FlareSolverr: FAILED TO BIND to port 8191 after 15s — will use Tier 1-4 fallback")
+            print(f"[!] FlareSolverr: FAILED TO BIND to port {target_port} after 15s — will use Tier 1-4 fallback")
         else:
             print("[*] FlareSolverr: NOT FOUND in bin/flaresolverr/ (Optional for bypass methods)")
     except Exception as e:

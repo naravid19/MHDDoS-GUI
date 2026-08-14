@@ -297,7 +297,7 @@ async def test_tier4_readtoon_live_integration():
     if not CAMOUFOX_INSTALLED:
         pytest.skip("AsyncCamoufox not installed — install with: pip install camoufox && python -m camoufox fetch")
 
-    proxy_file = r"C:\Users\narav\Desktop\CE code\Tools\proxy-scraper-checker\out\checked-proxies\proxies\http.txt"
+    proxy_file = os.getenv("CHECKED_PROXIES_PATH", "proxies.txt")
     proxies = []
     if os.path.exists(proxy_file):
         with open(proxy_file, "r", encoding="utf-8") as f:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 logger = logging.getLogger("mhddos_gui.proxy_guard")
 
@@ -97,6 +97,7 @@ class ProxyPoolSilo:
             "socks4": 0,
             "socks5": 0
         }
+        self.seen_proxies: Set[str] = set()
 
     def add_proxies(self, proxy_list: List[str]) -> None:
         """Parses, normalises, and deduplicates raw proxy strings into their protocol silos."""
@@ -104,17 +105,21 @@ class ProxyPoolSilo:
             p = p.strip()
             if not p:
                 continue
+                
             p_lower = p.lower()
             if p_lower.startswith("socks5://") or p_lower.startswith("socks5h://"):
-                if p not in self.silos["socks5"]:
+                if p not in self.seen_proxies:
+                    self.seen_proxies.add(p)
                     self.silos["socks5"].append(p)
             elif p_lower.startswith("socks4://") or p_lower.startswith("socks4a://"):
-                if p not in self.silos["socks4"]:
+                if p not in self.seen_proxies:
+                    self.seen_proxies.add(p)
                     self.silos["socks4"].append(p)
             else:
                 if not p_lower.startswith("http://") and not p_lower.startswith("https://"):
                     p = f"http://{p}"
-                if p not in self.silos["http"]:
+                if p not in self.seen_proxies:
+                    self.seen_proxies.add(p)
                     self.silos["http"].append(p)
 
     def get_proxy(self, protocol: str) -> Optional[str]:

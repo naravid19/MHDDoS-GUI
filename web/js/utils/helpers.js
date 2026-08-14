@@ -6,7 +6,16 @@ export function formatBytes(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+export function formatBytesTotal(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'kB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
 export function formatHuman(num) {
+    if (num == null || isNaN(num)) return '0';
     if (num >= 1000000) return (num / 1000000).toFixed(2) + 'm';
     if (num >= 1000) return (num / 1000).toFixed(2) + 'k';
     return num.toString();

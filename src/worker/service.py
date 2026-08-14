@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -80,12 +81,12 @@ class WorkerService:
         self._active_tasks: set[asyncio.Task[Any]] = set()
 
     async def _check_tier0_readiness(self, method: str) -> bool:
-        """Check if FlareSolverr (port 8191) is reachable. Returns False if not, but this is non-fatal —
+        """Check if FlareSolverr is reachable. Returns False if not, but this is non-fatal —
         the engine will automatically fall back to Tier 1-4 bypass methods."""
         if method.upper() not in {"CFB", "CFBUAM", "BYPASS"}:
             return True
         try:
-            target_port = int(os.getenv("PORT", "8180"))
+            target_port = int(os.getenv("FLARESOLVERR_PORT", os.getenv("PORT", "8180")))
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection("127.0.0.1", target_port),
                 timeout=1.5
@@ -235,36 +236,42 @@ class WorkerService:
             logger.debug(f"[C2] __SYNC_BYPASS__ parse error: {exc}")
 
     async def stop_attack(self, task_id: str | None = None) -> None:
+        procs_to_wait = []
+        monitors_to_wait = []
+        
         async with self._lock:
             tasks_to_stop = [task_id] if task_id else list(self._active_processes.keys())
             
             for tid in tasks_to_stop:
-                proc = self._active_processes.get(tid)
-                if proc is None or proc.returncode is not None:
-                    continue
-
-                logger.info(f"Terminating attack process tree (Task {tid}, PID: {proc.pid})...")
-                await self._terminate_process_tree(proc.pid)
-                
-                try:
-                    await asyncio.wait_for(proc.wait(), timeout=5.0)
-                except asyncio.TimeoutError:
-                    logger.warning(f"Process {tid} did not exit in time after termination command.")
-                
-                self._active_processes.pop(tid, None)
+                proc = self._active_processes.pop(tid, None)
                 self._active_tasks_info.pop(tid, None)
-
                 monitor = self._monitor_tasks.pop(tid, None)
+                
+                if proc is not None and proc.returncode is None:
+                    procs_to_wait.append((tid, proc))
+                
                 if monitor and not monitor.done():
+                    monitors_to_wait.append(monitor)
                     monitor.cancel()
-                    try:
-                        await monitor
-                    except asyncio.CancelledError:
-                        pass
 
-        if not self._active_processes:
-            await state_manager.update_status(AttackStatus.STOPPED)
-            await self._broadcast_state()
+        for tid, proc in procs_to_wait:
+            logger.info(f"Terminating attack process tree (Task {tid}, PID: {proc.pid})...")
+            await self._terminate_process_tree(proc.pid)
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning(f"Process {tid} did not exit in time after termination command.")
+
+        for monitor in monitors_to_wait:
+            try:
+                await monitor
+            except asyncio.CancelledError:
+                pass
+
+        async with self._lock:
+            if not self._active_processes:
+                await state_manager.update_status(AttackStatus.STOPPED)
+                await self._broadcast_state()
 
     async def _monitor_process(self, attack_id: str, proc: ProcessLike, log_callback: Any | None = None) -> None:
         """Monitor process stdout using buffered reading and sequential Queue-based logging."""

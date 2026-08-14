@@ -36,17 +36,17 @@ export function switchMainView(view) {
 export async function refreshHistory() {
     const tbody = document.getElementById('history-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="7" class="py-12 text-center"><span class="material-symbols-rounded animate-spin text-primary text-2xl">refresh</span></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="py-12 text-center"><span class="material-symbols-rounded animate-spin text-primary text-2xl">refresh</span></td></tr>';
     try {
         const res = await fetch(`/api/history/sessions?page=${historyPage}&limit=10&t=${Date.now()}`);
         const data = await res.json();
         if (data.status === 'success') {
             renderHistoryTable(data);
         } else {
-            tbody.innerHTML = `<tr><td colspan="7" class="py-12 text-center text-danger">Error: ${data.message || 'Unknown error'}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-danger">Error: ${data.message || 'Unknown error'}</td></tr>`;
         }
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="7" class="py-12 text-center text-danger">Connection Error: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-danger">Connection Error: ${e.message}</td></tr>`;
     }
 }
 
@@ -61,7 +61,7 @@ function renderHistoryTable(data) {
     if (!tbody) return;
 
     if (data.sessions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="py-12 text-center text-slate-700 italic uppercase tracking-[0.2em] text-[9px] font-black">No operations recorded.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="py-12 text-center text-slate-700 italic uppercase tracking-[0.2em] text-[9px] font-black">No operations recorded.</td></tr>';
         return;
     }
 

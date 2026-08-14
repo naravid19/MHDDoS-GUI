@@ -112,7 +112,7 @@
             <div class="flex items-center gap-4">
                 <div class="text-right mr-4 hidden md:block">
                     <p class="text-[10px] font-mono text-on-surface-variant/50 uppercase tracking-widest">Master Node</p>
-                    <p class="text-xs font-bold text-primary tracking-widest">AUTHORIZED</p>
+                    <p id="attack-status" class="text-xs font-bold text-primary tracking-widest">AUTHORIZED</p>
                 </div>
                 <div class="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs font-bold">PR</div>
             </div>
@@ -127,7 +127,7 @@
                             <h2 class="font-headline font-bold text-lg text-primary flex items-center gap-2">
                                 <span class="material-symbols-outlined">settings_suggest</span> Attack Parameters
                             </h2>
-                            <span id="connection-status-dot" class="w-2 h-2 rounded-full bg-primary status-pulse"></span>
+                            <span id="connection-status-dot" role="status" aria-label="System connection status" class="w-2 h-2 rounded-full bg-primary status-pulse"></span>
                         </div>
                         <div class="space-y-4">
                             <div class="flex gap-3">
@@ -137,7 +137,7 @@
                                 </div>
                                 <div class="w-24 space-y-1">
                                     <label class="text-[10px] font-mono uppercase text-on-surface-variant/70">Port</label>
-                                    <input id="port" class="w-full bg-black/40 border border-outline-variant rounded-lg px-3 py-2.5 font-mono text-xs text-on-surface focus:border-primary outline-none transition-colors" placeholder="80" type="number"/>
+                                    <input id="port" class="w-full bg-black/40 border border-outline-variant rounded-lg px-3 py-2.5 font-mono text-xs text-on-surface focus:border-primary outline-none transition-colors" placeholder="80" type="number" min="1" max="65535"/>
                                 </div>
                             </div>
                             <div class="space-y-1">
@@ -228,7 +228,7 @@
 
                 <!-- Right Column: Data Visualization -->
                 <div class="w-full lg:w-2/3 space-y-6">
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div class="glass-card p-5 rounded-2xl border-l-4 border-primary shadow-lg">
                             <p class="text-[10px] font-mono uppercase text-on-surface-variant font-bold">Throughput</p>
                             <h4 id="current-bps" class="text-2xl font-mono font-black text-on-surface mt-1">0 B/s</h4>
@@ -245,12 +245,21 @@
                             <h4 id="active-tasks-count" class="text-2xl font-mono font-black text-on-surface mt-1 text-primary">0</h4>
                             <p class="text-[9px] font-mono text-primary/60 mt-1 uppercase font-black">Stable</p>
                         </div>
+                        <div class="glass-card p-5 rounded-2xl border-l-4 border-primary/30 shadow-lg">
+                            <p class="text-[10px] font-mono uppercase text-on-surface-variant font-bold">Session Volume</p>
+                            <h4 id="summary-total-bytes" class="text-2xl font-mono font-black text-on-surface mt-1">0 B</h4>
+                            <p class="text-[9px] font-mono text-on-surface-variant/50 mt-1 uppercase truncate">REQ: <span id="summary-total-requests" class="font-bold text-primary">0</span> | <span id="summary-uptime" class="font-bold text-on-surface">00:00</span></p>
+                        </div>
                     </div>
 
                     <div class="glass-card p-8 rounded-2xl shadow-xl">
                         <h3 class="font-headline font-black text-on-surface-variant uppercase tracking-widest text-[11px] mb-6 flex items-center justify-between">
                             <div class="flex items-center gap-4">
                                 Network Velocity Tracking
+                                <div class="hidden sm:flex items-center gap-3 text-[10px] font-mono normal-case tracking-normal">
+                                    <span class="flex items-center gap-1.5 text-primary"><span class="w-2 h-2 rounded-full bg-[#06b6d4]"></span> RPS (Left)</span>
+                                    <span class="flex items-center gap-1.5 text-slate-400"><span class="w-2 h-2 rounded-full bg-[#94a3b8]"></span> BPS (Right)</span>
+                                </div>
                                 <div class="relative">
                                     <button class="tf-dropdown-trigger bg-gray-800/50 hover:bg-gray-700/80 text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700/50 flex items-center gap-2 text-xs font-mono transition-all" onclick="toggleTimeframeDropdown('tf-dropdown-index')">
                                         <span id="tf-label-index">1H</span>
@@ -297,7 +306,7 @@
                                         <option value="ERROR_ONLY">ERRORS_ONLY</option>
                                     </select>
                                     <div class="flex gap-2 ml-2 border-l border-outline-variant pl-4">
-                                        <button onclick="toggleTerminalScroll()" class="text-on-surface-variant hover:text-primary transition-all active:scale-90" title="Pause Stream"><span class="material-symbols-outlined text-lg">pause</span></button>
+                                        <button onclick="toggleTerminalScroll()" class="text-on-surface-variant hover:text-primary transition-all active:scale-90" title="Pause Stream"><span id="scroll-toggle-icon" class="material-symbols-outlined text-lg">pause</span></button>
                                         <button onclick="clearTerminal()" class="text-on-surface-variant hover:text-error transition-all active:scale-90" title="Purge Buffer"><span class="material-symbols-outlined text-lg">delete_sweep</span></button>
                                         <button onclick="copyLogs()" class="text-on-surface-variant hover:text-primary transition-all active:scale-90" title="Extract Log"><span class="material-symbols-outlined text-lg">content_copy</span></button>
                                     </div>
@@ -313,7 +322,7 @@
                             <div class="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none z-10">
                                 <div class="bg-black/60 backdrop-blur-md px-4 py-2 rounded-lg border border-outline-variant self-start pointer-events-auto">
                                     <p class="text-[10px] font-mono text-primary font-black tracking-widest">GEO-IP LOCATOR</p>
-                                    <p id="map-target-info" class="text-[9px] font-mono text-on-surface-variant mt-1">AWAITING TARGET...</p>
+                                    <p id="map-target-info" class="text-[9px] font-mono text-on-surface-variant mt-1">LOCKED: -- (Enter target & click AUTO_RECON to locate)</p>
                                 </div>
                             </div>
                         </div>
@@ -408,13 +417,13 @@
     </main>
 
     <!-- Modals -->
-    <div id="tools-modal" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl hidden opacity-0 transition-all duration-300">
-        <div id="tools-modal-content" class="glass-card w-full max-w-2xl rounded-3xl p-8 relative translate-y-8 transition-all border border-primary/20 shadow-2xl">
-            <button onclick="closeToolsModal()" class="absolute top-6 right-6 text-on-surface-variant hover:text-primary transition-all"><span class="material-symbols-outlined text-2xl">close</span></button>
+    <div id="tools-modal" role="dialog" aria-modal="true" aria-labelledby="tools-modal-title" onclick="closeToolsModal()" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl hidden opacity-0 transition-all duration-300">
+        <div id="tools-modal-content" onclick="event.stopPropagation()" class="glass-card w-full max-w-2xl rounded-3xl p-8 relative translate-y-8 transition-all border border-primary/20 shadow-2xl">
+            <button onclick="closeToolsModal()" aria-label="Close diagnostic modal" class="absolute top-6 right-6 text-on-surface-variant hover:text-primary transition-all"><span class="material-symbols-outlined text-2xl">close</span></button>
             <div class="mb-8 flex items-center gap-4">
                 <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-inner"><span class="material-symbols-outlined text-3xl">terminal</span></div>
                 <div>
-                    <h2 class="text-xl font-headline font-black text-on-surface tracking-tighter">Diagnostic Core</h2>
+                    <h2 id="tools-modal-title" class="text-xl font-headline font-black text-on-surface tracking-tighter">Diagnostic Core</h2>
                     <p class="text-[10px] font-mono uppercase text-on-surface-variant/60 tracking-widest">Network reconnaissance infrastructure</p>
                 </div>
             </div>
@@ -438,10 +447,10 @@
     </div>
 
     <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl hidden opacity-0 transition-all duration-300">
-        <div id="settings-modal-content" class="glass-card w-full max-w-md rounded-3xl p-8 relative translate-y-8 transition-all border border-primary/20 shadow-2xl">
-            <button onclick="closeSettingsModal()" class="absolute top-6 right-6 text-on-surface-variant hover:text-primary transition-all"><span class="material-symbols-outlined text-2xl">close</span></button>
-            <h2 class="text-xl font-headline font-black text-on-surface tracking-tighter mb-6 uppercase">Mission Control Settings</h2>
+    <div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" onclick="closeSettingsModal()" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl hidden opacity-0 transition-all duration-300">
+        <div id="settings-modal-content" onclick="event.stopPropagation()" class="glass-card w-full max-w-md rounded-3xl p-8 relative translate-y-8 transition-all border border-primary/20 shadow-2xl">
+            <button onclick="closeSettingsModal()" aria-label="Close settings modal" class="absolute top-6 right-6 text-on-surface-variant hover:text-primary transition-all"><span class="material-symbols-outlined text-2xl">close</span></button>
+            <h2 id="settings-modal-title" class="text-xl font-headline font-black text-on-surface tracking-tighter mb-6 uppercase">Mission Control Settings</h2>
             <div class="space-y-6">
                 <div class="space-y-2">
                     <label class="text-[10px] font-black font-mono text-on-surface-variant uppercase tracking-widest">Discord Alert Pipeline</label>
@@ -453,10 +462,10 @@
     </div>
 
     <!-- Asset Manager Modal (Replacing Config Modal) -->
-    <div id="config-modal" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl hidden opacity-0 transition-all duration-300">
-        <div id="config-modal-content" class="glass-card w-full max-w-xl rounded-3xl p-8 relative translate-y-8 transition-all border border-primary/20 shadow-2xl">
-            <button onclick="closeConfigModal()" class="absolute top-6 right-6 text-on-surface-variant hover:text-primary transition-all"><span class="material-symbols-outlined text-2xl">close</span></button>
-            <h2 class="text-xl font-headline font-black text-on-surface tracking-tighter mb-2 uppercase">Asset Manager</h2>
+    <div id="config-modal" role="dialog" aria-modal="true" aria-labelledby="config-modal-title" onclick="closeConfigModal()" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl hidden opacity-0 transition-all duration-300">
+        <div id="config-modal-content" onclick="event.stopPropagation()" class="glass-card w-full max-w-xl rounded-3xl p-8 relative translate-y-8 transition-all border border-primary/20 shadow-2xl">
+            <button onclick="closeConfigModal()" aria-label="Close asset manager modal" class="absolute top-6 right-6 text-on-surface-variant hover:text-primary transition-all"><span class="material-symbols-outlined text-2xl">close</span></button>
+            <h2 id="config-modal-title" class="text-xl font-headline font-black text-on-surface tracking-tighter mb-2 uppercase">Asset Manager</h2>
             <p class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-[0.2em] mb-6">Manage tactical providers and local files</p>
             
             <div class="flex gap-2 p-1 bg-black/40 rounded-xl mb-6 border border-outline-variant">

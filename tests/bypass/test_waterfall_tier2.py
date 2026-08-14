@@ -338,6 +338,9 @@ async def test_tier2_readtoon_live_integration():
     import time
     from src.core.engine import BOTASAURUS_INSTALLED, NODRIVER_INSTALLED, DRISSION_INSTALLED
 
+    if os.getenv("TEST_LIVE_ENGINES") != "1":
+        pytest.skip("Skipping live integration test (set TEST_LIVE_ENGINES=1 to run)")
+
     # Report available engines
     print(f"\n[*] Tier 2 engine availability:")
     print(f"    2a. Botasaurus:   {'✅ installed' if BOTASAURUS_INSTALLED else '❌ not installed'}")
@@ -347,8 +350,8 @@ async def test_tier2_readtoon_live_integration():
     if not any([BOTASAURUS_INSTALLED, NODRIVER_INSTALLED, DRISSION_INSTALLED]):
         pytest.skip("No Tier 2 sub-engines installed (botasaurus / nodriver / DrissionPage)")
 
-    # Load proxies from checked-proxies directory
-    proxy_file = r"C:\Users\narav\Desktop\CE code\Tools\proxy-scraper-checker\out\checked-proxies\proxies\http.txt"
+    # Load proxies from checked-proxies directory or local proxies.txt
+    proxy_file = os.getenv("CHECKED_PROXIES_PATH", "proxies.txt")
     proxies = []
     if os.path.exists(proxy_file):
         with open(proxy_file, "r", encoding="utf-8") as f:

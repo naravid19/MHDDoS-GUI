@@ -6,8 +6,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Outfit:wght@300;400;600;900&family=JetBrains+Mono:wght@400;700&family=Public+Sans:wght@300;400;600&display=swap');
 
 :root {
-    --primary: #10b981;
-    --primary-rgb: 16, 185, 129;
+    --primary: #06b6d4;
+    --primary-rgb: 6, 182, 212;
     --secondary: #06b6d4;
     --surface: #0d1322;
     --surface-container: #151b2b;

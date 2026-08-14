@@ -15,8 +15,18 @@ const terminal = new TerminalUI('terminal-content');
 const mainChart = new TelemetryChart('networkVelocityChart');
 const tasks = new TaskManager('tasks-container');
 
+// Wire timeframe dropdown to chart — this was missing
+window.setTimeframe = (label) => mainChart.setTimeframe(label);
+
 // Save references for global helper access
 window._terminal = terminal;
+
+// Session-level cumulative stats
+const _session = {
+    startTime: null,
+    totalRequests: 0,
+    totalBytes: 0,
+};
 
 // Bridge to Global Scope for HTML Event Handlers
 window.handleMainAction = engine.handleMainAction;
@@ -87,6 +97,7 @@ window.toggleAdvancedSettings = function() {
 window.populateFileLists = async function() {
     try {
         const res = await fetch('/api/files/list');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.status === 'success') {
             const proxySelect = document.getElementById('proxy_list');
@@ -143,7 +154,7 @@ function populateMethods() {
     if (!methodSelect) return;
 
     // Full list synced with resource/start.py -> Methods class
-    const l7 = ["CFB", "BYPASS", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD", "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM", "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP", "PGET", "OPTIONS", "PURGE"];
+    const l7 = ["BYPASS", "CFB", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD", "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM", "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP", "IMPERSONATE", "HTTP3", "BROWSER", "HYBRID", "BEHAVIOR", "H2FLOOD", "ADAPTIVE"];
     const l4_amp = ["MEM", "NTP", "DNS", "ARD", "CLDAP", "CHAR", "RDP"];
     const l4_normal = ["TCP", "UDP", "SYN", "VSE", "MINECRAFT", "MCBOT", "CONNECTION", "CPS", "FIVEM", "FIVEM-TOKEN", "TS3", "MCPE", "ICMP", "OVH-UDP"];
 
@@ -199,31 +210,31 @@ const handleSocketData = (data) => {
             activeTasksEl.innerText = state.active_tasks || (status === 'running' ? 1 : 0);
         }
         
-        // Update form fields if reconciled from SSOT (always sync if running/starting or on initial reconcile, or if field is empty)
+        // Update form fields if reconciled from SSOT (skip element if user currently has focus)
         const forceSync = (data.type === 'state_reconcile') || (status === 'running') || (status === 'starting');
         if (state.target) {
             const targetEl = document.getElementById('target');
-            if (targetEl && (forceSync || !targetEl.value)) targetEl.value = state.target;
+            if (targetEl && (forceSync || !targetEl.value) && document.activeElement !== targetEl) targetEl.value = state.target;
         }
         if (state.method) {
             const methodEl = document.getElementById('method');
-            if (methodEl && (forceSync || !methodEl.value)) methodEl.value = state.method;
+            if (methodEl && (forceSync || !methodEl.value) && document.activeElement !== methodEl) methodEl.value = state.method;
         }
         if (state.threads) {
             const threadsEl = document.getElementById('threads');
-            if (threadsEl && (forceSync || !threadsEl.value)) {
+            if (threadsEl && (forceSync || !threadsEl.value) && document.activeElement !== threadsEl) {
                 threadsEl.value = state.threads;
                 const slider = document.getElementById('threads-slider');
-                if (slider) slider.value = state.threads;
+                if (slider && document.activeElement !== slider) slider.value = state.threads;
             }
         }
         if (state.duration) {
             const durationEl = document.getElementById('duration');
-            if (durationEl && (forceSync || !durationEl.value)) durationEl.value = state.duration;
+            if (durationEl && (forceSync || !durationEl.value) && document.activeElement !== durationEl) durationEl.value = state.duration;
         }
         if (state.rpc) {
             const rpcEl = document.getElementById('rpc');
-            if (rpcEl && (forceSync || !rpcEl.value)) rpcEl.value = state.rpc;
+            if (rpcEl && (forceSync || !rpcEl.value) && document.activeElement !== rpcEl) rpcEl.value = state.rpc;
         }
         // Restore proxy & advanced settings on reconcile
         if (forceSync) {
@@ -258,6 +269,15 @@ const handleSocketData = (data) => {
         telemetry.updateTask(data.task_id, data);
         const agg = telemetry.getAggregate();
         
+        // Accumulate session metrics
+        if (!_session.startTime && (agg['current-rps'] > 0 || agg['current-bps'] > 0)) {
+            _session.startTime = Date.now();
+        }
+        _session.totalRequests += Math.floor(agg['current-rps'] || 0);
+        _session.totalBytes += Math.floor(agg['current-bps'] || 0);
+
+        _updateSummaryWidget();
+
         const statUpdates = [
             { id: 'current-rps',       text: helpers.formatHuman(agg['current-rps'] || 0) },
             { id: 'peak-rps',          text: helpers.formatHuman(agg['peak-rps'] || 0) },
@@ -281,6 +301,23 @@ const handleSocketData = (data) => {
         }));
     }
 };
+
+function _updateSummaryWidget() {
+    const bytesEl = document.getElementById('summary-total-bytes');
+    const reqsEl = document.getElementById('summary-total-requests');
+    const timeEl = document.getElementById('summary-uptime');
+
+    if (bytesEl) bytesEl.innerText = helpers.formatBytesTotal(_session.totalBytes);
+    if (reqsEl) reqsEl.innerText = helpers.formatHuman(_session.totalRequests);
+    if (timeEl) {
+        if (!_session.startTime) {
+            timeEl.innerText = '00:00';
+        } else {
+            const elapsedSec = Math.floor((Date.now() - _session.startTime) / 1000);
+            timeEl.innerText = helpers.formatDuration(elapsedSec);
+        }
+    }
+}
 
 const socket = new SocketManager('/ws', handleSocketData);
 
@@ -341,8 +378,14 @@ document.addEventListener('DOMContentLoaded', () => {
     uiProMax.init();
     tasks.startPolling();
     populateMethods();
+    if (engine.setupFormAutoSave) engine.setupFormAutoSave();
     populateFileLists();
     initMap();
+    mainChart.loadHistory();
+    setInterval(() => {
+        const agg = telemetry.getAggregate();
+        mainChart.update(agg);
+    }, 1000);
     showToast('MHDDoS PRO Operational', 'success');
 });
 

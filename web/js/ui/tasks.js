@@ -5,13 +5,17 @@ import { telemetry } from '../core/telemetry.js';
 
 export class TaskManager {
     constructor(containerId) {
-        this.container = document.getElementById(containerId);
+        this.containerId = containerId;
         this.interval = null;
-        this.currentTaskIds = [];
+        this.currentTaskIds = null; // null triggers initial render
         
         window.addEventListener('telemetry-update', () => {
             this.updateStats();
         });
+    }
+
+    get container() {
+        return document.getElementById(this.containerId);
     }
 
     startPolling() {
@@ -27,18 +31,19 @@ export class TaskManager {
         try {
             const data = await apiRequest('/api/attack/status');
             if (data.status === 'success') {
-                const newTaskIds = data.active_tasks.map(t => t.task_id).join(',');
-                const oldTaskIds = this.currentTaskIds.join(',');
+                const activeTasks = data.active_tasks || [];
+                const newTaskIds = activeTasks.map(t => t.task_id).join(',');
+                const oldTaskIds = this.currentTaskIds !== null ? this.currentTaskIds.join(',') : undefined;
                 
                 if (newTaskIds !== oldTaskIds) {
-                    this.render(data.active_tasks);
-                    this.currentTaskIds = data.active_tasks.map(t => t.task_id);
+                    this.render(activeTasks);
+                    this.currentTaskIds = activeTasks.map(t => t.task_id);
                 }
                 
                 this.updateStats();
                 
                 const badge = document.getElementById('active-tasks-count');
-                if (badge) badge.innerText = data.active_tasks.length;
+                if (badge) badge.innerText = activeTasks.length;
             }
         } catch (e) {
             console.error("Task refresh failed", e);
@@ -88,26 +93,26 @@ export class TaskManager {
                             <span class="text-[9px] font-mono text-on-surface-variant/60 uppercase">ID:${escapeHtml(String(t.task_id || '').substring(0, 8))}</span>
                         </div>
                     </div>
-                    <button onclick="stopTask('${escapeHtml(t.task_id || '')}')" class="text-on-surface-variant hover:text-error bg-surface-container-high hover:bg-error/10 border border-outline-variant hover:border-error/30 p-1.5 rounded-lg transition-all active:scale-95 shrink-0" title="Terminate Task">
+                    <button onclick="stopTask('${escapeHtml(t.task_id || '')}', this)" class="text-on-surface-variant hover:text-error bg-surface-container-high hover:bg-error/10 border border-outline-variant hover:border-error/30 p-1.5 rounded-lg transition-all active:scale-95 shrink-0 disabled:opacity-50" title="Terminate Task">
                         <span class="material-symbols-outlined text-[18px]">stop</span>
                     </button>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-3 pl-2">
                     <div class="bg-black/30 p-2.5 rounded-xl border border-outline-variant/30 shadow-inner">
-                        <p class="text-[8px] font-mono text-on-surface-variant/70 uppercase tracking-widest mb-1">Velocity</p>
+                        <p class="text-[10px] font-mono text-on-surface-variant/70 uppercase tracking-widest mb-1">Velocity</p>
                         <p id="task-rps-${escapeHtml(t.task_id || '')}" class="text-xs font-mono font-bold text-primary">0 <span class="text-[9px] font-normal text-on-surface-variant">RPS</span></p>
                     </div>
                     <div class="bg-black/30 p-2.5 rounded-xl border border-outline-variant/30 shadow-inner">
-                        <p class="text-[8px] font-mono text-on-surface-variant/70 uppercase tracking-widest mb-1">Throughput</p>
+                        <p class="text-[10px] font-mono text-on-surface-variant/70 uppercase tracking-widest mb-1">Throughput</p>
                         <p id="task-bps-${escapeHtml(t.task_id || '')}" class="text-xs font-mono font-bold text-on-surface">0 B/s</p>
                     </div>
                 </div>
                 
                 <div class="space-y-2 pl-2 mt-1">
                     <div class="flex justify-between text-[9px] font-mono text-on-surface-variant uppercase tracking-widest">
-                        <span>Threads: <span class="text-on-surface font-bold">${t.threads}</span></span>
-                        <span>RPC: <span class="text-on-surface font-bold">${t.rpc}</span></span>
+                        <span>Threads: <span class="text-on-surface font-bold">${t.threads ?? '—'}</span></span>
+                        <span>RPC: <span class="text-on-surface font-bold">${t.rpc ?? 'N/A'}</span></span>
                     </div>
                     <div class="h-1 w-full bg-black/50 rounded-full overflow-hidden shadow-inner">
                         <div class="h-full bg-primary/80 animate-pulse relative" style="width: 100%"></div>
@@ -118,7 +123,8 @@ export class TaskManager {
     }
 }
 
-window.stopTask = async (taskId) => {
+window.stopTask = async (taskId, btnEl) => {
+    if (btnEl) btnEl.disabled = true;
     try {
         const data = await apiRequest('/api/attack/stop', { task_id: taskId });
         if (data.status === 'success') {
@@ -126,5 +132,6 @@ window.stopTask = async (taskId) => {
         }
     } catch (e) {
         showToast("Termination failed.", "error");
+        if (btnEl) btnEl.disabled = false;
     }
 };

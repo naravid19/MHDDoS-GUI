@@ -261,3 +261,16 @@ export async function deleteAssetFile(fileType, filename) {
     }
 }
 
+// ESC Key listener to close active modal
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (!document.getElementById('tools-modal')?.classList.contains('hidden')) {
+            closeToolsModal();
+        } else if (!document.getElementById('settings-modal')?.classList.contains('hidden')) {
+            closeSettingsModal();
+        } else if (!document.getElementById('config-modal')?.classList.contains('hidden')) {
+            closeConfigModal();
+        }
+    }
+});
+

@@ -9,9 +9,7 @@ import re
 import sqlite3
 import sys
 import time
-import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog
 from typing import Any
 from urllib.parse import urlparse
 import uuid
@@ -56,23 +54,19 @@ _raw_logger = logging.getLogger("api")
 logger = SafeLogger(_raw_logger)
 
 # --- Constants & Classifications ---
-LAYER7: set[str] = {
-    "BYPASS", "CFB", "GET", "POST", "OVH", "STRESS", "DYN", "SLOW", "HEAD",
-    "NULL", "COOKIE", "PPS", "EVEN", "GSB", "DGB", "AVB", "CFBUAM",
-    "APACHE", "XMLRPC", "BOT", "BOMB", "DOWNLOADER", "KILLER", "TOR", "RHEX", "STOMP",
-    "IMPERSONATE", "HTTP3", "BROWSER", "HYBRID", "BEHAVIOR", "H2FLOOD", "ADAPTIVE"
-}
-
-LAYER4_AMP: set[str] = {"MEM", "NTP", "DNS", "ARD", "CLDAP", "CHAR", "RDP"}
-
-LAYER4_NORMAL: set[str] = {
-    "TCP", "UDP", "SYN", "VSE", "MINECRAFT", "MCBOT", "CONNECTION", "CPS", 
-    "FIVEM", "FIVEM-TOKEN", "TS3", "MCPE", "ICMP", "OVH-UDP"
-}
-
-PROXY_TYPES: dict[str, str] = {"All Proxy": "0", "HTTP": "1", "SOCKS4": "4", "SOCKS5": "5", "RANDOM": "6"}
+from src.core.constants import LAYER7, LAYER4_AMP, LAYER4_NORMAL, PROXY_TYPES
 
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+RE_PPS = re.compile(r'PPS:\s*([^,]+)')
+RE_BPS = re.compile(r'BPS:\s*([^,]+)')
+RE_LAT = re.compile(r'Latency:\s*([^,]+)')
+RE_POOL = re.compile(r'Pool:\s*(\d+)/(\d+)(?:\s*\(Warm:\s*(\d+)\))?')
+RE_IMPACT_OK = re.compile(r'OK:\s*(\d+)')
+RE_IMPACT_WAF = re.compile(r'WAF:\s*(\d+)')
+RE_IMPACT_ERR = re.compile(r'ERR:\s*(\d+)')
+RE_IMPACT_TMO = re.compile(r'TMO:\s*(\d+)')
+RE_IMPACT_HEALTH = re.compile(r'Health:\s*(?:[^A-Z]*)([A-Z]+)')
+RE_LOG_LEVEL = re.compile(r'-\s*(DEBUG|INFO|WARNING|ERROR|CRITICAL|SUCCESS)\s*\]', re.IGNORECASE)
 try:
     from src.core.paths import get_project_root, get_data_path, get_web_path, get_assets_path
 except ImportError:
@@ -667,10 +661,10 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
         # 2. Handle Textual Tactical Logs & Metrics
         if "PPS:" in decoded_line and "BPS:" in decoded_line:
             try:
-                m_pps = re.search(r'PPS:\s*([^,]+)', decoded_line)
-                m_bps = re.search(r'BPS:\s*([^,]+)', decoded_line)
-                m_lat = re.search(r'Latency:\s*([^,]+)', decoded_line)
-                m_pool = re.search(r'Pool:\s*(\d+)/(\d+)(?:\s*\(Warm:\s*(\d+)\))?', decoded_line)
+                m_pps = RE_PPS.search(decoded_line)
+                m_bps = RE_BPS.search(decoded_line)
+                m_lat = RE_LAT.search(decoded_line)
+                m_pool = RE_POOL.search(decoded_line)
                 
                 if m_pps and m_bps:
                     lat_raw = m_lat.group(1).strip() if m_lat else "0"
@@ -683,7 +677,7 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
                         db_buffer.task_latest_bps[task_id] = bps_val
                         
                         now_ts = time.time()
-                        if now_ts - db_buffer.last_insert >= 60:
+                        if now_ts - db_buffer.last_insert >= 1:
                             # Prune inactive tasks
                             active_tids = set(state.active_tasks.keys())
                             for tid in list(db_buffer.task_latest_rps.keys()):
@@ -718,11 +712,11 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
         # 3. Dynamic Impact Metric Extraction (Textual Fallback)
         if "Impact:" in decoded_line:
             try:
-                m_ok = re.search(r'OK: (\d+)', decoded_line)
-                m_waf = re.search(r'WAF: (\d+)', decoded_line)
-                m_err = re.search(r'ERR: (\d+)', decoded_line)
-                m_tmo = re.search(r'TMO: (\d+)', decoded_line)
-                m_health = re.search(r'Health:\s*(?:[^A-Z]*)([A-Z]+)', decoded_line)
+                m_ok = RE_IMPACT_OK.search(decoded_line)
+                m_waf = RE_IMPACT_WAF.search(decoded_line)
+                m_err = RE_IMPACT_ERR.search(decoded_line)
+                m_tmo = RE_IMPACT_TMO.search(decoded_line)
+                m_health = RE_IMPACT_HEALTH.search(decoded_line)
 
                 if m_ok and m_waf:
                     health_str = m_health.group(1).lower() if m_health else "stable"
@@ -743,7 +737,7 @@ async def run_attack_subprocess(task_id: str, params: AttackParams) -> None:
 
         # 4. Infer Level from message content or logger tag
         log_level = "INFO"
-        m_level = re.search(r'-\s*(DEBUG|INFO|WARNING|ERROR|CRITICAL|SUCCESS)\s*\]', decoded_line, re.IGNORECASE)
+        m_level = RE_LOG_LEVEL.search(decoded_line)
         if m_level:
             log_level = m_level.group(1).upper()
             if log_level == "CRITICAL":
@@ -921,7 +915,7 @@ class ReconManager:
         valid_subs = sorted(list(unique_subs))[:25] # Limit for performance
         for sub in valid_subs:
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 ip = await loop.run_in_executor(None, lambda: socket.gethostbyname(sub))
                 results.append({
                     "subdomain": sub,
@@ -948,7 +942,7 @@ class ReconManager:
         
         for port in common_ports:
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(0.5)
                 # Run connect in an executor to avoid blocking the event loop
@@ -1056,7 +1050,7 @@ class ReconManager:
                 return []
                 
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             for record_type in records.keys():
                 records[record_type] = await loop.run_in_executor(None, _resolve, record_type)
             return {"status": "success", "domain": domain, "records": records}
@@ -2326,14 +2320,20 @@ async def analytics_top_targets(limit: int = 10):
 @app.get("/api/select_file")
 async def select_file_dialog() -> dict[str, str]:
     def _open_dialog() -> str:
-        root = tk.Tk()
-        root.withdraw()
-        root.wm_attributes('-topmost', 1)
-        file_path = filedialog.askopenfilename(title="Resource Selector", filetypes=(("Text Files", "*.txt"), ("All Files", "*.*")))
-        root.destroy()
-        return file_path
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+            file_path = filedialog.askopenfilename(title="Resource Selector", filetypes=(("Text Files", "*.txt"), ("All Files", "*.*")))
+            root.destroy()
+            return file_path or ""
+        except Exception as exc:
+            logger.warning(f"File dialog unavailable or failed: {exc}")
+            return ""
     
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     path = await loop.run_in_executor(None, _open_dialog)
     return {"path": path or ""}
 
@@ -2345,7 +2345,8 @@ async def get_system_resources():
     try:
         cpu = psutil.cpu_percent(interval=None)
         ram = psutil.virtual_memory().percent
-        disk = psutil.disk_usage('/').percent
+        disk_path = str(BASE_DIR.anchor) if hasattr(BASE_DIR, "anchor") and BASE_DIR.anchor else os.path.abspath(os.sep)
+        disk = psutil.disk_usage(disk_path).percent
         net = psutil.net_io_counters()._asdict()
     except Exception:
         cpu, ram, disk, net = 0, 0, 0, {}
